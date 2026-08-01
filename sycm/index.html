@@ -1,0 +1,612 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>生意参谋 — 生意中台</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/core@1.0.0-beta20/dist/css/tabler.min.css"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.3.0/dist/tabler-icons.min.css"/>
+  <style>
+    .nav-link.active { background: rgba(32,107,196,.15) !important; font-weight: 600; border-left: 3px solid #206bc4; }
+    .nav-section-label {
+      padding: .9rem 1rem .3rem; color: rgba(255,255,255,.48);
+      font-size: .68rem; font-weight: 700; text-transform: none;
+    }
+    .stat-card { transition: transform .15s; }
+    .stat-card:hover { transform: translateY(-2px); }
+
+    /* Mobile bottom tab bar */
+    .bottom-tab-bar {
+      display: none;
+      position: fixed; bottom: 0; left: 0; right: 0;
+      background: #fff; border-top: 1px solid #e6e8eb;
+      z-index: 1050; padding: 4px 0 env(safe-area-inset-bottom, 4px);
+    }
+    .bottom-tab-bar .tab-items {
+      display: flex; justify-content: space-around; align-items: center;
+    }
+    .bottom-tab-bar .tab-item {
+      display: flex; flex-direction: column; align-items: center;
+      text-decoration: none; color: #667; font-size: .7rem; padding: 4px 8px;
+      transition: color .15s;
+    }
+    .bottom-tab-bar .tab-item i { font-size: 1.3rem; margin-bottom: 2px; }
+    .bottom-tab-bar .tab-item.active { color: #206bc4; font-weight: 600; }
+    .bottom-tab-bar .tab-item:hover { color: #206bc4; }
+
+    @media (max-width: 991px) {
+      .bottom-tab-bar { display: block; }
+      .page-body { padding-bottom: 70px; }
+    }
+  </style>
+
+  <link rel="stylesheet" href="/jun-pages/auth-gate.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.111.0"></script>
+  <script src="/jun-pages/config.js"></script>
+  <script src="/jun-pages/public-bridge.js"></script>
+</head>
+<body class="layout-fluid">
+  <div class="page">
+
+    <!-- Sidebar -->
+    <aside class="navbar navbar-vertical navbar-expand-lg" data-bs-theme="dark">
+      <div class="container-fluid">
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#sidebar-menu">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <h1 class="navbar-brand navbar-brand-autodark">
+          <a href="/jun-pages/" style="text-decoration:none;color:inherit">
+            <span class="ms-2">生意中台</span>
+          </a>
+        </h1>
+        <div class="collapse navbar-collapse" id="sidebar-menu">
+          <ul class="navbar-nav pt-lg-3">
+
+            <li class="nav-section-label">生意中台 · ERP</li>
+            <li class="nav-item">
+              <a class="nav-link " href="/jun-pages/erp/">
+                <span class="nav-link-icon"><i class="ti ti-clipboard-check"></i></span>
+                <span class="nav-link-title">订单审核</span>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link " href="/jun-pages/erp/products/">
+                <span class="nav-link-icon"><i class="ti ti-shirt"></i></span>
+                <span class="nav-link-title">商品档案</span>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link " href="/jun-pages/inventory/">
+                <span class="nav-link-icon"><i class="ti ti-building-warehouse"></i></span>
+                <span class="nav-link-title">库存明细</span>
+              </a>
+            </li>
+
+            <li class="nav-section-label">生意中台 · 电商运营</li>
+            <li class="nav-item">
+              <a class="nav-link " href="/jun-pages/">
+                <span class="nav-link-icon"><i class="ti ti-dashboard"></i></span>
+                <span class="nav-link-title">运营总览</span>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link active" href="/jun-pages/sycm/">
+                <span class="nav-link-icon"><i class="ti ti-chart-bar"></i></span>
+                <span class="nav-link-title">生意参谋</span>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link " href="/jun-pages/marketing-safety/">
+                <span class="nav-link-icon"><i class="ti ti-shield-exclamation"></i></span>
+                <span class="nav-link-title">营销安全</span>
+              </a>
+            </li>
+            <li class="nav-item">
+              <span class="nav-link disabled text-muted">
+                <span class="nav-link-icon"><i class="ti ti-speakerphone"></i></span>
+                <span class="nav-link-title">万相台推广</span>
+              </span>
+            </li>
+            <li class="nav-item">
+              <span class="nav-link disabled text-muted">
+                <span class="nav-link-icon"><i class="ti ti-shopping-cart"></i></span>
+                <span class="nav-link-title">千牛订单</span>
+              </span>
+            </li>
+            <li class="nav-item">
+              <span class="nav-link disabled text-muted">
+                <span class="nav-link-icon"><i class="ti ti-shirt"></i></span>
+                <span class="nav-link-title">商品管理</span>
+              </span>
+            </li>
+            <li class="nav-item">
+              <span class="nav-link disabled text-muted">
+                <span class="nav-link-icon"><i class="ti ti-tag"></i></span>
+                <span class="nav-link-title">营销大促</span>
+              </span>
+            </li>
+            <li class="nav-item">
+              <span class="nav-link disabled text-muted">
+                <span class="nav-link-icon"><i class="ti ti-headset"></i></span>
+                <span class="nav-link-title">客服售后</span>
+              </span>
+            </li>
+
+          </ul>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Page wrapper -->
+    <div class="page-wrapper">
+      <!-- Page header -->
+      <div class="page-header d-print-none">
+        <div class="container-xl">
+          <div class="page-pretitle">生意中台 · 电商运营</div>
+          <h2 class="page-title">生意参谋</h2>
+        </div>
+      </div>
+      <!-- Page body -->
+      <div class="page-body">
+        <div class="container-xl">
+          <!-- 生意参谋 — 商品分析 -->
+<style>
+  .mom-up { color: #2fb344; }
+  .mom-down { color: #d63939; }
+  .mom-pill {
+    display: inline-block; padding: 2px 8px; border-radius: 12px;
+    font-size: .8rem; font-weight: 500; line-height: 1.4;
+  }
+  .mom-pill-up { background: rgba(47,179,68,.12); color: #2fb344; }
+  .mom-pill-down { background: rgba(214,57,57,.12); color: #d63939; }
+
+  /* Summary card left border colors */
+  .stat-border-blue { border-left: 4px solid #206bc4 !important; }
+  .stat-border-teal { border-left: 4px solid #0ca678 !important; }
+  .stat-border-orange { border-left: 4px solid #f76707 !important; }
+  .stat-border-purple { border-left: 4px solid #ae3ec9 !important; }
+
+  /* Product ranking medal borders */
+  .rank-gold { border-left: 4px solid #f5c542 !important; }
+  .rank-silver { border-left: 4px solid #b0b0b0 !important; }
+  .rank-bronze { border-left: 4px solid #cd7f32 !important; }
+
+  .sparkbar { display: flex; align-items: flex-end; gap: 3px; height: 60px; }
+  .sparkbar .bar { flex: 1; background: #206bc4; border-radius: 2px 2px 0 0; min-width: 12px; transition: opacity .15s; cursor: pointer; position: relative; }
+  .sparkbar .bar:hover { opacity: .75; }
+  .sparkbar .bar .bar-tip { display: none; position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); background: #1e293b; color: #fff; padding: 2px 6px; border-radius: 4px; font-size: 11px; white-space: nowrap; z-index: 10; }
+  .sparkbar .bar:hover .bar-tip { display: block; }
+  .trend-row { display: none; }
+  .trend-row.open { display: table-row; }
+  .sortable { cursor: pointer; user-select: none; }
+  .sortable:hover { color: #206bc4; }
+  .sort-active::after { content: ' ▼'; font-size: .7em; }
+
+  /* Mobile 2x2 summary cards */
+  @media (max-width: 576px) {
+    #sycm-cards .col-sm-6 { flex: 0 0 50%; max-width: 50%; }
+    #sycm-cards .stat-card .card-body { padding: .75rem; }
+    #sycm-cards .stat-card .h1 { font-size: 1.1rem; }
+    #sycm-cards .stat-card .subheader { font-size: .7rem; }
+  }
+
+  /* Mobile product cards */
+  .product-card-list { display: none; }
+  @media (max-width: 768px) {
+    .product-table-wrap { display: none !important; }
+    .product-card-list { display: block; }
+  }
+  .product-card {
+    border: 1px solid #e6e8eb; border-radius: 8px; padding: 12px;
+    margin-bottom: 8px; cursor: pointer; transition: box-shadow .15s;
+  }
+  .product-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+  .product-card .pc-name { font-weight: 600; font-size: .9rem; margin-bottom: 2px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .product-card .pc-sku { font-size: .75rem; color: #667; font-family: monospace; }
+  .product-card .pc-metrics { display: flex; gap: 16px; margin-top: 8px; font-size: .85rem; }
+  .product-card .pc-metric-label { color: #667; font-size: .7rem; }
+
+  /* Chart container scroll on mobile */
+  #chart-scroll-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  #chart-scroll-wrap canvas { min-width: 500px; }
+
+  /* Data freshness badge */
+  .data-badge { font-size: .75rem; padding: 3px 10px; border-radius: 12px;
+    background: #e9ecef; color: #495057; margin-left: 12px; vertical-align: middle; }
+
+  /* Refresh button */
+  .btn-refresh { font-size: .8rem; }
+</style>
+
+<!-- Page title row with badge + refresh -->
+<div class="d-flex align-items-center flex-wrap gap-2 mb-3">
+  <span class="data-badge" id="data-freshness-badge">数据加载中...</span>
+  <button class="btn btn-sm btn-outline-primary btn-refresh ms-auto" id="btn-refresh" onclick="refreshAll()">
+    <i class="ti ti-refresh"></i> 刷新
+  </button>
+</div>
+
+<!-- Summary Cards -->
+<div class="row row-deck row-cards mb-3" id="sycm-cards">
+  <div class="col-sm-6 col-lg-3">
+    <div class="card stat-card stat-border-blue">
+      <div class="card-body">
+        <div class="subheader">本月支付金额</div>
+        <div class="h1 mb-0" id="card-pay-amount">-</div>
+        <div class="text-secondary mt-1" id="card-pay-amount-mom"></div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-lg-3">
+    <div class="card stat-card stat-border-teal">
+      <div class="card-body">
+        <div class="subheader">本月访客</div>
+        <div class="h1 mb-0" id="card-visitors">-</div>
+        <div class="text-secondary mt-1" id="card-visitors-mom"></div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-lg-3">
+    <div class="card stat-card stat-border-orange">
+      <div class="card-body">
+        <div class="subheader">本月支付转化率</div>
+        <div class="h1 mb-0" id="card-conv">-</div>
+        <div class="text-secondary mt-1" id="card-conv-mom"></div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-lg-3">
+    <div class="card stat-card stat-border-purple">
+      <div class="card-body">
+        <div class="subheader">本月支付买家数</div>
+        <div class="h1 mb-0" id="card-buyers">-</div>
+        <div class="text-secondary mt-1" id="card-buyers-mom"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Monthly Trend (Chart.js) -->
+<div class="card mb-3">
+  <div class="card-header"><h3 class="card-title">月度趋势 (支付金额 + 访客数)</h3></div>
+  <div class="card-body">
+    <div id="chart-scroll-wrap">
+      <canvas id="monthly-chart-canvas" height="260"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- Product Ranking -->
+<div class="card">
+  <div class="card-header">
+    <h3 class="card-title">商品排行</h3>
+    <div class="card-actions">
+      <select id="month-select" class="form-select form-select-sm" style="width:auto"></select>
+    </div>
+  </div>
+  <!-- Desktop table -->
+  <div class="table-responsive product-table-wrap">
+    <table class="table table-vcenter table-hover" id="product-table">
+      <thead>
+        <tr>
+          <th>SKU</th>
+          <th style="min-width:200px">商品名称</th>
+          <th class="sortable" data-col="visitors">访客</th>
+          <th class="sortable sort-active" data-col="pay_amount">支付金额</th>
+          <th class="sortable" data-col="pay_buyers">支付买家</th>
+          <th class="sortable" data-col="pay_conv_rate">转化率</th>
+          <th class="sortable" data-col="refund_amount">退款额</th>
+        </tr>
+      </thead>
+      <tbody id="product-tbody"></tbody>
+    </table>
+  </div>
+  <!-- Mobile card list -->
+  <div class="product-card-list p-2" id="product-card-list"></div>
+</div>
+
+<!-- Daily Trend Modal -->
+<div class="modal modal-blur fade" id="trend-modal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="trend-modal-title">日趋势</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="table-responsive">
+          <table class="table table-sm table-striped">
+            <thead><tr><th>日期</th><th>访客</th><th>支付金额</th><th>支付买家</th><th>转化率</th></tr></thead>
+            <tbody id="trend-tbody"></tbody>
+          </table>
+        </div>
+        <div class="mt-3">
+          <div class="subheader mb-1">支付金额日趋势</div>
+          <div class="sparkbar" id="trend-chart" style="height:80px"></div>
+          <div class="d-flex justify-content-between text-secondary mt-1" id="trend-labels" style="font-size:.7rem"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+
+<script>
+const fmt = n => n == null ? '-' : Number(n).toLocaleString('zh-CN', {maximumFractionDigits: 0});
+const fmtY = n => n == null ? '-' : '¥' + Number(n).toLocaleString('zh-CN', {maximumFractionDigits: 0});
+const fmtP = n => n == null ? '-' : n + '%';
+const momBadge = (v, unit='') => {
+  if (v == null) return '';
+  const isUp = v >= 0;
+  const cls = isUp ? 'mom-pill-up' : 'mom-pill-down';
+  const arrow = isUp ? '↑' : '↓';
+  return `<span class="mom-pill ${cls}">${arrow} ${Math.abs(v)}%</span> <span style="font-size:.8rem">环比</span>`;
+};
+
+let currentSort = 'pay_amount';
+let currentMonth = null;
+let monthlyChartInstance = null;
+
+// Load overview
+async function loadOverview() {
+  const res = await fetch('/api/sycm/overview');
+  const d = await res.json();
+  const c = d.current_month;
+  const m = d.mom;
+
+  document.getElementById('card-pay-amount').textContent = fmtY(c.pay_amount);
+  document.getElementById('card-visitors').textContent = fmt(c.visitors);
+  document.getElementById('card-conv').textContent = fmtP(c.pay_conv_rate);
+  document.getElementById('card-buyers').textContent = fmt(c.pay_buyers);
+
+  document.getElementById('card-pay-amount-mom').innerHTML = momBadge(m.pay_amount);
+  document.getElementById('card-visitors-mom').innerHTML = momBadge(m.visitors);
+  document.getElementById('card-conv-mom').innerHTML = momBadge(m.pay_conv_rate);
+  document.getElementById('card-buyers-mom').innerHTML = momBadge(m.pay_buyers);
+
+  // Data freshness badge
+  if (c.date) {
+    document.getElementById('data-freshness-badge').textContent = '数据截至 ' + c.date.slice(0, 7);
+  }
+
+  // Monthly Chart.js dual-axis
+  buildMonthlyChart(d.monthly_trend);
+}
+
+function buildMonthlyChart(trend) {
+  const ctx = document.getElementById('monthly-chart-canvas').getContext('2d');
+  if (monthlyChartInstance) monthlyChartInstance.destroy();
+
+  const labels = trend.map(t => t.date.slice(0, 7));
+  const payData = trend.map(t => t.pay_amount || 0);
+  const visitorData = trend.map(t => t.visitors || 0);
+
+  monthlyChartInstance = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: '支付金额',
+          data: payData,
+          backgroundColor: 'rgba(32,107,196,0.7)',
+          borderRadius: 4,
+          yAxisID: 'y',
+          order: 2,
+        },
+        {
+          label: '访客数',
+          data: visitorData,
+          type: 'line',
+          borderColor: '#0ca678',
+          backgroundColor: '#0ca678',
+          pointRadius: 4,
+          pointHoverRadius: 6,
+          borderWidth: 2,
+          tension: 0.3,
+          yAxisID: 'y1',
+          order: 1,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        tooltip: {
+          callbacks: {
+            label: function(ctx) {
+              if (ctx.dataset.label === '支付金额') return '支付金额: ¥' + ctx.parsed.y.toLocaleString();
+              return '访客数: ' + ctx.parsed.y.toLocaleString();
+            }
+          }
+        },
+        legend: { position: 'top', labels: { usePointStyle: true, padding: 16 } },
+      },
+      scales: {
+        y: {
+          type: 'linear',
+          position: 'left',
+          title: { display: true, text: '支付金额 (¥)', font: { size: 11 } },
+          grid: { color: 'rgba(0,0,0,.06)' },
+          ticks: { callback: v => '¥' + (v >= 10000 ? (v/10000).toFixed(0) + 'w' : v.toLocaleString()) },
+        },
+        y1: {
+          type: 'linear',
+          position: 'right',
+          title: { display: true, text: '访客数', font: { size: 11 } },
+          grid: { drawOnChartArea: false },
+          ticks: { callback: v => v >= 10000 ? (v/10000).toFixed(1) + 'w' : v.toLocaleString() },
+        },
+        x: {
+          grid: { display: false },
+        },
+      },
+    },
+  });
+}
+
+// Load months dropdown
+async function loadMonths() {
+  const res = await fetch('/api/sycm/months');
+  const d = await res.json();
+  const sel = document.getElementById('month-select');
+  sel.innerHTML = d.months.map(m =>
+    `<option value="${m}">${m.slice(0, 7)}</option>`
+  ).join('');
+  currentMonth = d.months[0];
+
+  // Also update freshness badge from months
+  if (d.months.length > 0) {
+    document.getElementById('data-freshness-badge').textContent = '数据截至 ' + d.months[0].slice(0, 7);
+  }
+
+  sel.addEventListener('change', () => {
+    currentMonth = sel.value;
+    loadProducts();
+  });
+}
+
+// Load products
+async function loadProducts() {
+  const res = await fetch(`/api/sycm/products?month=${currentMonth}&sort=${currentSort}&limit=50`);
+  const d = await res.json();
+
+  // Desktop table
+  const tbody = document.getElementById('product-tbody');
+  tbody.innerHTML = d.products.map((p, i) => {
+    const rankCls = i === 0 ? 'rank-gold' : i === 1 ? 'rank-silver' : i === 2 ? 'rank-bronze' : '';
+    return `
+    <tr class="product-row ${rankCls}" data-item-id="${p.item_id}" style="cursor:pointer" title="点击查看日趋势">
+      <td><code>${p.sku_code || '-'}</code></td>
+      <td class="text-truncate" style="max-width:300px">${p.item_name || '-'}</td>
+      <td>${fmt(p.visitors)}</td>
+      <td class="fw-bold">${fmtY(p.pay_amount)}</td>
+      <td>${fmt(p.pay_buyers)}</td>
+      <td>${fmtP(p.pay_conv_rate)}</td>
+      <td>${fmtY(p.refund_amount)}</td>
+    </tr>`;
+  }).join('');
+
+  // Mobile card list
+  const cardList = document.getElementById('product-card-list');
+  cardList.innerHTML = d.products.map((p, i) => {
+    const rankCls = i === 0 ? 'rank-gold' : i === 1 ? 'rank-silver' : i === 2 ? 'rank-bronze' : '';
+    return `
+    <div class="product-card ${rankCls}" data-item-id="${p.item_id}">
+      <div class="pc-sku">${p.sku_code || '-'}</div>
+      <div class="pc-name">${p.item_name || '-'}</div>
+      <div class="pc-metrics">
+        <div><div class="pc-metric-label">支付金额</div><strong>${fmtY(p.pay_amount)}</strong></div>
+        <div><div class="pc-metric-label">访客</div>${fmt(p.visitors)}</div>
+        <div><div class="pc-metric-label">转化率</div>${fmtP(p.pay_conv_rate)}</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  // Click handlers - desktop
+  tbody.querySelectorAll('.product-row').forEach(row => {
+    row.addEventListener('click', () => showTrend(row.dataset.itemId, row.querySelector('td:nth-child(2)').textContent));
+  });
+  // Click handlers - mobile cards
+  cardList.querySelectorAll('.product-card').forEach(card => {
+    card.addEventListener('click', () => showTrend(card.dataset.itemId, card.querySelector('.pc-name').textContent));
+  });
+}
+
+// Show daily trend modal
+async function showTrend(itemId, name) {
+  document.getElementById('trend-modal-title').textContent = name.trim() + ' — 日趋势';
+  const res = await fetch(`/api/sycm/product/${itemId}/trend`);
+  const d = await res.json();
+
+  const tbody = document.getElementById('trend-tbody');
+  tbody.innerHTML = d.daily.map(r => `
+    <tr>
+      <td>${r.date}</td>
+      <td>${fmt(r.visitors)}</td>
+      <td>${fmtY(r.pay_amount)}</td>
+      <td>${fmt(r.pay_buyers)}</td>
+      <td>${fmtP(r.pay_conv_rate)}</td>
+    </tr>
+  `).join('');
+
+  // Mini chart
+  const chart = document.getElementById('trend-chart');
+  const labels = document.getElementById('trend-labels');
+  const maxVal = Math.max(...d.daily.map(r => r.pay_amount || 0), 1);
+  chart.innerHTML = d.daily.map(r => {
+    const pct = (r.pay_amount || 0) / maxVal * 100;
+    return `<div class="bar" style="height:${Math.max(pct, 1)}%"><span class="bar-tip">${r.date}: ${fmtY(r.pay_amount)}</span></div>`;
+  }).join('');
+  if (d.daily.length > 0) {
+    labels.innerHTML = `<span>${d.daily[0].date}</span><span>${d.daily[d.daily.length-1].date}</span>`;
+  }
+
+  new bootstrap.Modal(document.getElementById('trend-modal')).show();
+}
+
+// Sortable headers
+document.querySelectorAll('.sortable').forEach(th => {
+  th.addEventListener('click', () => {
+    document.querySelectorAll('.sortable').forEach(h => h.classList.remove('sort-active'));
+    th.classList.add('sort-active');
+    currentSort = th.dataset.col;
+    loadProducts();
+  });
+});
+
+// Refresh button
+async function refreshAll() {
+  const btn = document.getElementById('btn-refresh');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="ti ti-loader"></i> 加载中...';
+  try {
+    await Promise.all([loadOverview(), loadMonths().then(() => loadProducts())]);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="ti ti-refresh"></i> 刷新';
+  }
+}
+
+// Init
+loadOverview();
+loadMonths().then(() => loadProducts());
+</script>
+
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Mobile bottom tab bar -->
+  <nav class="bottom-tab-bar">
+    <div class="tab-items">
+      <a href="/jun-pages/" class="tab-item ">
+        <i class="ti ti-dashboard"></i>
+        <span>运营</span>
+      </a>
+      <a href="/jun-pages/erp/" class="tab-item ">
+        <i class="ti ti-clipboard-check"></i>
+        <span>审核</span>
+      </a>
+      <a href="/jun-pages/erp/products/" class="tab-item ">
+        <i class="ti ti-shirt"></i>
+        <span>档案</span>
+      </a>
+      <a href="/jun-pages/inventory/" class="tab-item ">
+        <i class="ti ti-building-warehouse"></i>
+        <span>库存</span>
+      </a>
+    </div>
+  </nav>
+
+  <script src="https://cdn.jsdelivr.net/npm/@tabler/core@1.0.0-beta20/dist/js/tabler.min.js"></script>
+
+</body>
+</html>

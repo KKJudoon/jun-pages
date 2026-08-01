@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>登录 — 生意中台</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/core@1.0.0-beta20/dist/css/tabler.min.css">
+  <style>
+    :root { color-scheme: light; }
+    body { min-height: 100vh; margin: 0; background: #f4f6fa; color: #182433; }
+    .login-shell { min-height: 100vh; display: grid; grid-template-columns: minmax(280px, 360px) 1fr; }
+    .brand-panel { padding: 42px 36px; background: #172536; color: white; }
+    .brand-panel h1 { margin: 0 0 10px; font-size: 28px; }
+    .brand-panel p { color: #9eabb9; line-height: 1.7; }
+    .login-main { display: grid; place-items: center; padding: 28px; }
+    .login-card { width: min(420px, 100%); padding: 32px; border: 1px solid #dce2ea; border-radius: 10px; background: white; box-shadow: 0 12px 32px rgba(24, 36, 51, .08); }
+    .login-card h2 { margin: 0 0 6px; font-size: 24px; }
+    .login-card .muted { margin: 0 0 24px; color: #667085; }
+    .login-card label { display: block; margin: 14px 0 6px; font-weight: 600; }
+    .login-card input { width: 100%; min-height: 44px; padding: 10px 12px; border: 1px solid #cfd7e3; border-radius: 6px; }
+    .login-card button { width: 100%; min-height: 44px; margin-top: 20px; border: 0; border-radius: 6px; background: #206bc4; color: white; font-weight: 700; }
+    .login-card button:disabled { opacity: .65; }
+    #login-message { min-height: 24px; margin: 14px 0 0; color: #d63939; }
+    .security-note { margin-top: 18px; color: #7a8699; font-size: 13px; line-height: 1.6; }
+    @media (max-width: 760px) {
+      .login-shell { grid-template-columns: 1fr; }
+      .brand-panel { padding: 26px 24px; }
+      .brand-panel p { display: none; }
+      .login-main { align-items: start; padding: 24px 16px; }
+      .login-card { padding: 24px 20px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="login-shell">
+    <section class="brand-panel">
+      <h1>生意中台</h1>
+      <p>登录后进入与 m87 本地版一致的 ERP 与电商运营工作台。</p>
+    </section>
+    <section class="login-main">
+      <form class="login-card" id="login-form">
+        <h2>账号登录</h2>
+        <p class="muted">仅已授权的管理员账号可以访问业务数据。</p>
+        <label for="login-email">邮箱</label>
+        <input id="login-email" name="email" type="email" autocomplete="username" required>
+        <label for="login-password">密码</label>
+        <input id="login-password" name="password" type="password" autocomplete="current-password" required>
+        <button id="login-submit" type="submit">登录</button>
+        <p id="login-message" role="alert" aria-live="polite"></p>
+        <p class="security-note">页面代码公开托管；订单、商品和库存数据均需通过账号验证后读取。</p>
+      </form>
+    </section>
+  </main>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.111.0"></script>
+  <script src="config.js"></script>
+  <script src="login.js"></script>
+</body>
+</html>

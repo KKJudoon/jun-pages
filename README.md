@@ -1,8 +1,9 @@
 # JUN Pages
 
-生意中台的公开静态登录前端：<https://kkjudoon.github.io/jun-pages/>
+生意中台原版界面的公网入口：<https://kkjudoon.github.io/jun-pages/>
 
 此仓库只保存经过白名单发布的浏览器端文件。完整源码、数据库迁移、m87 同步脚本
 和项目文档保存在私有 `KKJudoon/JUN` 仓库；不要在这里直接修改或加入凭据。
 
-页面本身可公网访问，商品、库存和同步状态仍由 Supabase Auth、RLS 与账号权限保护。
+这些页面从 m87 的原始 8091 模板生成。所有业务接口都先经过 Supabase Auth 的管理员
+校验，再通过带独立内部令牌的中继访问 m87；Pages 仓库不包含业务数据或服务端密钥。

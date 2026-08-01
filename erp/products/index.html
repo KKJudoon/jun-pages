@@ -1,0 +1,496 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>ERP 商品档案 — 生意中台</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/core@1.0.0-beta20/dist/css/tabler.min.css"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.3.0/dist/tabler-icons.min.css"/>
+  <style>
+    .nav-section-label { padding:.9rem 1rem .3rem; color:rgba(255,255,255,.48); font-size:.68rem; font-weight:700; }
+    .nav-link.active { background:rgba(32,107,196,.15)!important; font-weight:600; border-left:3px solid #206bc4; }
+    .erp-tabs { overflow-x:auto; flex-wrap:nowrap; }
+    .erp-tabs .nav-link { white-space:nowrap; }
+    .product-toolbar { display:grid; grid-template-columns:minmax(15rem,2fr) repeat(3,minmax(9rem,1fr)); gap:.75rem; align-items:end; }
+    .product-image { width:56px; height:56px; object-fit:cover; border:1px solid #e6e8eb; border-radius:6px; background:#f6f8fa; }
+    .product-code { min-width:7rem; font-weight:700; }
+    .product-name { min-width:12rem; max-width:22rem; white-space:normal; }
+    .number-cell { min-width:5.5rem; text-align:right; font-variant-numeric:tabular-nums; }
+    .catalog-table th { white-space:nowrap; }
+    .catalog-table td { vertical-align:middle; }
+    .summary-card { min-height:98px; }
+    .summary-value { font-size:1.45rem; line-height:1.2; font-weight:700; }
+    .modal-product-image { width:120px; height:120px; object-fit:cover; border:1px solid #e6e8eb; border-radius:6px; background:#f6f8fa; }
+    .bottom-tab-bar { display:none; position:fixed; bottom:0; left:0; right:0; background:#fff; border-top:1px solid #e6e8eb; z-index:1050; padding:4px 0 env(safe-area-inset-bottom,4px); }
+    .bottom-tab-bar .tab-items { display:flex; justify-content:space-around; align-items:center; }
+    .bottom-tab-bar .tab-item { display:flex; flex-direction:column; align-items:center; text-decoration:none; color:#667; font-size:.7rem; padding:4px 8px; }
+    .bottom-tab-bar .tab-item i { font-size:1.3rem; margin-bottom:2px; }
+    .bottom-tab-bar .tab-item.active { color:#206bc4; font-weight:600; }
+    @media (max-width:991px) {
+      .bottom-tab-bar { display:block; }
+      .page-body { padding-bottom:70px; }
+      .product-toolbar { grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .product-toolbar .search-control { grid-column:1 / -1; }
+    }
+    @media (max-width:575px) {
+      .product-toolbar { grid-template-columns:1fr; }
+      .product-toolbar .search-control { grid-column:auto; }
+      .product-name { min-width:10rem; }
+    }
+  </style>
+  <link rel="stylesheet" href="/jun-pages/auth-gate.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.111.0"></script>
+  <script src="/jun-pages/config.js"></script>
+  <script src="/jun-pages/public-bridge.js"></script>
+</head>
+<body class="layout-fluid">
+  <div class="page">
+    <!-- Sidebar -->
+    <aside class="navbar navbar-vertical navbar-expand-lg" data-bs-theme="dark">
+      <div class="container-fluid">
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#sidebar-menu">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <h1 class="navbar-brand navbar-brand-autodark">
+          <a href="/jun-pages/" style="text-decoration:none;color:inherit">
+            <span class="ms-2">生意中台</span>
+          </a>
+        </h1>
+        <div class="collapse navbar-collapse" id="sidebar-menu">
+          <ul class="navbar-nav pt-lg-3">
+
+            <li class="nav-section-label">生意中台 · ERP</li>
+            <li class="nav-item">
+              <a class="nav-link " href="/jun-pages/erp/">
+                <span class="nav-link-icon"><i class="ti ti-clipboard-check"></i></span>
+                <span class="nav-link-title">订单审核</span>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link active" href="/jun-pages/erp/products/">
+                <span class="nav-link-icon"><i class="ti ti-shirt"></i></span>
+                <span class="nav-link-title">商品档案</span>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="/jun-pages/inventory/">
+                <span class="nav-link-icon"><i class="ti ti-building-warehouse"></i></span>
+                <span class="nav-link-title">库存明细</span>
+              </a>
+            </li>
+
+            <li class="nav-section-label">生意中台 · 电商运营</li>
+            <li class="nav-item">
+              <a class="nav-link " href="/jun-pages/">
+                <span class="nav-link-icon"><i class="ti ti-dashboard"></i></span>
+                <span class="nav-link-title">运营总览</span>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link " href="/jun-pages/sycm/">
+                <span class="nav-link-icon"><i class="ti ti-chart-bar"></i></span>
+                <span class="nav-link-title">生意参谋</span>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link " href="/jun-pages/marketing-safety/">
+                <span class="nav-link-icon"><i class="ti ti-shield-exclamation"></i></span>
+                <span class="nav-link-title">营销安全</span>
+              </a>
+            </li>
+            <li class="nav-item">
+              <span class="nav-link disabled text-muted">
+                <span class="nav-link-icon"><i class="ti ti-speakerphone"></i></span>
+                <span class="nav-link-title">万相台推广</span>
+              </span>
+            </li>
+            <li class="nav-item">
+              <span class="nav-link disabled text-muted">
+                <span class="nav-link-icon"><i class="ti ti-shopping-cart"></i></span>
+                <span class="nav-link-title">千牛订单</span>
+              </span>
+            </li>
+            <li class="nav-item">
+              <span class="nav-link disabled text-muted">
+                <span class="nav-link-icon"><i class="ti ti-shirt"></i></span>
+                <span class="nav-link-title">商品管理</span>
+              </span>
+            </li>
+            <li class="nav-item">
+              <span class="nav-link disabled text-muted">
+                <span class="nav-link-icon"><i class="ti ti-tag"></i></span>
+                <span class="nav-link-title">营销大促</span>
+              </span>
+            </li>
+            <li class="nav-item">
+              <span class="nav-link disabled text-muted">
+                <span class="nav-link-icon"><i class="ti ti-headset"></i></span>
+                <span class="nav-link-title">客服售后</span>
+              </span>
+            </li>
+
+          </ul>
+        </div>
+      </div>
+    </aside>
+
+    <div class="page-wrapper">
+      <div class="page-header d-print-none">
+        <div class="container-xl">
+          <div class="page-pretitle">生意中台 · ERP</div>
+          <h2 class="page-title">商品档案</h2>
+        </div>
+      </div>
+      <div class="page-body">
+        <div class="container-xl">
+          <nav class="nav nav-tabs erp-tabs mb-3" aria-label="ERP 数据模块">
+            <a class="nav-link" href="/jun-pages/erp/"><i class="ti ti-clipboard-check me-2"></i>订单审核</a>
+            <a class="nav-link active" href="/jun-pages/erp/products/"><i class="ti ti-shirt me-2"></i>商品档案</a>
+            <a class="nav-link" href="/jun-pages/inventory/"><i class="ti ti-building-warehouse me-2"></i>库存明细</a>
+          </nav>
+
+          <div id="catalog-health" class="mb-3"></div>
+
+          <div class="row row-cards mb-3" id="catalog-summary">
+            <div class="col-6 col-lg-3"><div class="card summary-card"><div class="card-body">
+              <div class="subheader">ERP 商品</div><div class="summary-value mt-2" id="summary-products">-</div>
+            </div></div></div>
+            <div class="col-6 col-lg-3"><div class="card summary-card"><div class="card-body">
+              <div class="subheader">已识别 SKU</div><div class="summary-value mt-2" id="summary-skus">-</div>
+            </div></div></div>
+            <div class="col-6 col-lg-3"><div class="card summary-card"><div class="card-body">
+              <div class="subheader">淘宝 SKU 映射</div><div class="summary-value mt-2" id="summary-links">-</div>
+            </div></div></div>
+            <div class="col-6 col-lg-3"><div class="card summary-card"><div class="card-body">
+              <div class="subheader">实时库存明细</div><div class="summary-value mt-2" id="summary-inventory">-</div>
+            </div></div></div>
+          </div>
+
+          <div class="product-toolbar mb-3">
+            <div class="search-control">
+              <label class="form-label mb-1" for="product-search">搜索</label>
+              <div class="input-icon">
+                <span class="input-icon-addon"><i class="ti ti-search"></i></span>
+                <input id="product-search" class="form-control" placeholder="商品编码、名称、条码"/>
+              </div>
+            </div>
+            <div>
+              <label class="form-label mb-1" for="product-category">分类</label>
+              <select id="product-category" class="form-select"><option value="all">全部分类</option></select>
+            </div>
+            <div>
+              <label class="form-label mb-1" for="product-stock">库存</label>
+              <select id="product-stock" class="form-select">
+                <option value="">全部</option>
+                <option value="true">有库存</option>
+                <option value="false">无库存</option>
+              </select>
+            </div>
+            <div>
+              <label class="form-label mb-1" for="product-sort">排序</label>
+              <select id="product-sort" class="form-select">
+                <option value="stock_desc">库存从高到低</option>
+                <option value="stock_asc">库存从低到高</option>
+                <option value="code">商品编码</option>
+                <option value="updated">最近更新</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="table-responsive">
+              <table class="table table-vcenter table-sm catalog-table mb-0">
+                <thead>
+                  <tr>
+                    <th style="width:72px">图片</th>
+                    <th>商品</th>
+                    <th>分类</th>
+                    <th class="text-end">库存</th>
+                    <th class="text-end">可销售</th>
+                    <th class="text-end">占用</th>
+                    <th class="text-end">SKU</th>
+                    <th class="text-end">淘宝商品</th>
+                    <th class="text-end">淘宝总销量</th>
+                    <th class="text-end">淘宝近30天</th>
+                    <th>更新时间</th>
+                    <th style="width:48px"></th>
+                  </tr>
+                </thead>
+                <tbody id="product-rows">
+                  <tr><td colspan="12" class="text-secondary text-center py-4">加载中...</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="card-footer d-flex align-items-center">
+              <span class="text-secondary" id="product-count">-</span>
+              <div class="ms-auto btn-list">
+                <button class="btn btn-icon" id="product-prev" title="上一页" disabled><i class="ti ti-chevron-left"></i></button>
+                <button class="btn btn-icon" id="product-next" title="下一页" disabled><i class="ti ti-chevron-right"></i></button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal modal-blur fade" id="product-modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 class="modal-title" id="product-modal-title">商品档案</h3>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
+        </div>
+        <div class="modal-body" id="product-modal-body">
+          <div class="text-secondary py-4">加载中...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mobile bottom tab bar -->
+  <nav class="bottom-tab-bar">
+    <div class="tab-items">
+      <a href="/jun-pages/" class="tab-item ">
+        <i class="ti ti-dashboard"></i>
+        <span>运营</span>
+      </a>
+      <a href="/jun-pages/erp/" class="tab-item ">
+        <i class="ti ti-clipboard-check"></i>
+        <span>审核</span>
+      </a>
+      <a href="/jun-pages/erp/products/" class="tab-item ">
+        <i class="ti ti-shirt"></i>
+        <span>档案</span>
+      </a>
+      <a href="/jun-pages/inventory/" class="tab-item">
+        <i class="ti ti-building-warehouse"></i>
+        <span>库存</span>
+      </a>
+    </div>
+  </nav>
+
+  <script src="https://cdn.jsdelivr.net/npm/@tabler/core@1.0.0-beta20/dist/js/tabler.min.js"></script>
+  <script>
+    const state = { offset: 0, limit: 50, count: 0, categoriesLoaded: false, timer: null };
+
+    function esc(value) {
+      return String(value ?? '').replace(/[&<>"']/g, char => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
+      })[char]);
+    }
+    function num(value) {
+      return Number(value || 0).toLocaleString('zh-CN', { maximumFractionDigits: 2 });
+    }
+    function metric(value) {
+      return value === null || value === undefined || value === '' ? '-' : num(value);
+    }
+    function metricTitle(value, knownCount, itemCount) {
+      if (value === null || value === undefined || value === '') return '当前淘宝快照未采集该销量';
+      if (knownCount < itemCount) return `已采集 ${knownCount}/${itemCount} 个淘宝商品，数值为已采集商品合计`;
+      return '已采集全部对应淘宝商品';
+    }
+    function money(value) {
+      if (value === null || value === undefined || value === '') return '-';
+      return `¥${Number(value).toLocaleString('zh-CN', { maximumFractionDigits: 2 })}`;
+    }
+    function mappingSource(value) {
+      return ({ manual: '手工', fallback: 'fallback', nonstandard: '非标' })[value] || value || '-';
+    }
+    function taobaoLink(mapping) {
+      if (!mapping?.taobao_link) return '-';
+      const label = mapping.taobao_item_id ? `打开 ${mapping.taobao_item_id}` : '打开淘宝商品';
+      return `<a href="${esc(mapping.taobao_link)}" target="_blank" rel="noreferrer" title="${esc(mapping.taobao_title || label)}"><i class="ti ti-external-link me-1"></i>${esc(label)}</a>`;
+    }
+    function image(url, alt, className='product-image') {
+      if (!url) return `<div class="${className} d-flex align-items-center justify-content-center text-secondary"><i class="ti ti-photo-off"></i></div>`;
+      return `<img class="${className}" src="${esc(url)}" alt="${esc(alt)}" loading="lazy" onerror="this.style.visibility='hidden'">`;
+    }
+
+    async function loadHealth() {
+      const target = document.getElementById('catalog-health');
+      try {
+        const response = await fetch('/api/erp/v1/health');
+        const payload = await response.json();
+        const health = payload.data;
+        const datasets = health.datasets || {};
+        document.getElementById('summary-products').textContent = num(datasets.products?.row_count);
+        document.getElementById('summary-skus').textContent = num(datasets.skus?.row_count);
+        document.getElementById('summary-links').textContent = num(datasets.taobao_erp_matches?.row_count ?? datasets.platform_sku_links?.row_count);
+        document.getElementById('summary-inventory').textContent = num(datasets.inventory_current?.row_count);
+        const color = health.healthy ? 'success' : 'warning';
+        const icon = health.healthy ? 'circle-check' : 'alert-triangle';
+        const updated = datasets.inventory_current?.source_updated_at || payload.meta.updated_at || '-';
+        target.innerHTML = `<div class="alert alert-${color} d-flex align-items-center py-2 mb-0">
+          <i class="ti ti-${icon} me-2"></i>
+          <div><strong>ERP 数据</strong>: ${health.healthy ? '采集与整理正常' : esc(health.problems.join('；'))}
+          <span class="text-secondary ms-2">|</span><span class="ms-2">库存更新 ${esc(updated)}</span>
+          <span class="text-secondary ms-2">|</span><span class="ms-2">只读 API v${esc(payload.meta.api_version)}</span></div>
+        </div>`;
+      } catch (error) {
+        target.innerHTML = '<div class="alert alert-secondary py-2 mb-0">ERP 数据状态读取失败</div>';
+      }
+    }
+
+    function currentParams() {
+      const params = new URLSearchParams({
+        q: document.getElementById('product-search').value.trim(),
+        category: document.getElementById('product-category').value,
+        sort: document.getElementById('product-sort').value,
+        limit: state.limit,
+        offset: state.offset
+      });
+      const stock = document.getElementById('product-stock').value;
+      if (stock) params.set('in_stock', stock);
+      return params;
+    }
+
+    async function loadProducts(reset=false) {
+      if (reset) state.offset = 0;
+      const body = document.getElementById('product-rows');
+      body.innerHTML = '<tr><td colspan="12" class="text-secondary text-center py-4">加载中...</td></tr>';
+      try {
+        const response = await fetch('/api/erp/v1/products?' + currentParams());
+        const payload = await response.json();
+        state.count = payload.meta.count || 0;
+        if (!state.categoriesLoaded) {
+          const select = document.getElementById('product-category');
+          for (const category of payload.meta.categories || []) {
+            const option = document.createElement('option');
+            option.value = category.value;
+            option.textContent = `${category.label} · ${num(category.count)}`;
+            select.appendChild(option);
+          }
+          state.categoriesLoaded = true;
+        }
+        if (!payload.data.length) {
+          body.innerHTML = '<tr><td colspan="12" class="text-secondary text-center py-4">没有符合条件的商品</td></tr>';
+        } else {
+          body.innerHTML = payload.data.map(product => `
+            <tr>
+              <td title="${product.taobao_image_url ? '淘宝缩略图' : '管家婆图片'}">${image(product.taobao_image_url || product.primary_image_url, product.product_code)}</td>
+              <td>
+                <div class="product-code">${esc(product.product_code || '-')}</div>
+                <div class="product-name text-secondary small">${esc(product.product_name || product.short_name || '-')}</div>
+              </td>
+              <td><span class="badge bg-azure-lt">${esc(product.classification_label)}</span></td>
+              <td class="number-cell fw-bold">${num(product.stock_qty)}</td>
+              <td class="number-cell text-success">${num(product.sellable_qty)}</td>
+              <td class="number-cell">${num(product.occupied_qty)}</td>
+              <td class="number-cell">${num(product.sku_count)}</td>
+              <td class="number-cell">${num(product.taobao_item_count ?? product.platform_item_count)}</td>
+              <td class="number-cell" title="${esc(metricTitle(product.taobao_total_sold, product.taobao_total_sold_item_count || 0, product.taobao_item_count || 0))}">${metric(product.taobao_total_sold)}</td>
+              <td class="number-cell" title="${esc(metricTitle(product.taobao_sold_30d, product.taobao_sold_30d_item_count || 0, product.taobao_item_count || 0))}">${metric(product.taobao_sold_30d)}</td>
+              <td class="text-secondary small">${esc(product.inventory_updated_at || product.last_seen_at || '-')}</td>
+              <td><button class="btn btn-icon btn-sm btn-ghost-primary" title="查看商品档案" data-product-id="${esc(product.ptypeid)}"><i class="ti ti-chevron-right"></i></button></td>
+            </tr>`).join('');
+        }
+        const start = state.count ? state.offset + 1 : 0;
+        const end = Math.min(state.offset + state.limit, state.count);
+        document.getElementById('product-count').textContent = `${start}-${end} / ${num(state.count)}`;
+        document.getElementById('product-prev').disabled = state.offset === 0;
+        document.getElementById('product-next').disabled = state.offset + state.limit >= state.count;
+      } catch (error) {
+        body.innerHTML = `<tr><td colspan="12" class="text-danger text-center py-4">加载失败: ${esc(error.message)}</td></tr>`;
+      }
+    }
+
+    async function showProduct(ptypeid) {
+      const modalElement = document.getElementById('product-modal');
+      const body = document.getElementById('product-modal-body');
+      body.innerHTML = '<div class="text-secondary py-4">加载中...</div>';
+      bootstrap.Modal.getOrCreateInstance(modalElement).show();
+      try {
+        const response = await fetch('/api/erp/v1/products/' + encodeURIComponent(ptypeid));
+        if (!response.ok) throw new Error('商品不存在');
+        const payload = await response.json();
+        const data = payload.data;
+        const product = data.product;
+        const taobao = data.taobao || { item_count: 0, sku_count: 0, mapping_source_counts: {}, items: [], sku_mappings: [] };
+        const productImage = product.taobao_image_url || product.primary_image_url;
+        document.getElementById('product-modal-title').textContent = `${product.product_code || ''} 商品档案`;
+        const stocks = data.current_stock.map(row => `<tr>
+          <td>${esc(row.warehouse_name)}</td><td class="text-end">${num(row.stock_qty)}</td>
+          <td class="text-end">${num(row.sellable_qty)}</td><td class="text-end">${num(row.occupied_qty)}</td>
+          <td>${esc(row.position || '-')}</td><td class="text-secondary">${esc(row.captured_at)}</td>
+        </tr>`).join('') || '<tr><td colspan="6" class="text-secondary text-center">暂无库存</td></tr>';
+        const skus = data.skus.map(row => {
+          const mappings = row.taobao_mappings || [];
+          const links = mappings.map(taobaoLink).join('<br>') || '-';
+          const prices = mappings.map(item => money(item.taobao_price)).join('<br>') || '-';
+          const codes = mappings.map(item => esc(item.taobao_sku_code || '-')).join('<br>') || '-';
+          const props = mappings.map(item => esc(item.taobao_properties || '-')).join('<br>') || '-';
+          const sources = [...new Set(mappings.map(item => mappingSource(item.mapping_source)))].join(' / ') || '-';
+          return `<tr>
+            <td>${esc(row.sku_code || '-')}</td><td>${esc(row.color || '-')}</td><td>${esc(row.size || '-')}</td>
+            <td>${esc(row.barcode || '-')}</td><td>${links}</td><td>${prices}</td>
+            <td>${codes}</td><td>${props}</td><td>${sources}</td>
+          </tr>`;
+        }).join('') || '<tr><td colspan="9" class="text-secondary text-center">订单中暂未观察到 SKU</td></tr>';
+        const mappingRows = (taobao.sku_mappings || []).slice(0, 200).map(row => `<tr>
+          <td>${taobaoLink(row)}</td>
+          <td>${esc(row.taobao_title || '-')}</td>
+          <td>${money(row.taobao_price)}</td>
+          <td>${esc(row.taobao_sku_code || '-')}</td>
+          <td>${esc(row.taobao_properties || '-')}</td>
+          <td>${esc(row.taobao_sku_status || row.taobao_item_status || '-')}</td>
+          <td>${esc(mappingSource(row.mapping_source))}</td>
+          <td class="text-secondary small">${esc(row.taobao_last_seen_at || row.mapping_calculated_at || '-')}</td>
+        </tr>`).join('') || '<tr><td colspan="8" class="text-secondary text-center">暂无当前淘宝 SKU 映射</td></tr>';
+        const mappingLimitNote = taobao.sku_count > 200
+          ? `<div class="text-secondary small mt-2">当前商品共 ${num(taobao.sku_count)} 个淘宝 SKU，页面显示前 200 个；API 返回完整数据。</div>`
+          : '';
+        const sourceCounts = taobao.mapping_source_counts || {};
+        body.innerHTML = `
+          <div class="d-flex gap-3 align-items-start mb-4">
+            ${image(productImage, product.product_code, 'modal-product-image')}
+            <div>
+              <h3 class="mb-1">${esc(product.product_code || '-')}</h3>
+              <div class="text-secondary">${esc(product.product_name || product.short_name || '-')}</div>
+              <div class="mt-2"><span class="badge bg-azure-lt">${esc(product.classification_label)}</span>
+              <span class="badge bg-secondary-lt ms-1">${esc(product.status || '-')}</span></div>
+              <div class="small text-secondary mt-2">ERP ID: ${esc(product.ptypeid)} · 条码: ${esc(product.barcode || '-')}</div>
+              <div class="small text-secondary mt-1">淘宝商品 ${num(taobao.item_count)} · 淘宝 SKU ${num(taobao.sku_count)} · 手工 ${num(sourceCounts.manual)} · fallback ${num(sourceCounts.fallback)}</div>
+              <div class="small text-secondary mt-1">淘宝总销量 ${metric(taobao.taobao_total_sold)} · 近30天 ${metric(taobao.taobao_sold_30d)}</div>
+            </div>
+          </div>
+          <h4>当前库存</h4>
+          <div class="table-responsive mb-4"><table class="table table-sm"><thead><tr><th>仓库</th><th class="text-end">库存</th><th class="text-end">可销售</th><th class="text-end">占用</th><th>库位</th><th>更新时间</th></tr></thead><tbody>${stocks}</tbody></table></div>
+          <h4>SKU 主档</h4>
+          <div class="table-responsive mb-4"><table class="table table-sm"><thead><tr><th>ERP SKU</th><th>颜色</th><th>尺码</th><th>条码</th><th>淘宝链接</th><th>淘宝价</th><th>淘宝 SKU 编码</th><th>淘宝销售属性</th><th>匹配来源</th></tr></thead><tbody>${skus}</tbody></table></div>
+          <h4>淘宝 SKU 对应</h4>
+          <div class="table-responsive"><table class="table table-sm"><thead><tr><th>淘宝链接</th><th>商品标题</th><th>淘宝价</th><th>淘宝 SKU 编码</th><th>销售属性</th><th>状态</th><th>匹配来源</th><th>同步时间</th></tr></thead><tbody>${mappingRows}</tbody></table></div>${mappingLimitNote}`;
+      } catch (error) {
+        body.innerHTML = `<div class="alert alert-danger">加载失败: ${esc(error.message)}</div>`;
+      }
+    }
+
+    let searchTimer;
+    document.getElementById('product-search').addEventListener('input', () => {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(() => loadProducts(true), 300);
+    });
+    for (const id of ['product-category', 'product-stock', 'product-sort']) {
+      document.getElementById(id).addEventListener('change', () => loadProducts(true));
+    }
+    document.getElementById('product-prev').addEventListener('click', () => {
+      state.offset = Math.max(0, state.offset - state.limit);
+      loadProducts();
+    });
+    document.getElementById('product-next').addEventListener('click', () => {
+      if (state.offset + state.limit < state.count) {
+        state.offset += state.limit;
+        loadProducts();
+      }
+    });
+    document.getElementById('product-rows').addEventListener('click', event => {
+      const button = event.target.closest('[data-product-id]');
+      if (button) showProduct(button.dataset.productId);
+    });
+
+    loadHealth();
+    loadProducts();
+    setInterval(loadHealth, 60 * 1000);
+  </script>
+</body>
+</html>

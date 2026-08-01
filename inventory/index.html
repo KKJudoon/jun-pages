@@ -1,0 +1,2262 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>库存明细 — 生意中台</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/core@1.0.0-beta20/dist/css/tabler.min.css"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.3.0/dist/tabler-icons.min.css"/>
+  <style>
+    .nav-link.active { background: rgba(32,107,196,.15) !important; font-weight: 600; border-left: 3px solid #206bc4; }
+    .nav-section-label {
+      padding: .9rem 1rem .3rem; color: rgba(255,255,255,.48);
+      font-size: .68rem; font-weight: 700; text-transform: none;
+    }
+    .stat-card { transition: transform .15s; }
+    .stat-card:hover { transform: translateY(-2px); }
+
+    /* Mobile bottom tab bar */
+    .bottom-tab-bar {
+      display: none;
+      position: fixed; bottom: 0; left: 0; right: 0;
+      background: #fff; border-top: 1px solid #e6e8eb;
+      z-index: 1050; padding: 4px 0 env(safe-area-inset-bottom, 4px);
+    }
+    .bottom-tab-bar .tab-items {
+      display: flex; justify-content: space-around; align-items: center;
+    }
+    .bottom-tab-bar .tab-item {
+      display: flex; flex-direction: column; align-items: center;
+      text-decoration: none; color: #667; font-size: .7rem; padding: 4px 8px;
+      transition: color .15s;
+    }
+    .bottom-tab-bar .tab-item i { font-size: 1.3rem; margin-bottom: 2px; }
+    .bottom-tab-bar .tab-item.active { color: #206bc4; font-weight: 600; }
+    .bottom-tab-bar .tab-item:hover { color: #206bc4; }
+
+    @media (max-width: 991px) {
+      .bottom-tab-bar { display: block; }
+      .page-body { padding-bottom: 70px; }
+    }
+  </style>
+
+  <link rel="stylesheet" href="/jun-pages/auth-gate.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.111.0"></script>
+  <script src="/jun-pages/config.js"></script>
+  <script src="/jun-pages/public-bridge.js"></script>
+</head>
+<body class="layout-fluid">
+  <div class="page">
+
+    <!-- Sidebar -->
+    <aside class="navbar navbar-vertical navbar-expand-lg" data-bs-theme="dark">
+      <div class="container-fluid">
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#sidebar-menu">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <h1 class="navbar-brand navbar-brand-autodark">
+          <a href="/jun-pages/" style="text-decoration:none;color:inherit">
+            <span class="ms-2">生意中台</span>
+          </a>
+        </h1>
+        <div class="collapse navbar-collapse" id="sidebar-menu">
+          <ul class="navbar-nav pt-lg-3">
+
+            <li class="nav-section-label">生意中台 · ERP</li>
+            <li class="nav-item">
+              <a class="nav-link " href="/jun-pages/erp/">
+                <span class="nav-link-icon"><i class="ti ti-clipboard-check"></i></span>
+                <span class="nav-link-title">订单审核</span>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link " href="/jun-pages/erp/products/">
+                <span class="nav-link-icon"><i class="ti ti-shirt"></i></span>
+                <span class="nav-link-title">商品档案</span>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link active" href="/jun-pages/inventory/">
+                <span class="nav-link-icon"><i class="ti ti-building-warehouse"></i></span>
+                <span class="nav-link-title">库存明细</span>
+              </a>
+            </li>
+
+            <li class="nav-section-label">生意中台 · 电商运营</li>
+            <li class="nav-item">
+              <a class="nav-link " href="/jun-pages/">
+                <span class="nav-link-icon"><i class="ti ti-dashboard"></i></span>
+                <span class="nav-link-title">运营总览</span>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link " href="/jun-pages/sycm/">
+                <span class="nav-link-icon"><i class="ti ti-chart-bar"></i></span>
+                <span class="nav-link-title">生意参谋</span>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link " href="/jun-pages/marketing-safety/">
+                <span class="nav-link-icon"><i class="ti ti-shield-exclamation"></i></span>
+                <span class="nav-link-title">营销安全</span>
+              </a>
+            </li>
+            <li class="nav-item">
+              <span class="nav-link disabled text-muted">
+                <span class="nav-link-icon"><i class="ti ti-speakerphone"></i></span>
+                <span class="nav-link-title">万相台推广</span>
+              </span>
+            </li>
+            <li class="nav-item">
+              <span class="nav-link disabled text-muted">
+                <span class="nav-link-icon"><i class="ti ti-shopping-cart"></i></span>
+                <span class="nav-link-title">千牛订单</span>
+              </span>
+            </li>
+            <li class="nav-item">
+              <span class="nav-link disabled text-muted">
+                <span class="nav-link-icon"><i class="ti ti-shirt"></i></span>
+                <span class="nav-link-title">商品管理</span>
+              </span>
+            </li>
+            <li class="nav-item">
+              <span class="nav-link disabled text-muted">
+                <span class="nav-link-icon"><i class="ti ti-tag"></i></span>
+                <span class="nav-link-title">营销大促</span>
+              </span>
+            </li>
+            <li class="nav-item">
+              <span class="nav-link disabled text-muted">
+                <span class="nav-link-icon"><i class="ti ti-headset"></i></span>
+                <span class="nav-link-title">客服售后</span>
+              </span>
+            </li>
+
+          </ul>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Page wrapper -->
+    <div class="page-wrapper">
+      <!-- Page header -->
+      <div class="page-header d-print-none">
+        <div class="container-xl">
+          <div class="page-pretitle">生意中台 · ERP</div>
+          <h2 class="page-title">库存明细</h2>
+        </div>
+      </div>
+      <!-- Page body -->
+      <div class="page-body">
+        <div class="container-xl">
+                    <nav class="nav nav-tabs mb-3" aria-label="ERP 数据模块">
+            <a class="nav-link" href="/jun-pages/erp/"><i class="ti ti-clipboard-check me-2"></i>订单审核</a>
+            <a class="nav-link" href="/jun-pages/erp/products/"><i class="ti ti-shirt me-2"></i>商品档案</a>
+            <a class="nav-link active" href="/jun-pages/inventory/"><i class="ti ti-building-warehouse me-2"></i>库存明细</a>
+          </nav>
+          <style>
+  .inventory-toolbar { display:flex; gap:.75rem; align-items:end; flex-wrap:wrap; }
+  .inventory-toolbar .form-select { min-width:9rem; }
+  .inventory-toolbar .filter-control { flex:0 1 13rem; }
+  .inventory-kpi { min-height:112px; }
+  .inventory-number { font-size:1.65rem; line-height:1.2; font-weight:700; }
+  .inventory-table th { white-space:nowrap; }
+  .inventory-table td { vertical-align:middle; }
+  .inventory-code { min-width:7rem; font-weight:600; }
+  .inventory-name { min-width:12rem; max-width:22rem; white-space:normal; }
+  .qty-cell { min-width:6.5rem; text-align:right; font-variant-numeric:tabular-nums; }
+  .inventory-breakdown td { min-width:8rem; }
+  .trend-bar { height:6px; min-width:48px; background:#edf0f2; overflow:hidden; border-radius:3px; }
+  .trend-bar > span { display:block; height:100%; background:#206bc4; }
+  .spot-filter-shell { border:1px solid #d9dce1; background:#fff; padding:12px; border-radius:6px; }
+  .spot-view-switch { display:inline-flex; padding:3px; border:1px solid #d9dce1; border-radius:5px; background:#f4f6f8; }
+  .spot-view-switch .btn { min-width:7rem; border:0; }
+  .spot-view-switch .btn.active { color:#fff; background:#206bc4; }
+  .spot-filter-row { display:flex; align-items:end; gap:.65rem; flex-wrap:wrap; }
+  .spot-primary-filter-items { display:flex; align-items:end; gap:.65rem; flex:1 1 auto; flex-wrap:wrap; min-width:0; }
+  .spot-primary-filter-items > .spot-filter-control { flex:0 1 11rem; }
+  .spot-filter-control { flex:0 1 11rem; min-width:9rem; }
+  .spot-filter-search { flex:1 1 18rem; min-width:15rem; }
+  .spot-multiselect { position:relative; }
+  .spot-multiselect > summary {
+    display:flex; align-items:center; justify-content:space-between; gap:.5rem;
+    min-height:36px; padding:.45rem .75rem; border:1px solid #d9dce1;
+    border-radius:4px; background:#fff; cursor:pointer; list-style:none;
+  }
+  .spot-multiselect > summary::-webkit-details-marker { display:none; }
+  .spot-multiselect > summary::after { content:"⌄"; color:#667085; }
+  .spot-multiselect[open] > summary { border-color:#206bc4; box-shadow:0 0 0 .2rem rgba(32,107,196,.1); }
+  .spot-filter-menu {
+    position:absolute; z-index:1080; top:calc(100% + 4px); left:0;
+    width:max-content; min-width:100%; max-width:280px; max-height:310px;
+    overflow:auto; padding:.4rem; border:1px solid #d9dce1; border-radius:4px;
+    background:#fff; box-shadow:0 8px 24px rgba(31,41,55,.16);
+  }
+  .spot-filter-option {
+    display:flex; align-items:center; gap:.55rem; min-height:34px;
+    margin:0; padding:.35rem .45rem; white-space:nowrap; cursor:pointer;
+  }
+  .spot-filter-option:hover { background:#f3f6f9; }
+  .spot-advanced {
+    display:grid; grid-template-columns:repeat(4,minmax(10rem,1fr));
+    gap:.75rem; margin-top:.75rem; padding-top:.75rem; border-top:1px solid #edf0f2;
+  }
+  .spot-range { display:grid; grid-template-columns:1fr 1fr; gap:.35rem; }
+  .spot-filter-actions { margin-left:auto; display:flex; gap:.5rem; }
+  .spot-filter-layout-button { white-space:nowrap; }
+  .spot-sort-button {
+    display:inline-flex; align-items:center; gap:.3rem; padding:0; border:0;
+    color:inherit; background:transparent; font:inherit; font-weight:600;
+  }
+  .spot-sort-button.active { color:#206bc4; }
+  .spot-filter-summary { min-height:24px; }
+  .spot-preset-tools { display:flex; align-items:end; gap:.5rem; margin-left:auto; flex-wrap:wrap; }
+  .spot-preset-select { min-width:13rem; }
+  .spot-column-menu { width:340px; max-width:calc(100vw - 24px); }
+  .spot-column-picker-head { display:flex; align-items:flex-start; justify-content:space-between; gap:.5rem; padding:.15rem .25rem .45rem; }
+  .spot-column-picker-head .small { min-width:0; }
+  .spot-column-order-toggle { flex:0 0 auto; white-space:nowrap; }
+  .spot-column-order-list { display:grid; gap:.45rem; }
+  .spot-column-order-row { display:flex; align-items:center; gap:.65rem; min-height:44px; padding:.4rem .5rem; border:1px solid #edf0f2; border-radius:4px; background:#f8fafc; }
+  .spot-column-order-row .spot-column-label { flex:1 1 auto; min-width:0; white-space:normal; }
+  .spot-column-order-buttons { display:flex; flex:0 0 auto; gap:.35rem; }
+  .spot-column-order-buttons .btn { width:36px; height:36px; padding:0; }
+  .spot-column-row { display:flex; align-items:center; min-height:38px; }
+  .spot-column-row .spot-filter-option { flex:1 1 auto; min-width:0; overflow:hidden; }
+  .spot-column-label { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .spot-dialog { width:min(92vw,420px); max-width:calc(100vw - 24px); padding:0; border:0; border-radius:6px; box-shadow:0 20px 60px rgba(17,24,39,.28); }
+  .spot-dialog::backdrop { background:rgba(17,24,39,.55); }
+  .spot-dialog-body { box-sizing:border-box; max-width:100%; padding:1rem; overflow-wrap:anywhere; }
+  .spot-column-order-dialog, .spot-filter-layout-dialog { width:min(92vw,520px); }
+  .spot-column-order-dialog-body, .spot-filter-layout-dialog-body { max-height:min(82vh,680px); overflow:auto; }
+  .spot-column-order-dialog-content { display:grid; gap:.65rem; max-height:min(58vh,480px); overflow:auto; padding:.15rem; }
+  .spot-filter-layout-row .form-select { width:100%; min-width:0; }
+  .spot-filter-layout-list { max-height:min(58vh,480px); overflow:auto; border:1px solid #edf0f2; border-radius:4px; }
+  .spot-filter-layout-row { display:grid; grid-template-columns:minmax(0,1fr) 8.5rem; align-items:center; gap:.65rem; padding:.55rem .65rem; border-bottom:1px solid #edf0f2; }
+  .spot-filter-layout-row:last-child { border-bottom:0; }
+  .spot-filter-layout-label { min-width:0; overflow-wrap:anywhere; }
+  .spot-help-button {
+    display:inline-flex; align-items:center; justify-content:center;
+    width:24px; height:24px; margin-left:3px; padding:0; border:0;
+    color:#667085; background:transparent; vertical-align:middle;
+  }
+  .spot-help-button:hover, .spot-help-button:focus { color:#206bc4; }
+  .spot-help-button i { font-size:1rem; }
+  .spot-help-rule { padding:.65rem .75rem; border-left:3px solid #206bc4; background:#f3f6f9; }
+  .spot-kpi { min-height:104px; }
+  .spot-image-cell { width:3.5rem; }
+  .spot-thumb-button {
+    display:block; width:48px; height:48px; padding:0; overflow:hidden;
+    border:1px solid #d9dce1; border-radius:4px; background:#f4f6f8;
+  }
+  .spot-thumb { display:block; width:100%; height:100%; object-fit:cover; }
+  .spot-thumb-placeholder {
+    display:flex; width:48px; height:48px; align-items:center; justify-content:center;
+    border:1px solid #d9dce1; border-radius:4px; color:#8a929d; background:#f4f6f8;
+  }
+  .spot-lightbox {
+    position:fixed; inset:0; z-index:1100; display:flex; align-items:center;
+    justify-content:center; padding:24px; background:rgba(17,24,39,.88);
+  }
+  .spot-lightbox.d-none { display:none !important; }
+  .spot-lightbox-content { position:relative; max-width:94vw; }
+  .spot-lightbox-image {
+    display:block; max-width:94vw; max-height:86vh; object-fit:contain;
+    background:#fff; border-radius:4px;
+  }
+  .spot-lightbox-title { margin-top:.75rem; color:#fff; text-align:center; }
+  .spot-lightbox-close {
+    position:absolute; top:-44px; right:0; width:36px; height:36px; padding:0;
+    border:0; border-radius:4px; color:#fff; background:rgba(255,255,255,.14);
+    font-size:1.5rem; line-height:36px;
+  }
+  .spot-sku { min-width:8.5rem; max-width:12rem; font-weight:600; white-space:normal; }
+  .spot-taobao-badge {
+    display:inline-flex; align-items:center; justify-content:center; gap:.12rem;
+    min-width:1.15rem; height:1.15rem; padding:0 .22rem; margin-left:.3rem;
+    border:1px solid #cfe0ff; border-radius:999px; background:#eef5ff;
+    color:#206bc4; font-size:.68rem; line-height:1; vertical-align:middle;
+    text-decoration:none;
+  }
+  .spot-taobao-badge:hover, .spot-taobao-badge:focus-visible { background:#dbeafe; color:#1d4ed8; }
+  .spot-sizes { min-width:10rem; white-space:normal; }
+  .spot-query-table { table-layout:fixed; }
+  .spot-query-table th, .spot-query-table td {
+    position:relative; text-align:center !important; vertical-align:middle;
+  }
+  .spot-query-table .spot-sticky-image,
+  .spot-query-table .spot-sticky-product {
+    position:sticky;
+    background:#fff !important;
+    background-clip:padding-box;
+  }
+  .spot-query-table .spot-sticky-image {
+    left:0;
+    z-index:4;
+  }
+  .spot-query-table .spot-sticky-product {
+    left:var(--spot-sticky-image-width, 64px);
+    z-index:3;
+    box-shadow:2px 0 4px rgba(17,24,39,.08);
+  }
+  .spot-query-table thead .spot-sticky-image,
+  .spot-query-table thead .spot-sticky-product {
+    z-index:7;
+  }
+  .spot-query-table .qty-cell { min-width:0; text-align:center !important; }
+  .spot-query-table .spot-sku, .spot-query-table .spot-sizes {
+    min-width:0; max-width:none; overflow-wrap:anywhere;
+  }
+  .spot-col-resizer {
+    position:absolute; z-index:2; top:0; right:-5px; width:10px; height:100%;
+    cursor:col-resize; touch-action:none;
+  }
+  .spot-col-resizer::after {
+    content:""; position:absolute; top:20%; bottom:20%; left:4px;
+    width:1px; background:#c8cdd4;
+  }
+  .spot-col-resizer:hover::after, .spot-col-resizer.active::after {
+    width:2px; background:#206bc4;
+  }
+  @media (max-width: 575px) {
+    .inventory-toolbar > .filter-control { flex:1 1 calc(50% - .375rem); min-width:0; }
+    .inventory-toolbar > .filter-control .form-select { min-width:0; }
+    .inventory-toolbar > #inventory-captured { flex:1 1 100%; }
+    .inventory-number { font-size:1.4rem; }
+    .spot-filter-control { flex:1 1 calc(50% - .35rem); min-width:0; }
+    .spot-filter-search { flex:1 1 100%; min-width:0; }
+    .spot-primary-filter-items { flex:1 1 100%; }
+    .spot-primary-filter-items > .spot-filter-control { flex:1 1 calc(50% - .35rem); min-width:0; }
+    .spot-filter-actions { width:100%; margin-left:0; }
+    .spot-filter-actions .btn { flex:1; }
+    .spot-advanced { grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .spot-filter-menu {
+      position:fixed; z-index:1090; left:12px; right:12px;
+      top:auto; bottom:calc(70px + env(safe-area-inset-bottom, 0px));
+      width:auto; max-width:none; max-height:min(58vh,420px);
+      overflow-y:auto; overscroll-behavior:contain;
+      box-shadow:0 -8px 28px rgba(31,41,55,.2);
+    }
+    .spot-column-menu {
+      left:12px; right:auto; width:calc(100vw - 24px); min-width:0; max-width:calc(100vw - 24px);
+    }
+    .spot-filter-layout-row { grid-template-columns:minmax(0,1fr) 7.5rem; }
+    .spot-preset-tools { width:100%; margin-left:0; }
+    .spot-preset-select { flex:1 1 12rem; min-width:0; }
+    .spot-sku { min-width:7rem; max-width:8.5rem; }
+  }
+</style>
+
+<div id="inventory-status" class="mb-3"></div>
+
+<ul class="nav nav-pills mb-3" id="inventory-view-tabs" aria-label="库存视图">
+  <li class="nav-item"><button class="nav-link active" type="button" data-view="spot">库存查询</button></li>
+  <li class="nav-item"><button class="nav-link" type="button" data-view="overview">库存总览</button></li>
+</ul>
+
+<div id="inventory-overview-view" class="d-none">
+<div class="inventory-toolbar mb-3">
+  <div class="filter-control">
+    <label class="form-label mb-1" for="inventory-month">月份</label>
+    <select id="inventory-month" class="form-select"></select>
+  </div>
+  <div class="filter-control">
+    <label class="form-label mb-1" for="inventory-category">分类</label>
+    <select id="inventory-category" class="form-select"></select>
+  </div>
+  <div class="filter-control d-none" id="inventory-subcategory-wrap">
+    <label class="form-label mb-1" id="inventory-subcategory-label" for="inventory-subcategory">小类</label>
+    <select id="inventory-subcategory" class="form-select"></select>
+  </div>
+  <div class="filter-control">
+    <label class="form-label mb-1" for="inventory-movement">库存口径</label>
+    <select id="inventory-movement" class="form-select"></select>
+  </div>
+  <div class="ms-lg-auto text-secondary small" id="inventory-captured"></div>
+</div>
+
+<div id="inventory-app">
+  <div class="text-secondary py-4">加载中...</div>
+</div>
+</div>
+
+<div id="spot-stock-view">
+  <div class="spot-filter-shell mb-3">
+    <div class="d-flex align-items-center gap-3 mb-3 flex-wrap">
+      <div class="spot-view-switch" aria-label="库存查询粒度">
+        <button class="btn btn-sm active" type="button" data-spot-view-mode="product"><i class="ti ti-package me-1"></i>商品模式</button>
+        <button class="btn btn-sm" type="button" data-spot-view-mode="sku"><i class="ti ti-list-details me-1"></i>SKU 模式</button>
+      </div>
+      <span id="spot-view-description" class="text-secondary small">一行一个款号，库存汇总包含全部颜色、尺码和仓库</span>
+      <div class="spot-preset-tools">
+        <div class="spot-preset-select">
+          <label class="form-label mb-1" for="spot-preset-select">查询预设</label>
+          <select id="spot-preset-select" class="form-select"><option value="">当前条件</option></select>
+        </div>
+        <button id="spot-save-preset" class="btn btn-outline-secondary" type="button" title="保存当前查询预设"><i class="ti ti-device-floppy"></i><span class="ms-1">保存</span></button>
+        <button id="spot-delete-preset" class="btn btn-icon btn-outline-secondary" type="button" title="删除当前预设" disabled><i class="ti ti-trash"></i></button>
+        <details class="spot-multiselect" id="spot-column-picker">
+          <summary><span><i class="ti ti-columns-3 me-1"></i>显示列</span></summary>
+          <div class="spot-filter-menu spot-column-menu" id="spot-column-options"></div>
+        </details>
+      </div>
+    </div>
+    <div class="spot-filter-row">
+      <div class="spot-filter-search">
+        <label class="form-label mb-1" for="spot-search">搜索</label>
+        <div class="input-icon">
+          <span class="input-icon-addon"><i class="ti ti-search"></i></span>
+          <input id="spot-search" class="form-control" placeholder="款号、SKU、商品名、颜色、尺码">
+        </div>
+      </div>
+      <div id="spot-primary-filter-items" class="spot-primary-filter-items">
+      <div class="spot-filter-control" data-spot-filter-control="candidateTypes">
+        <label class="form-label mb-1">候选类型</label>
+        <details class="spot-multiselect" data-spot-filter="candidateTypes">
+          <summary><span data-filter-label>已选 1 项</span></summary>
+          <div class="spot-filter-menu">
+            <label class="spot-filter-option"><input class="form-check-input m-0" type="checkbox" value="singleton">孤品款 · 整款实际库存1件</label>
+            <label class="spot-filter-option"><input class="form-check-input m-0" type="checkbox" value="broken_size">断码款 · 整款≤2尺码</label>
+            <label class="spot-filter-option"><input class="form-check-input m-0" type="checkbox" value="no_order">观察期无订单</label>
+            <label class="spot-filter-option"><input class="form-check-input m-0" type="checkbox" value="unassigned">未分配 SKU</label>
+          </div>
+        </details>
+      </div>
+      <div class="spot-filter-control" data-spot-filter-control="categories">
+        <label class="form-label mb-1">分类</label>
+        <details class="spot-multiselect" data-spot-filter="categories">
+          <summary><span data-filter-label>全部</span></summary>
+          <div class="spot-filter-menu" data-filter-options></div>
+        </details>
+      </div>
+      <div class="spot-filter-control" data-spot-filter-control="warehouses">
+        <label class="form-label mb-1">仓库</label>
+        <details class="spot-multiselect" data-spot-filter="warehouses">
+          <summary><span data-filter-label>全部</span></summary>
+          <div class="spot-filter-menu" data-filter-options></div>
+        </details>
+      </div>
+      <div class="spot-filter-control" data-spot-filter-control="sizes">
+        <label class="form-label mb-1">尺码</label>
+        <details class="spot-multiselect" data-spot-filter="sizes">
+          <summary><span data-filter-label>全部</span></summary>
+          <div class="spot-filter-menu" data-filter-options></div>
+        </details>
+      </div>
+      <div class="spot-filter-control" data-spot-filter-control="subcategories">
+        <label class="form-label mb-1">商品小类</label>
+        <details class="spot-multiselect" data-spot-filter="subcategories">
+          <summary><span data-filter-label>全部</span></summary>
+          <div class="spot-filter-menu" data-filter-options></div>
+        </details>
+      </div>
+      <div class="spot-filter-control" data-spot-filter-control="productStock">
+        <label class="form-label mb-1" for="spot-product-stock-min">实际库存</label>
+        <div class="spot-range"><input class="form-control" type="number" id="spot-product-stock-min" placeholder="最小"><input class="form-control" type="number" id="spot-product-stock-max" placeholder="最大"></div>
+      </div>
+      <div class="spot-filter-control" data-spot-filter-control="sellable">
+        <label class="form-label mb-1" for="spot-sellable-min">可销售库存</label>
+        <div class="spot-range"><input class="form-control" type="number" id="spot-sellable-min" placeholder="最小"><input class="form-control" type="number" id="spot-sellable-max" placeholder="最大"></div>
+      </div>
+      </div>
+      <div class="spot-filter-actions">
+        <button id="spot-advanced-toggle" class="btn btn-outline-secondary" type="button"><i class="ti ti-adjustments-horizontal me-1"></i>更多条件</button>
+        <button id="spot-filter-layout" class="btn btn-outline-secondary spot-filter-layout-button" type="button" title="设置筛选条件显示在外部或更多条件"><i class="ti ti-layout-distribute-horizontal me-1"></i>筛选布局</button>
+        <button id="spot-reset" class="btn btn-outline-secondary" type="button"><i class="ti ti-restore me-1"></i>恢复默认</button>
+      </div>
+    </div>
+    <div id="spot-advanced" class="spot-advanced d-none">
+      <div class="spot-filter-control" data-spot-filter-control="colors">
+        <label class="form-label mb-1">颜色</label>
+        <details class="spot-multiselect" data-spot-filter="colors">
+          <summary><span data-filter-label>全部</span></summary>
+          <div class="spot-filter-menu" data-filter-options></div>
+        </details>
+      </div>
+      <div class="spot-filter-control" data-spot-filter-control="allocationStatuses">
+        <label class="form-label mb-1">SKU 分配</label>
+        <details class="spot-multiselect" data-spot-filter="allocationStatuses">
+          <summary><span data-filter-label>全部</span></summary>
+          <div class="spot-filter-menu">
+            <label class="spot-filter-option"><input class="form-check-input m-0" type="checkbox" value="assigned">已分配</label>
+            <label class="spot-filter-option"><input class="form-check-input m-0" type="checkbox" value="unassigned">未分配</label>
+          </div>
+        </details>
+      </div>
+      <div class="spot-filter-control" data-spot-filter-control="imageStatus"><label class="form-label mb-1" for="spot-image-status">图片</label><select id="spot-image-status" class="form-select"><option value="all">全部</option><option value="with_image">有图片</option><option value="without_image">无图片</option></select></div>
+      <div class="spot-filter-control" data-spot-filter-control="orderStatus"><label class="form-label mb-1" for="spot-order-status">订单状态</label><select id="spot-order-status" class="form-select"><option value="all">全部</option><option value="ordered">观察期有下单</option><option value="no_order">观察期无订单</option><option value="refunded">有退款</option></select></div>
+      <div class="spot-filter-control" data-spot-filter-control="skuCoverage" data-spot-product-only><label class="form-label mb-1" for="spot-sku-coverage">SKU 明细</label><select id="spot-sku-coverage" class="form-select"><option value="all">全部</option><option value="covered">已有完整 SKU 明细</option><option value="not_covered">暂无 SKU 明细</option></select></div>
+      <div class="spot-filter-control d-none" data-spot-filter-control="stock" data-spot-sku-only><label class="form-label mb-1" for="spot-stock-min">当前 SKU 库存</label><div class="spot-range"><input class="form-control" type="number" id="spot-stock-min" placeholder="最小"><input class="form-control" type="number" id="spot-stock-max" placeholder="最大"></div></div>
+      <div class="spot-filter-control" data-spot-filter-control="occupied"><label class="form-label mb-1" for="spot-occupied-min">占用数量</label><div class="spot-range"><input class="form-control" type="number" id="spot-occupied-min" placeholder="最小"><input class="form-control" type="number" id="spot-occupied-max" placeholder="最大"></div></div>
+      <div class="spot-filter-control" data-spot-filter-control="remainingSizes"><label class="form-label mb-1" for="spot-sizes-min">可售尺码数</label><div class="spot-range"><input class="form-control" type="number" id="spot-sizes-min" placeholder="最小"><input class="form-control" type="number" id="spot-sizes-max" placeholder="最大"></div></div>
+      <div class="spot-filter-control" data-spot-filter-control="ordered"><label class="form-label mb-1" for="spot-ordered-min">观察期下单</label><div class="spot-range"><input class="form-control" type="number" id="spot-ordered-min" placeholder="最小"><input class="form-control" type="number" id="spot-ordered-max" placeholder="最大"></div></div>
+      <div class="spot-filter-control" data-spot-filter-control="refund"><label class="form-label mb-1" for="spot-refund-min">退款数量</label><div class="spot-range"><input class="form-control" type="number" id="spot-refund-min" placeholder="最小"><input class="form-control" type="number" id="spot-refund-max" placeholder="最大"></div></div>
+      <div class="spot-filter-control" data-spot-filter-control="taobaoPrice"><label class="form-label mb-1" for="spot-taobao-price-min">淘宝价</label><div class="spot-range"><input class="form-control" type="number" step="0.01" id="spot-taobao-price-min" placeholder="最小"><input class="form-control" type="number" step="0.01" id="spot-taobao-price-max" placeholder="最大"></div></div>
+      <div class="spot-filter-control" data-spot-filter-control="taobaoTotalSold"><label class="form-label mb-1" for="spot-taobao-total-sold-min">淘宝总销量</label><div class="spot-range"><input class="form-control" type="number" id="spot-taobao-total-sold-min" placeholder="最小"><input class="form-control" type="number" id="spot-taobao-total-sold-max" placeholder="最大"></div></div>
+      <div class="spot-filter-control" data-spot-filter-control="taobaoSold30d"><label class="form-label mb-1" for="spot-taobao-sold-30d-min">淘宝近30天</label><div class="spot-range"><input class="form-control" type="number" id="spot-taobao-sold-30d-min" placeholder="最小"><input class="form-control" type="number" id="spot-taobao-sold-30d-max" placeholder="最大"></div></div>
+      <div class="spot-filter-control" data-spot-filter-control="skuCount" data-spot-product-only><label class="form-label mb-1" for="spot-sku-count-min">可售 SKU 数</label><div class="spot-range"><input class="form-control" type="number" id="spot-sku-count-min" placeholder="最小"><input class="form-control" type="number" id="spot-sku-count-max" placeholder="最大"></div></div>
+    </div>
+    <div class="spot-filter-row mt-2">
+      <div class="spot-filter-control"><label class="form-label mb-1" for="spot-sort-by">排序</label><select id="spot-sort-by" class="form-select"><option value="priority">候选优先级</option><option value="product_code">款号</option><option value="sku_code">SKU</option><option value="warehouse_name">仓库</option><option value="color">颜色</option><option value="size">尺码</option><option value="stock_qty">实际库存</option><option value="sellable_qty">可销售库存</option><option value="occupied_qty">占用</option><option value="remaining_size_count">可售尺码数</option><option value="sku_count">可售 SKU 数</option><option value="ordered_qty">观察期下单</option><option value="refund_qty">退款</option><option value="taobao_price">淘宝价</option><option value="taobao_total_sold">淘宝总销量</option><option value="taobao_sold_30d">淘宝近30天</option><option value="last_order_at">最后下单</option></select></div>
+      <button id="spot-sort-dir" class="btn btn-outline-secondary" type="button" title="切换升降序"><i class="ti ti-sort-ascending"></i><span class="ms-1">升序</span></button>
+      <div class="spot-filter-control"><label class="form-label mb-1" for="spot-page-size">每页</label><select id="spot-page-size" class="form-select"><option value="50">50 条</option><option value="100" selected>100 条</option><option value="250">250 条</option></select></div>
+      <div id="spot-filter-summary" class="spot-filter-summary text-secondary small ms-lg-auto"></div>
+    </div>
+  </div>
+  <div id="spot-stock-app"><div class="text-secondary py-4">加载中...</div></div>
+</div>
+
+<dialog id="spot-preset-dialog" class="spot-dialog">
+  <form method="dialog" class="spot-dialog-body">
+    <h3 class="h3 mb-3">保存查询预设</h3>
+    <label class="form-label" for="spot-preset-name">预设名称</label>
+    <input id="spot-preset-name" class="form-control mb-3" maxlength="60" placeholder="例如：100码主仓盘点">
+    <label class="form-check mb-3">
+      <input id="spot-preset-default" class="form-check-input" type="checkbox">
+      <span class="form-check-label">设为默认，下次自动载入</span>
+    </label>
+    <div id="spot-preset-error" class="text-danger small mb-2"></div>
+    <div class="d-flex justify-content-end gap-2">
+      <button class="btn btn-outline-secondary" value="cancel">取消</button>
+      <button id="spot-preset-confirm" class="btn btn-primary" value="default">保存</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="spot-column-order-dialog" class="spot-dialog spot-column-order-dialog">
+  <form method="dialog" class="spot-dialog-body spot-column-order-dialog-body">
+    <div class="d-flex align-items-start gap-2 mb-2">
+      <div class="flex-fill">
+        <h3 class="h3 mb-1">调整列顺序</h3>
+        <p class="text-secondary small mb-0">图片和款号固定在前，点击上下箭头调整其他已显示列。</p>
+      </div>
+      <button class="btn btn-icon btn-ghost-secondary" type="button" data-column-order-dialog-close aria-label="关闭列顺序设置"><i class="ti ti-x"></i></button>
+    </div>
+    <div id="spot-column-order-dialog-content" class="spot-column-order-dialog-content"></div>
+    <div class="d-flex justify-content-end gap-2 mt-3">
+      <button class="btn btn-outline-secondary" type="button" data-column-order-dialog-close>取消</button>
+      <button class="btn btn-primary" type="button" data-column-order-apply><i class="ti ti-check me-1"></i>应用顺序</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="spot-filter-layout-dialog" class="spot-dialog spot-filter-layout-dialog">
+  <form method="dialog" class="spot-dialog-body spot-filter-layout-dialog-body">
+    <div class="d-flex align-items-start gap-2 mb-2">
+      <div class="flex-fill">
+        <h3 class="h3 mb-1">筛选布局</h3>
+        <p class="text-secondary small mb-0">选择每个筛选项显示在外部，还是收进“更多条件”。布局会保存在当前浏览器。</p>
+      </div>
+      <button class="btn btn-icon btn-ghost-secondary" type="button" data-filter-layout-close aria-label="关闭筛选布局设置"><i class="ti ti-x"></i></button>
+    </div>
+    <div id="spot-filter-layout-content" class="spot-filter-layout-list"></div>
+    <div class="d-flex justify-content-between gap-2 mt-3">
+      <button class="btn btn-outline-secondary" type="button" data-filter-layout-reset>恢复默认布局</button>
+      <div class="d-flex gap-2">
+        <button class="btn btn-outline-secondary" type="button" data-filter-layout-close>取消</button>
+        <button class="btn btn-primary" type="button" data-filter-layout-apply><i class="ti ti-check me-1"></i>应用布局</button>
+      </div>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="spot-help-dialog" class="spot-dialog">
+  <div class="spot-dialog-body">
+    <div class="d-flex align-items-start gap-2">
+      <div class="flex-fill">
+        <h3 id="spot-help-title" class="h3 mb-2"></h3>
+        <p id="spot-help-text" class="mb-3 text-secondary"></p>
+      </div>
+      <button id="spot-help-close-icon" class="btn btn-icon btn-ghost-secondary" type="button" aria-label="关闭说明"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="spot-help-rule small mb-3">同一个筛选里的多选是“满足任意一项”；不同筛选条件之间是“同时满足”。最小值和最大值可以只填一边。</div>
+    <div class="text-end"><button id="spot-help-close" class="btn btn-primary" type="button">知道了</button></div>
+  </div>
+</dialog>
+
+<div id="spot-lightbox" class="spot-lightbox d-none" role="dialog" aria-modal="true" aria-labelledby="spot-lightbox-title">
+  <div class="spot-lightbox-content">
+    <button class="spot-lightbox-close" type="button" data-spot-close aria-label="关闭大图">&times;</button>
+    <img id="spot-lightbox-image" class="spot-lightbox-image" alt="">
+    <div id="spot-lightbox-title" class="spot-lightbox-title"></div>
+  </div>
+</div>
+
+<script>
+const inventoryState = {
+  month: '', category: 'all', subcategory: 'all',
+  movement: 'business', search: '', anomaly: 'exclude', categoryLabels: {}
+};
+const spotState = {
+  viewMode: 'product',
+  candidateTypes: [], productGroups: [], categories: ['apparel'], subcategories: [],
+  warehouses: ['主仓库', '走秀仓库'], sizes: [],
+  colors: [], allocationStatuses: [], imageStatus: 'all', orderStatus: 'all',
+  skuCoverage: 'all',
+  productStockMin: '', productStockMax: '',
+  stockMin: '', stockMax: '', sellableMin: '', sellableMax: '',
+  occupiedMin: '', occupiedMax: '', sizesMin: '', sizesMax: '',
+  orderedMin: '', orderedMax: '', refundMin: '', refundMax: '',
+  taobaoPriceMin: '', taobaoPriceMax: '',
+  taobaoTotalSoldMin: '', taobaoTotalSoldMax: '',
+  taobaoSold30dMin: '', taobaoSold30dMax: '',
+  skuCountMin: '', skuCountMax: '',
+  sortBy: 'priority', sortDir: 'asc', limit: 100, offset: 0, q: ''
+};
+let spotColumnOrderDraft = null;
+const spotColumns = {
+  product: [
+    {key:'image', label:'图片', required:true},
+    {key:'product', label:'款号', required:true, sort:'product_code'},
+    {key:'taobao_price', label:'淘宝价', sort:'taobao_price', numeric:true},
+    {key:'taobao_total_sold', label:'淘宝总销量', sort:'taobao_total_sold', numeric:true},
+    {key:'taobao_sold_30d', label:'淘宝近30天', sort:'taobao_sold_30d', numeric:true},
+    {key:'category', label:'分类'},
+    {key:'stock_qty', label:'实际库存', sort:'stock_qty', numeric:true},
+    {key:'sizes', label:'可售尺码', sort:'remaining_size_count'},
+    {key:'sku_count', label:'可售 SKU', sort:'sku_count', numeric:true},
+    {key:'sellable_qty', label:'可销售库存', sort:'sellable_qty', numeric:true},
+    {key:'occupied_qty', label:'占用', sort:'occupied_qty', numeric:true},
+    {key:'warehouses', label:'仓库', sort:'warehouse_name'},
+    {key:'colors', label:'颜色', sort:'color'},
+    {key:'sku_coverage', label:'SKU 明细'},
+    {key:'ordered_qty', label:'观察期下单', sort:'ordered_qty', numeric:true},
+    {key:'refund_qty', label:'退款', sort:'refund_qty', numeric:true},
+    {key:'last_order_at', label:'最后下单', sort:'last_order_at'},
+    {key:'flags', label:'判断'}
+  ],
+  sku: [
+    {key:'image', label:'图片', required:true},
+    {key:'product', label:'款号 / SKU', required:true, sort:'product_code'},
+    {key:'taobao_price', label:'淘宝价', sort:'taobao_price', numeric:true},
+    {key:'taobao_total_sold', label:'淘宝总销量', sort:'taobao_total_sold', numeric:true},
+    {key:'taobao_sold_30d', label:'淘宝近30天', sort:'taobao_sold_30d', numeric:true},
+    {key:'category', label:'分类'},
+    {key:'size', label:'尺码', sort:'size'},
+    {key:'stock_qty', label:'SKU 实际库存', sort:'stock_qty', numeric:true},
+    {key:'product_stock_qty', label:'整款实际库存', numeric:true},
+    {key:'sellable_qty', label:'SKU 可销售库存', sort:'sellable_qty', numeric:true},
+    {key:'occupied_qty', label:'占用', sort:'occupied_qty', numeric:true},
+    {key:'warehouse', label:'仓库', sort:'warehouse_name'},
+    {key:'color', label:'颜色', sort:'color'},
+    {key:'sizes', label:'整款可售尺码', sort:'remaining_size_count'},
+    {key:'ordered_qty', label:'观察期下单', sort:'ordered_qty', numeric:true},
+    {key:'refund_qty', label:'退款', sort:'refund_qty', numeric:true},
+    {key:'last_order_at', label:'最后下单', sort:'last_order_at'},
+    {key:'flags', label:'判断'}
+  ]
+};
+function normalizeSpotVisibleColumns(mode, values) {
+  const definitions = spotColumns[mode] || [];
+  const allowed = new Set(definitions.map(column => column.key));
+  const required = definitions.filter(column => column.required).map(column => column.key);
+  const selected = Array.isArray(values) ? values.filter(key => allowed.has(key)) : [];
+  return [...required, ...selected.filter(key => !required.includes(key))]
+    .filter((key, index, array) => array.indexOf(key) === index);
+}
+spotState.visibleColumns = {
+  product: ['image','product','taobao_price','taobao_total_sold','taobao_sold_30d','sellable_qty','stock_qty','sizes'],
+  sku: ['image','product','taobao_price','taobao_total_sold','taobao_sold_30d','size','sellable_qty','stock_qty','product_stock_qty']
+};
+spotState.columnWidths = {product: {}, sku: {}};
+const spotDefaultColumnWidths = {
+  image:64, product:124, category:100, sellable_qty:96, stock_qty:88,
+  product_stock_qty:104, sizes:190, sku_count:88, occupied_qty:84,
+  warehouses:130, warehouse:110, colors:140, color:90, size:78,
+  sku_coverage:96, ordered_qty:104, refund_qty:80,
+  last_order_at:150, flags:160, taobao_price:88,
+  taobao_total_sold:104, taobao_sold_30d:104
+};
+const spotFilterDefinitions = [
+  {key:'candidateTypes', label:'候选类型', placement:'primary', selector:'[data-spot-filter-control="candidateTypes"]'},
+  {key:'categories', label:'分类', placement:'primary', selector:'[data-spot-filter-control="categories"]'},
+  {key:'warehouses', label:'仓库', placement:'primary', selector:'[data-spot-filter-control="warehouses"]'},
+  {key:'sizes', label:'尺码', placement:'primary', selector:'[data-spot-filter-control="sizes"]'},
+  {key:'subcategories', label:'商品小类', placement:'primary', selector:'[data-spot-filter-control="subcategories"]'},
+  {key:'productStock', label:'实际库存', placement:'primary', selector:'[data-spot-filter-control="productStock"]'},
+  {key:'sellable', label:'可销售库存', placement:'primary', selector:'[data-spot-filter-control="sellable"]'},
+  {key:'colors', label:'颜色', placement:'advanced', selector:'[data-spot-filter-control="colors"]'},
+  {key:'allocationStatuses', label:'SKU 分配', placement:'advanced', selector:'[data-spot-filter-control="allocationStatuses"]'},
+  {key:'imageStatus', label:'图片', placement:'advanced', selector:'[data-spot-filter-control="imageStatus"]'},
+  {key:'orderStatus', label:'订单状态', placement:'advanced', selector:'[data-spot-filter-control="orderStatus"]'},
+  {key:'skuCoverage', label:'SKU 明细', placement:'advanced', selector:'[data-spot-filter-control="skuCoverage"]'},
+  {key:'stock', label:'当前 SKU 库存', placement:'advanced', selector:'[data-spot-filter-control="stock"]'},
+  {key:'occupied', label:'占用数量', placement:'advanced', selector:'[data-spot-filter-control="occupied"]'},
+  {key:'remainingSizes', label:'可售尺码数', placement:'advanced', selector:'[data-spot-filter-control="remainingSizes"]'},
+  {key:'ordered', label:'观察期下单', placement:'advanced', selector:'[data-spot-filter-control="ordered"]'},
+  {key:'refund', label:'退款数量', placement:'advanced', selector:'[data-spot-filter-control="refund"]'},
+  {key:'taobaoPrice', label:'淘宝价', placement:'advanced', selector:'[data-spot-filter-control="taobaoPrice"]'},
+  {key:'taobaoTotalSold', label:'淘宝总销量', placement:'advanced', selector:'[data-spot-filter-control="taobaoTotalSold"]'},
+  {key:'taobaoSold30d', label:'淘宝近30天', placement:'advanced', selector:'[data-spot-filter-control="taobaoSold30d"]'},
+  {key:'skuCount', label:'可售 SKU 数', placement:'advanced', selector:'[data-spot-filter-control="skuCount"]'}
+];
+const spotFilterPlacementDefaults = Object.fromEntries(
+  spotFilterDefinitions.map(definition => [definition.key, definition.placement])
+);
+const spotFilterPlacementStorageKey = 'zhongtai.inventory.spotFilterPlacement.v1';
+const spotInventoryPreferencesStorageKey = 'zhongtai.inventory.preferences.v1';
+function normalizeSpotFilterPlacement(value) {
+  const normalized = {...spotFilterPlacementDefaults};
+  if (!value || typeof value !== 'object') return normalized;
+  spotFilterDefinitions.forEach(definition => {
+    if (value[definition.key] === 'primary' || value[definition.key] === 'advanced') {
+      normalized[definition.key] = value[definition.key];
+    }
+  });
+  return normalized;
+}
+function loadSpotFilterPlacement() {
+  try {
+    return normalizeSpotFilterPlacement(JSON.parse(localStorage.getItem(spotFilterPlacementStorageKey) || 'null'));
+  } catch (error) {
+    return {...spotFilterPlacementDefaults};
+  }
+}
+function saveSpotFilterPlacement() {
+  try {
+    localStorage.setItem(spotFilterPlacementStorageKey, JSON.stringify(spotFilterPlacement));
+  } catch (error) {
+    // A private browsing mode may deny localStorage; the current page still works.
+  }
+}
+let spotFilterPlacement = loadSpotFilterPlacement();
+let spotFilterPlacementDraft = null;
+let spotInventoryPreferencesReady = false;
+let spotInventoryPreferencesSaveTimer = null;
+
+function currentSpotInventoryPreferences() {
+  return {
+    visibleColumns: {
+      product: [...spotState.visibleColumns.product],
+      sku: [...spotState.visibleColumns.sku]
+    },
+    columnWidths: {
+      product: {...spotState.columnWidths.product},
+      sku: {...spotState.columnWidths.sku}
+    },
+    filterPlacement: {...spotFilterPlacement}
+  };
+}
+
+function applySpotInventoryPreferences(preferences) {
+  if (!preferences || typeof preferences !== 'object') return;
+  if (preferences.visibleColumns && typeof preferences.visibleColumns === 'object') {
+    for (const mode of ['product', 'sku']) {
+      if (Array.isArray(preferences.visibleColumns[mode])) {
+        spotState.visibleColumns[mode] = normalizeSpotVisibleColumns(mode, preferences.visibleColumns[mode]);
+      }
+    }
+  }
+  if (preferences.columnWidths && typeof preferences.columnWidths === 'object') {
+    for (const mode of ['product', 'sku']) {
+      if (preferences.columnWidths[mode] && typeof preferences.columnWidths[mode] === 'object') {
+        spotState.columnWidths[mode] = {...preferences.columnWidths[mode]};
+      }
+    }
+  }
+  if (preferences.filterPlacement) {
+    spotFilterPlacement = normalizeSpotFilterPlacement(preferences.filterPlacement);
+    saveSpotFilterPlacement();
+  }
+  renderSpotFilterPlacement();
+  renderSpotColumnPicker();
+}
+
+function loadLocalSpotInventoryPreferences() {
+  try {
+    const value = JSON.parse(localStorage.getItem(spotInventoryPreferencesStorageKey) || 'null');
+    return value && typeof value === 'object' ? value : null;
+  } catch (error) {
+    return null;
+  }
+}
+
+function saveLocalSpotInventoryPreferences() {
+  try {
+    localStorage.setItem(
+      spotInventoryPreferencesStorageKey,
+      JSON.stringify(currentSpotInventoryPreferences())
+    );
+  } catch (error) {
+    // A private browsing mode may deny localStorage; the current page still works.
+  }
+}
+
+async function writeSpotInventoryPreferences() {
+  const response = await fetch('/api/erp/v1/inventory/preferences', {
+    method: 'PUT',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(currentSpotInventoryPreferences())
+  });
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  const payload = await response.json();
+  return payload.data || {};
+}
+
+function persistSpotInventoryPreferences() {
+  saveSpotFilterPlacement();
+  saveLocalSpotInventoryPreferences();
+  if (!spotInventoryPreferencesReady) return;
+  clearTimeout(spotInventoryPreferencesSaveTimer);
+  spotInventoryPreferencesSaveTimer = setTimeout(() => {
+    writeSpotInventoryPreferences().catch(error => {
+      console.warn('库存界面配置保存失败，已保留本地缓存', error);
+    });
+  }, 180);
+}
+
+async function loadSpotInventoryPreferences() {
+  const response = await fetch('/api/erp/v1/inventory/preferences');
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  const payload = await response.json();
+  const serverPreferences = payload.data || {};
+  const hasServerPreferences = [
+    'visibleColumns', 'columnWidths', 'filterPlacement'
+  ].some(key => Object.prototype.hasOwnProperty.call(serverPreferences, key));
+  if (hasServerPreferences) {
+    applySpotInventoryPreferences(serverPreferences);
+  } else {
+    await writeSpotInventoryPreferences();
+  }
+  spotInventoryPreferencesReady = true;
+  saveLocalSpotInventoryPreferences();
+}
+
+const localSpotInventoryPreferences = loadLocalSpotInventoryPreferences();
+if (localSpotInventoryPreferences) {
+  applySpotInventoryPreferences(localSpotInventoryPreferences);
+}
+const spotFilterHelp = {
+  'spot-preset-select': ['查询预设', '保存并恢复一整套查询设置，包括商品或 SKU 模式、全部筛选条件、排序、每页数量、显示列及列顺序。设为默认后，下次打开页面会自动载入。'],
+  'spot-search': ['搜索', '在当前模式中按款号、商品名称、SKU、颜色和尺码模糊查找。商品模式会搜索该商品已覆盖的全部颜色和尺码。'],
+  candidateTypes: ['候选类型', '快捷业务条件。孤品款指整款实际库存为 1；断码款指已取得 SKU 明细且整款只剩不超过 2 个可售尺码；观察期无订单只依据当前本地订单观察窗口。'],
+  categories: ['分类', '按商品编码规则划分的大类筛选，例如服装、特卖、头饰、鞋等。商品模式覆盖 ERP 全量分类。'],
+  warehouses: ['仓库', '筛选在所选仓库中仍有正库存的商品或 SKU。商品模式显示的实际库存仍是该商品跨全部仓库的合计，不会因为选择一个仓库而改写实际库存。'],
+  sizes: ['尺码', '筛选包含所选尺码的商品或具体 SKU。尺码依赖 SKU 明细；尚未采集 SKU 明细的商品不会被尺码条件命中。'],
+  colors: ['颜色', '筛选包含所选颜色的商品或具体 SKU。颜色依赖 SKU 明细；尚未采集 SKU 明细的商品不会被颜色条件命中。'],
+  subcategories: ['商品小类', '按商品编码前缀进一步细分，例如 K 女童、D 男童、B 宝宝衣、G 高定、TM 特卖妈妈装等。'],
+  allocationStatuses: ['SKU 分配', '“已分配”表示 ERP 库存能对应到明确的颜色尺码 SKU；“未分配”表示只有商品库存，暂时无法准确落到具体 SKU。'],
+  'spot-image-status': ['图片', '按图片是否可用筛选。库存查询优先使用淘宝商品缩略图，没有淘宝图时再使用管家婆商品图。'],
+  'spot-order-status': ['订单状态', '只依据生意中台当前保存的订单观察窗口，不代表 ERP 全历史销量。“有退款”表示观察窗口内匹配到退款记录。'],
+  'spot-sku-coverage': ['SKU 明细', '“已覆盖”表示已采集到具体颜色、尺码和 SKU 库存；“未覆盖”仍有准确的商品实际库存，但颜色、尺码及 SKU 数不应作为完整数据使用。'],
+  'spot-product-stock-min': ['实际库存', 'ERP 中同一商品跨所有尺码、颜色和仓库的物理库存合计，包含已经被占用、暂时不能销售的部分。最小和最大都填 1，即筛出实际库存恰好为 1 的商品。'],
+  'spot-stock-min': ['当前 SKU 实际库存', '仅在 SKU 模式使用，表示当前这一条具体颜色尺码 SKU 的物理库存数量，不等于整款实际库存。'],
+  'spot-sellable-min': ['可销售库存', 'ERP 当前真正可以继续销售的库存数量，通常等于实际库存减去占用。页面的可售尺码和断码判断也以可销售库存大于 0 为准。'],
+  'spot-occupied-min': ['占用数量', '已被订单或业务流程占用、暂时不能自由销售的库存数量。'],
+  'spot-sizes-min': ['可售尺码数', '同一款号跨颜色统计可销售库存大于 0 的不同尺码数量。该条件依赖完整 SKU 明细，未覆盖商品不会被当作零尺码参与判断。'],
+  'spot-ordered-min': ['观察期下单', '当前本地订单观察窗口内匹配到的下单件数，不是 ERP 全历史销量，也不等同于最终成交净件数。'],
+  'spot-refund-min': ['退款数量', '当前本地订单观察窗口内匹配到退款状态的件数，用于辅助判断下单量中可能被退款的部分。'],
+  'spot-taobao-price-min': ['淘宝价', '按当前已匹配淘宝商品显示的价格筛选。一个款号关联多个淘宝商品时，按接口返回的第一个有效价格参与筛选；没有价格的条目不会命中数值范围。'],
+  'spot-taobao-total-sold-min': ['淘宝总销量', '按已匹配淘宝商品采集到的总销量筛选；没有淘宝销量数据的条目不会被当作 0 参与范围筛选。'],
+  'spot-taobao-sold-30d-min': ['淘宝近30天', '按已匹配淘宝商品采集到的近 30 天销量筛选；没有淘宝销量数据的条目不会被当作 0 参与范围筛选。'],
+  'spot-sku-count-min': ['可售 SKU 数', '商品模式下按当前可销售库存大于 0 的 SKU 数量筛选。没有完整 SKU 明细的商品不参与该条件。'],
+  'spot-sort-by': ['排序', '选择主要排序字段，再用旁边按钮切换升序或降序。也可以直接点击表头切换该列排序。'],
+  'spot-page-size': ['每页数量', '控制每页加载的结果条数。手机建议使用 50 或 100 条，减少图片和表格一次加载的压力。']
+};
+
+function initializeSpotFilterHelp() {
+  document.querySelectorAll('#spot-stock-view .form-label').forEach(label => {
+    const details = label.parentElement.querySelector(':scope > [data-spot-filter]');
+    const field = label.htmlFor
+      || details?.dataset.spotFilter
+      || label.parentElement.querySelector('input[id], select[id]')?.id;
+    const help = spotFilterHelp[field];
+    if (!help || label.querySelector('.spot-help-button')) return;
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'spot-help-button';
+    button.dataset.helpKey = field;
+    button.setAttribute('aria-label', `查看${help[0]}说明`);
+    button.title = `查看${help[0]}说明`;
+    button.innerHTML = '<i class="ti ti-help-circle"></i>';
+    label.appendChild(button);
+  });
+}
+
+document.getElementById('spot-stock-view').addEventListener('click', event => {
+  const button = event.target.closest('[data-help-key]');
+  if (!button) return;
+  const help = spotFilterHelp[button.dataset.helpKey];
+  if (!help) return;
+  event.preventDefault();
+  document.getElementById('spot-help-title').textContent = help[0];
+  document.getElementById('spot-help-text').textContent = help[1];
+  document.getElementById('spot-help-dialog').showModal();
+});
+for (const id of ['spot-help-close', 'spot-help-close-icon']) {
+  document.getElementById(id).addEventListener('click', () => {
+    document.getElementById('spot-help-dialog').close();
+  });
+}
+initializeSpotFilterHelp();
+
+function esc(value) {
+  return String(value ?? '').replace(/[&<>'"]/g, char => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+  }[char]));
+}
+
+function renderSpotFilterPlacement() {
+  const primary = document.getElementById('spot-primary-filter-items');
+  const advanced = document.getElementById('spot-advanced');
+  if (!primary || !advanced) return;
+  spotFilterDefinitions.forEach(definition => {
+    const control = document.querySelector(definition.selector);
+    if (!control) return;
+    const target = spotFilterPlacement[definition.key] === 'primary' ? primary : advanced;
+    target.appendChild(control);
+  });
+  const advancedCount = advanced.querySelectorAll(':scope > [data-spot-filter-control]').length;
+  const toggle = document.getElementById('spot-advanced-toggle');
+  if (toggle) {
+    toggle.disabled = !advancedCount;
+    if (!advancedCount) {
+      advanced.classList.add('d-none');
+      toggle.innerHTML = '<i class="ti ti-adjustments-horizontal me-1"></i>更多条件';
+    }
+  }
+}
+
+function renderSpotFilterLayoutDialog() {
+  const source = spotFilterPlacementDraft || spotFilterPlacement;
+  document.getElementById('spot-filter-layout-content').innerHTML = spotFilterDefinitions.map(definition => `
+    <div class="spot-filter-layout-row">
+      <span class="spot-filter-layout-label">${esc(definition.label)}</span>
+      <select class="form-select form-select-sm" data-filter-layout-key="${esc(definition.key)}" aria-label="${esc(definition.label)}显示位置">
+        <option value="primary" ${source[definition.key] === 'primary' ? 'selected' : ''}>外部显示</option>
+        <option value="advanced" ${source[definition.key] === 'advanced' ? 'selected' : ''}>更多条件</option>
+      </select>
+    </div>`).join('');
+}
+
+function openSpotFilterLayoutDialog() {
+  spotFilterPlacementDraft = {...spotFilterPlacement};
+  renderSpotFilterLayoutDialog();
+  document.getElementById('spot-filter-layout-dialog').showModal();
+}
+
+const spotFilterLayoutDialog = document.getElementById('spot-filter-layout-dialog');
+spotFilterLayoutDialog.addEventListener('change', event => {
+  const select = event.target.closest('[data-filter-layout-key]');
+  if (!select || !spotFilterPlacementDraft) return;
+  spotFilterPlacementDraft[select.dataset.filterLayoutKey] = select.value;
+});
+spotFilterLayoutDialog.addEventListener('click', event => {
+  if (event.target === spotFilterLayoutDialog || event.target.closest('[data-filter-layout-close]')) {
+    spotFilterPlacementDraft = null;
+    spotFilterLayoutDialog.close();
+    return;
+  }
+  if (event.target.closest('[data-filter-layout-reset]')) {
+    spotFilterPlacementDraft = {...spotFilterPlacementDefaults};
+    renderSpotFilterLayoutDialog();
+    return;
+  }
+  if (event.target.closest('[data-filter-layout-apply]')) {
+    spotFilterPlacement = normalizeSpotFilterPlacement(spotFilterPlacementDraft);
+    persistSpotInventoryPreferences();
+    spotFilterPlacementDraft = null;
+    renderSpotFilterPlacement();
+    spotFilterLayoutDialog.close();
+  }
+});
+document.getElementById('spot-filter-layout').addEventListener('click', openSpotFilterLayoutDialog);
+renderSpotFilterPlacement();
+
+function qty(value) {
+  return Number(value || 0).toLocaleString('zh-CN', { maximumFractionDigits: 1 });
+}
+
+function delta(value) {
+  const number = Number(value || 0);
+  const color = number > 0 ? 'text-danger' : (number < 0 ? 'text-success' : 'text-secondary');
+  const icon = number > 0 ? 'arrow-up' : (number < 0 ? 'arrow-down' : 'minus');
+  return `<span class="${color}"><i class="ti ti-${icon}"></i>${qty(Math.abs(number))}</span>`;
+}
+
+function itemRows(items, mode='change') {
+  if (!items.length) return '<tr><td colspan="4" class="text-secondary py-3">暂无数据</td></tr>';
+  return items.map(item => `
+    <tr>
+      <td class="inventory-code">${esc(item.product_code || '-')}</td>
+      <td class="inventory-name">${esc(item.product_name || '-')}</td>
+      <td class="qty-cell">${qty(item.closing_qty)}</td>
+      <td class="qty-cell">${mode === 'stock' ? qty(item.metric_outbound_qty) : delta(item.net_change_qty)}</td>
+    </tr>`).join('');
+}
+
+function movementNote(data, direction) {
+  const s = data.summary;
+  if (data.movement.value === 'business') {
+    return direction === 'in'
+      ? `已排除顾客退货 ${qty(s.sales_return_qty)}`
+      : `销售 ${qty(s.sale_out_qty)} - 退货 ${qty(s.sales_return_qty)}`;
+  }
+  if (data.movement.value === 'returns') {
+    return direction === 'in' ? '顾客退回商品' : '退回供应商商品';
+  }
+  return data.movement.description;
+}
+
+function itemMovementHeaders(movement) {
+  if (movement === 'business') {
+    return '<th class="text-end">采购入库</th><th class="text-end">顾客退货</th><th class="text-end">销售出库</th><th class="text-end">净销售出库</th>';
+  }
+  if (movement === 'returns') {
+    return '<th class="text-end">顾客退货入库</th><th class="text-end">供应商退货出库</th>';
+  }
+  return '<th class="text-end">全部入库</th><th class="text-end">全部出库</th>';
+}
+
+function itemMovementCells(item, movement) {
+  if (movement === 'business') {
+    return `<td class="qty-cell">${qty(item.purchase_in_qty)}</td>
+      <td class="qty-cell">${qty(item.sales_return_qty)}</td>
+      <td class="qty-cell">${qty(item.sale_out_qty)}</td>
+      <td class="qty-cell fw-bold">${qty(item.metric_outbound_qty)}</td>`;
+  }
+  if (movement === 'returns') {
+    return `<td class="qty-cell">${qty(item.sales_return_qty)}</td>
+      <td class="qty-cell">${qty(item.purchase_return_qty)}</td>`;
+  }
+  return `<td class="qty-cell">${qty(item.inbound_qty)}</td>
+    <td class="qty-cell">${qty(item.outbound_qty)}</td>`;
+}
+
+function itemCategory(item) {
+  return item.classification_label
+    || inventoryState.categoryLabels[item.category]
+    || '未分类';
+}
+
+async function loadInventoryStatus() {
+  const target = document.getElementById('inventory-status');
+  try {
+    const response = await fetch('/api/erp/inventory/sync-status');
+    const status = await response.json();
+    const color = status.healthy ? 'success' : (status.status === 'error' ? 'danger' : 'warning');
+    const icon = status.healthy ? 'circle-check' : 'alert-circle';
+    const text = status.status === 'never' ? '尚未采集' :
+      (status.status === 'error' ? '实时库存采集失败' :
+        (status.stale ? `实时库存超过 ${status.realtime_stale_minutes || 12} 分钟` : '采集正常'));
+    target.innerHTML = `<div class="alert alert-${color} d-flex align-items-center py-2 mb-0">
+      <i class="ti ti-${icon} me-2"></i>
+      <div class="flex-fill"><strong>ERP 库存</strong>: ${text}
+        <span class="text-secondary ms-2">|</span>
+        <span class="ms-2">正式采集器 19489 ${status.browser_alive ? '在线' : '离线'}</span>
+        ${status.current_stock ? `<span class="text-secondary ms-2">|</span>
+        <span class="ms-2">${esc(status.current_stock.warehouse_name)}实际库存 ${qty(status.current_stock.stock_qty)}，可销售 ${qty(status.current_stock.sellable_qty)}，占用 ${qty(status.current_stock.occupied_qty)}，采集于 ${esc(status.current_stock.captured_at || '-')}</span>` : ''}
+        <span class="text-secondary ms-2">|</span>
+        <span class="ms-2">最近成功 ${esc(status.realtime_finished_at || '-')}</span>
+        ${status.error_message ? `<div class="small mt-1">${esc(status.error_message)}</div>` : ''}
+      </div>
+    </div>`;
+  } catch (error) {
+    target.innerHTML = '<div class="alert alert-secondary py-2 mb-0">库存同步状态读取失败</div>';
+  }
+}
+
+async function loadInventory(month='') {
+  const app = document.getElementById('inventory-app');
+  app.innerHTML = '<div class="text-secondary py-4">加载中...</div>';
+  const params = new URLSearchParams({
+    category: inventoryState.category,
+    subcategory: inventoryState.subcategory,
+    movement: inventoryState.movement,
+  });
+  if (month) params.set('month', month);
+  const response = await fetch('/api/erp/inventory/summary?' + params.toString());
+  const data = await response.json();
+  if (!data.ready) {
+    app.innerHTML = '<div class="alert alert-warning">库存数据尚未就绪</div>';
+    return;
+  }
+
+  inventoryState.month = data.month;
+  inventoryState.category = data.filter.category;
+  inventoryState.subcategory = data.filter.subcategory;
+  inventoryState.movement = data.filter.movement;
+  inventoryState.categoryLabels = Object.fromEntries(
+    data.categories.map(item => [item.category, item.label])
+  );
+
+  const monthSelect = document.getElementById('inventory-month');
+  monthSelect.innerHTML = data.months.map(value =>
+    `<option value="${esc(value)}" ${value === data.month ? 'selected' : ''}>${esc(value)}</option>`
+  ).join('');
+
+  const allClosing = data.categories.reduce((sum, item) => sum + Number(item.closing_qty || 0), 0);
+  const categorySelect = document.getElementById('inventory-category');
+  categorySelect.innerHTML = `
+    <option value="all" ${data.filter.category === 'all' ? 'selected' : ''}>全部商品 · ${qty(allClosing)}件</option>
+    ${data.categories.map(item => `
+      <option value="${esc(item.category)}" ${item.category === data.filter.category ? 'selected' : ''}>
+        ${esc(item.label)} · ${qty(item.closing_qty)}件
+      </option>`).join('')}`;
+
+  const subcategoryWrap = document.getElementById('inventory-subcategory-wrap');
+  const subcategorySelect = document.getElementById('inventory-subcategory');
+  const subcategoryLabel = document.getElementById('inventory-subcategory-label');
+  const subcategoryClosing = data.subcategories.reduce((sum, item) => sum + Number(item.closing_qty || 0), 0);
+  const subcategoryAllLabel = data.filter.category === 'sale' ? '全部特卖' : '全部服装';
+  subcategorySelect.innerHTML = `
+    <option value="all" ${data.filter.subcategory === 'all' ? 'selected' : ''}>${subcategoryAllLabel} · ${qty(subcategoryClosing)}件</option>
+    ${data.subcategories.map(item => `
+      <option value="${esc(item.subcategory)}" ${item.subcategory === data.filter.subcategory ? 'selected' : ''}>
+        ${esc(item.label)} · ${qty(item.closing_qty)}件
+      </option>`).join('')}`;
+  subcategoryLabel.textContent = data.filter.category === 'sale' ? '特卖小类' : '服装小类';
+  subcategoryWrap.classList.toggle('d-none', data.subcategories.length === 0);
+
+  const movementSelect = document.getElementById('inventory-movement');
+  movementSelect.innerHTML = data.movement_modes.map(item => `
+    <option value="${esc(item.value)}" ${item.value === data.filter.movement ? 'selected' : ''}>
+      ${esc(item.label)}
+    </option>`).join('');
+
+  const s = data.summary;
+  const compare = data.comparison;
+  document.getElementById('inventory-captured').textContent = `${data.filter.category_label} · ${data.movement.label} · 采集于 ${s.captured_at || '-'}`;
+  const maxClosing = Math.max(...data.trend.map(row => Math.abs(Number(row.closing_qty || 0))), 1);
+
+  app.innerHTML = `
+    <div class="row row-cards mb-3">
+      <div class="col-6 col-lg">
+        <div class="card inventory-kpi"><div class="card-body">
+          <div class="subheader">期末库存</div>
+          <div class="inventory-number mt-2">${qty(s.closing_qty)}</div>
+          <div class="small text-secondary mt-1">${s.stocked_skus} 个有货商品</div>
+        </div></div>
+      </div>
+      <div class="col-6 col-lg">
+        <div class="card inventory-kpi"><div class="card-body">
+          <div class="subheader">本月净变化</div>
+          <div class="inventory-number mt-2">${delta(s.net_change_qty)}</div>
+          <div class="small text-secondary mt-1">期初 ${qty(s.opening_qty)}</div>
+        </div></div>
+      </div>
+      <div class="col-6 col-lg">
+        <div class="card inventory-kpi"><div class="card-body">
+          <div class="subheader">本月${esc(data.movement.inbound_label)}</div>
+          <div class="inventory-number mt-2 text-orange">${qty(s.metric_inbound_qty)}</div>
+          <div class="small text-secondary mt-1">${movementNote(data, 'in')}</div>
+        </div></div>
+      </div>
+      <div class="col-6 col-lg">
+        <div class="card inventory-kpi"><div class="card-body">
+          <div class="subheader">本月${esc(data.movement.outbound_label)}</div>
+          <div class="inventory-number mt-2 text-azure">${qty(s.metric_outbound_qty)}</div>
+          <div class="small text-secondary mt-1">${movementNote(data, 'out')}</div>
+        </div></div>
+      </div>
+      <div class="col-12 col-lg">
+        <div class="card inventory-kpi"><div class="card-body">
+          <div class="subheader">本月无进出</div>
+          <div class="inventory-number mt-2 ${s.no_movement_skus ? 'text-warning' : ''}">${s.no_movement_skus}</div>
+          <div class="small text-secondary mt-1">当前仍有库存</div>
+        </div></div>
+      </div>
+    </div>
+
+    ${data.quality.anomaly_count ? `<div class="alert alert-warning py-2">
+      <i class="ti ti-filter-exclamation me-2"></i>
+      ${data.quality.anomaly_count} 个异常占位商品未计入上方合计
+    </div>` : ''}
+
+    <div class="card mb-3">
+      <div class="card-header">
+        <h3 class="card-title">本月库存流水拆分</h3>
+        <div class="ms-auto small text-secondary">经营口径默认不把顾客退货算作进货，并从销售出库中扣除</div>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-vcenter table-sm inventory-table inventory-breakdown mb-0">
+          <thead><tr><th>采购入库</th><th>顾客退货入库</th><th>销售出库</th><th>净销售出库</th><th>其他调增</th><th>其他调减</th></tr></thead>
+          <tbody><tr>
+            <td class="qty-cell text-orange fw-bold">${qty(s.purchase_in_qty)}</td>
+            <td class="qty-cell">${qty(s.sales_return_qty)}</td>
+            <td class="qty-cell">${qty(s.sale_out_qty)}</td>
+            <td class="qty-cell text-azure fw-bold">${qty(s.net_sale_out_qty)}</td>
+            <td class="qty-cell">${qty(s.adjustment_in_qty)}</td>
+            <td class="qty-cell">${qty(s.adjustment_out_qty)}</td>
+          </tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card mb-3">
+      <div class="card-header d-flex align-items-center">
+        <h3 class="card-title">月度库存变化</h3>
+        <div class="ms-auto small text-secondary">
+          ${compare.previous_month ? `${compare.previous_month} 期末至今 ${delta(compare.closing_change_qty)}` : ''}
+        </div>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-vcenter table-sm inventory-table mb-0">
+          <thead><tr><th>月份</th><th class="text-end">期初</th><th class="text-end">${esc(data.movement.inbound_label)}</th><th class="text-end">${esc(data.movement.outbound_label)}</th><th class="text-end">净变化</th><th class="text-end">期末</th><th style="width:18%"></th></tr></thead>
+          <tbody>${data.trend.map(row => `
+            <tr class="${row.month === data.month ? 'table-active' : ''}">
+              <td class="fw-bold">${esc(row.month)}</td>
+              <td class="qty-cell">${qty(row.opening_qty)}</td>
+              <td class="qty-cell">${qty(row.metric_inbound_qty)}</td>
+              <td class="qty-cell">${qty(row.metric_outbound_qty)}</td>
+              <td class="qty-cell">${delta(row.net_change_qty)}</td>
+              <td class="qty-cell fw-bold">${qty(row.closing_qty)}</td>
+              <td><div class="trend-bar"><span style="width:${Math.max(2, Math.round(Math.abs(row.closing_qty) / maxClosing * 100))}%"></span></div></td>
+            </tr>`).join('')}</tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="row row-cards mb-3">
+      <div class="col-lg-4">
+        <div class="card h-100">
+          <div class="card-header"><h3 class="card-title">库存增加最多</h3></div>
+          <div class="table-responsive"><table class="table table-sm inventory-table mb-0">
+            <thead><tr><th>编码</th><th>商品</th><th class="text-end">期末</th><th class="text-end">变化</th></tr></thead>
+            <tbody>${itemRows(data.top_increases)}</tbody>
+          </table></div>
+        </div>
+      </div>
+      <div class="col-lg-4">
+        <div class="card h-100">
+          <div class="card-header"><h3 class="card-title">库存减少最多</h3></div>
+          <div class="table-responsive"><table class="table table-sm inventory-table mb-0">
+            <thead><tr><th>编码</th><th>商品</th><th class="text-end">期末</th><th class="text-end">变化</th></tr></thead>
+            <tbody>${itemRows(data.top_decreases)}</tbody>
+          </table></div>
+        </div>
+      </div>
+      <div class="col-lg-4">
+        <div class="card h-100">
+          <div class="card-header"><h3 class="card-title">有库存但无进出</h3></div>
+          <div class="table-responsive"><table class="table table-sm inventory-table mb-0">
+            <thead><tr><th>编码</th><th>商品</th><th class="text-end">库存</th><th class="text-end">出库</th></tr></thead>
+            <tbody>${itemRows(data.stagnant, 'stock')}</tbody>
+          </table></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header inventory-toolbar">
+        <h3 class="card-title me-auto">商品库存明细</h3>
+        <div><input id="inventory-search" class="form-control" placeholder="商品编码或名称" value="${esc(inventoryState.search)}"></div>
+        <div><select id="inventory-anomaly" class="form-select">
+          <option value="exclude" ${inventoryState.anomaly === 'exclude' ? 'selected' : ''}>有效商品</option>
+          <option value="only" ${inventoryState.anomaly === 'only' ? 'selected' : ''}>异常商品</option>
+          <option value="include" ${inventoryState.anomaly === 'include' ? 'selected' : ''}>全部商品</option>
+        </select></div>
+      </div>
+      <div id="inventory-items"><div class="text-secondary p-3">加载中...</div></div>
+    </div>`;
+
+  bindInventoryControls();
+  await loadInventoryItems();
+}
+
+function bindInventoryControls() {
+  let timer;
+  document.getElementById('inventory-search').addEventListener('input', event => {
+    inventoryState.search = event.target.value;
+    clearTimeout(timer);
+    timer = setTimeout(loadInventoryItems, 300);
+  });
+  document.getElementById('inventory-anomaly').addEventListener('change', event => {
+    inventoryState.anomaly = event.target.value;
+    loadInventoryItems();
+  });
+}
+
+async function loadInventoryItems() {
+  const target = document.getElementById('inventory-items');
+  if (!target) return;
+  const params = new URLSearchParams({
+    month: inventoryState.month,
+    category: inventoryState.category,
+    subcategory: inventoryState.subcategory,
+    movement: inventoryState.movement,
+    search: inventoryState.search,
+    anomaly: inventoryState.anomaly,
+    limit: '250'
+  });
+  const response = await fetch('/api/erp/inventory/items?' + params.toString());
+  const data = await response.json();
+  const movementColumnCount = data.movement === 'business' ? 4 : 2;
+  const emptyColspan = 7 + movementColumnCount;
+  target.innerHTML = `
+    <div class="table-responsive"><table class="table table-vcenter table-hover table-sm inventory-table mb-0">
+      <thead><tr><th>商品编码</th><th>分类</th><th>商品名称</th><th>规格</th><th class="text-end">期初</th>${itemMovementHeaders(data.movement)}<th class="text-end">期末</th><th class="text-end">净变化</th></tr></thead>
+      <tbody>${data.items.map(item => `
+        <tr class="${item.is_anomaly ? 'table-warning' : ''}">
+          <td class="inventory-code">${esc(item.product_code || '-')}</td>
+          <td class="text-nowrap">${esc(itemCategory(item))}</td>
+          <td class="inventory-name">${esc(item.product_name || '-')}</td>
+          <td>${esc(item.spec || '-')}</td>
+          <td class="qty-cell">${qty(item.opening_qty)}</td>
+          ${itemMovementCells(item, data.movement)}
+          <td class="qty-cell fw-bold">${qty(item.closing_qty)}</td>
+          <td class="qty-cell">${delta(item.net_change_qty)}</td>
+        </tr>`).join('') || `<tr><td colspan="${emptyColspan}" class="text-secondary p-3">没有匹配商品</td></tr>`}</tbody>
+    </table></div>
+    <div class="card-footer text-secondary">显示 ${data.items.length} / ${data.count} 条</div>`;
+}
+
+function spotFlag(item) {
+  const flags = [];
+  if (item.is_singleton) flags.push('<span class="badge bg-red-lt">孤品款</span>');
+  if (item.is_broken_size) flags.push('<span class="badge bg-yellow-lt">断码款</span>');
+  if (item.no_order_observed) flags.push('<span class="badge bg-secondary-lt">观察期无订单</span>');
+  if (item.allocation_status === 'unassigned') flags.push('<span class="badge bg-orange-lt">未分配SKU</span>');
+  if (Number(item.occupied_qty || 0) > 0) flags.push('<span class="badge bg-blue-lt">有占用</span>');
+  return flags.join(' ');
+}
+
+function spotFullImageUrl(url) {
+  const value = String(url || '');
+  if (value.includes('erp.qiniu.wsgjp.com')) {
+    return value.replace(/!200x200(?:\?.*)?$/, '');
+  }
+  return value.replace(/_\d+x\d+xz(?=$|[?#])/, '');
+}
+
+function spotImage(item) {
+  if (!item.image_url) {
+    return '<span class="spot-thumb-placeholder" title="淘宝和管家婆均暂无图片"><i class="ti ti-photo-off"></i></span>';
+  }
+  const title = `${item.product_code || '-'} · ${item.color || '-'} · ${item.size || '-'}`;
+  return `<button class="spot-thumb-button" type="button"
+      data-spot-image="${esc(spotFullImageUrl(item.image_url))}" data-spot-title="${esc(title)}"
+      title="查看商品大图" aria-label="查看 ${esc(title)} 的商品大图">
+    <img class="spot-thumb" src="${esc(item.image_url)}" alt="${esc(title)}"
+      loading="lazy" referrerpolicy="no-referrer"
+      onerror="this.closest('button').outerHTML='<span class=&quot;spot-thumb-placeholder&quot; title=&quot;图片加载失败&quot;><i class=&quot;ti ti-photo-off&quot;></i></span>'">
+  </button>`;
+}
+
+function spotMoney(value) {
+  if (value === null || value === undefined || value === '') return '-';
+  return `¥${Number(value).toLocaleString('zh-CN', {maximumFractionDigits: 2})}`;
+}
+
+function spotMetric(value, knownCount, itemCount) {
+  if (value === null || value === undefined || value === '') {
+    return '<span title="当前淘宝快照未采集该销量">-</span>';
+  }
+  const title = knownCount < itemCount
+    ? `已采集 ${knownCount}/${itemCount} 个淘宝商品，数值为已采集商品合计`
+    : '已采集全部对应淘宝商品';
+  return `<span title="${esc(title)}">${qty(value)}</span>`;
+}
+
+function spotTaobaoRows(item) {
+  const source = item.taobao_mappings?.length
+    ? item.taobao_mappings
+    : (item.taobao_items || []);
+  const seen = new Set();
+  return source.filter(row => {
+    const itemId = row.taobao_item_id || '';
+    if (!itemId || seen.has(itemId)) return false;
+    seen.add(itemId);
+    return true;
+  });
+}
+
+function spotTaobaoBadge(item) {
+  const rows = spotTaobaoRows(item);
+  const row = rows.find(candidate => candidate.taobao_link);
+  if (!row) return '';
+  const count = rows.length;
+  const title = count > 1 ? `打开淘宝商品（共 ${count} 个）` : '打开淘宝商品';
+  return `<a class="spot-taobao-badge" href="${esc(row.taobao_link)}" target="_blank" rel="noreferrer"
+      title="${esc(title)}" aria-label="${esc(title)}"><i class="ti ti-external-link"></i>${count > 1 ? qty(count) : ''}</a>`;
+}
+
+function spotTaobaoPrices(item) {
+  const values = item.taobao_prices?.length
+    ? item.taobao_prices
+    : spotTaobaoRows(item).map(row => row.taobao_price ?? row.taobao_item_price);
+  const prices = [];
+  values.forEach(value => {
+    if (value !== null && value !== undefined && value !== '' && !prices.includes(value)) prices.push(value);
+  });
+  return prices.length ? prices.map(spotMoney).join('<br>') : '-';
+}
+
+function updateSpotFilterLabel(details) {
+  const selected = [...details.querySelectorAll('input:checked')];
+  const label = details.querySelector('[data-filter-label]');
+  if (!selected.length) label.textContent = '全部';
+  else if (selected.length === 1) label.textContent = selected[0].parentElement.textContent.trim();
+  else label.textContent = `已选 ${selected.length} 项`;
+}
+
+function renderSpotFilterOptions(key, values) {
+  const details = document.querySelector(`[data-spot-filter="${key}"]`);
+  const target = details?.querySelector('[data-filter-options]');
+  if (!target) return;
+  const selected = new Set(spotState[key]);
+  target.innerHTML = values.map(option => {
+    const value = typeof option === 'object' ? option.value : option;
+    const label = typeof option === 'object' ? option.label : option;
+    return `
+    <label class="spot-filter-option">
+      <input class="form-check-input m-0" type="checkbox" value="${esc(value)}" ${selected.has(value) ? 'checked' : ''}>
+      ${esc(label || value || '空值')}
+    </label>`;
+  }).join('');
+  updateSpotFilterLabel(details);
+}
+
+function spotResizeHandle(key) {
+  return `<span class="spot-col-resizer" data-resize-column="${esc(key)}" title="拖拽调整列宽；双击恢复默认"></span>`;
+}
+
+function spotSortHeader(label, field, align='', columnKey='') {
+  const active = spotState.sortBy === field;
+  const icon = active ? (spotState.sortDir === 'asc' ? 'sort-ascending' : 'sort-descending') : 'selector';
+  const key = columnKey || field;
+  const stickyClass = key === 'product' ? 'spot-sticky-product' : '';
+  return `<th class="${[align, stickyClass].filter(Boolean).join(' ')}" data-column-key="${esc(key)}"><button class="spot-sort-button ${active ? 'active' : ''}" type="button" data-spot-sort="${field}">
+    ${esc(label)}<i class="ti ti-${icon}"></i>
+  </button>${spotResizeHandle(key)}</th>`;
+}
+
+function spotFilterCount() {
+  const arrayKeys = ['candidateTypes', 'productGroups', 'categories', 'subcategories',
+    'warehouses', 'sizes', 'colors', 'allocationStatuses'];
+  const rangePairs = [
+    ['productStockMin', 'productStockMax'], ['sellableMin', 'sellableMax'],
+    ['occupiedMin', 'occupiedMax'], ['sizesMin', 'sizesMax'],
+    ['orderedMin', 'orderedMax'], ['refundMin', 'refundMax'],
+    ['taobaoPriceMin', 'taobaoPriceMax'],
+    ['taobaoTotalSoldMin', 'taobaoTotalSoldMax'],
+    ['taobaoSold30dMin', 'taobaoSold30dMax'],
+    ['skuCountMin', 'skuCountMax']
+  ];
+  if (spotState.viewMode === 'sku') rangePairs.push(['stockMin', 'stockMax']);
+  let count = arrayKeys.reduce((sum, key) => sum + (spotState[key].length ? 1 : 0), 0);
+  count += rangePairs.reduce((sum, pair) =>
+    sum + (pair.some(key => spotState[key] !== '') ? 1 : 0), 0);
+  if (spotState.imageStatus !== 'all') count += 1;
+  if (spotState.orderStatus !== 'all') count += 1;
+  if (spotState.skuCoverage !== 'all' && spotState.viewMode === 'product') count += 1;
+  if (spotState.q) count += 1;
+  return count;
+}
+
+function spotTableHeaders() {
+  return activeSpotColumns().map(column => {
+    if (column.key === 'image') {
+      return `<th class="spot-image-cell spot-sticky-image" data-column-key="image">图片${spotResizeHandle('image')}</th>`;
+    }
+    if (column.sort) {
+      return spotSortHeader(
+        column.label, column.sort, column.numeric ? 'text-end' : '',
+        column.key
+      );
+    }
+    return `<th class="${column.numeric ? 'text-end' : ''}" data-column-key="${esc(column.key)}">${esc(column.label)}${spotResizeHandle(column.key)}</th>`;
+  }).join('');
+}
+
+function activeSpotColumns() {
+  const definitions = spotColumns[spotState.viewMode];
+  const selected = spotState.visibleColumns[spotState.viewMode] || [];
+  const keys = [
+    ...definitions.filter(column => column.required).map(column => column.key),
+    ...selected.filter(key => !definitions.find(column => column.key === key)?.required)
+  ];
+  return keys.map(key => definitions.find(column => column.key === key)).filter(Boolean);
+}
+
+function spotColumnWidth(key) {
+  return Number(
+    spotState.columnWidths[spotState.viewMode]?.[key]
+    || spotDefaultColumnWidths[key]
+    || 96
+  );
+}
+
+function spotTableWidth() {
+  return activeSpotColumns().reduce(
+    (sum, column) => sum + spotColumnWidth(column.key), 0
+  );
+}
+
+function spotColgroup() {
+  return `<colgroup>${activeSpotColumns().map(column =>
+    `<col data-column-key="${esc(column.key)}" style="width:${spotColumnWidth(column.key)}px">`
+  ).join('')}</colgroup>`;
+}
+
+function spotColumnCell(item, key) {
+  const lastOrder = `${esc(item.last_order_at || (item.order_coverage === false ? '未覆盖' : '观察期无记录'))}${item.days_since_last_order != null
+    ? `<div class="small text-secondary">${qty(item.days_since_last_order)} 天前</div>` : ''}`;
+  const cells = {
+    image: `<td class="spot-image-cell spot-sticky-image">${spotImage(item)}</td>`,
+    product: `<td class="spot-sku spot-sticky-product"><span class="spot-product-code">${esc(item.product_code || '-')}</span>${spotTaobaoBadge(item)}${item.sku_code
+      ? `<div class="small text-secondary">${esc(item.sku_code)}</div>` : ''}${item.product_name && item.product_name !== item.product_code
+      ? `<div class="small text-secondary">${esc(item.product_name)}</div>` : ''}</td>`,
+    taobao_price: `<td class="qty-cell">${spotTaobaoPrices(item)}</td>`,
+    taobao_total_sold: `<td class="qty-cell">${spotMetric(item.taobao_total_sold, item.taobao_total_sold_item_count || 0, item.taobao_item_count || 0)}</td>`,
+    taobao_sold_30d: `<td class="qty-cell">${spotMetric(item.taobao_sold_30d, item.taobao_sold_30d_item_count || 0, item.taobao_item_count || 0)}</td>`,
+    category: `<td class="text-nowrap">${esc(item.subcategory_label || item.category_label || '-')}</td>`,
+    stock_qty: `<td class="qty-cell fw-bold">${qty(item.stock_qty)}</td>`,
+    product_stock_qty: `<td class="qty-cell fw-bold">${qty(item.product_stock_qty)}</td>`,
+    sellable_qty: `<td class="qty-cell">${qty(item.sellable_qty)}</td>`,
+    occupied_qty: `<td class="qty-cell">${qty(item.occupied_qty)}</td>`,
+    sku_count: `<td class="qty-cell">${item.sku_coverage === false ? '-' : qty(item.sku_count)}</td>`,
+    warehouses: `<td>${esc((item.warehouses || []).join(' / ') || '-')}</td>`,
+    warehouse: `<td>${esc(item.warehouse_name || '-')}</td>`,
+    colors: `<td class="spot-sizes">${esc((item.colors || []).join(' / ') || (item.sku_coverage === false ? '未覆盖' : '-'))}</td>`,
+    color: `<td>${esc(item.color || '-')}</td>`,
+    size: `<td class="fw-bold">${esc(item.size || '-')}</td>`,
+    sizes: `<td class="spot-sizes">${item.sku_coverage === false ? '<span class="text-secondary">未覆盖</span>'
+      : `${(item.product_sellable_sizes || []).map(entry =>
+          `<span class="text-nowrap">${esc(entry.size)}*${qty(entry.qty)}</span>`
+        ).join(' / ') || '-'}`}</td>`,
+    sku_coverage: `<td>${item.sku_coverage ? '<span class="badge bg-green-lt">已覆盖</span>' : '<span class="badge bg-secondary-lt">未覆盖</span>'}</td>`,
+    ordered_qty: `<td class="qty-cell">${item.order_coverage === false ? '-' : qty(item.ordered_qty)}</td>`,
+    refund_qty: `<td class="qty-cell">${item.order_coverage === false ? '-' : qty(item.refund_qty)}</td>`,
+    last_order_at: `<td class="text-nowrap">${lastOrder}</td>`,
+    flags: `<td>${spotFlag(item)}</td>`
+  };
+  return cells[key] || '<td>-</td>';
+}
+
+function spotTableRow(item) {
+  return `<tr>${activeSpotColumns().map(column =>
+    spotColumnCell(item, column.key)
+  ).join('')}</tr>`;
+}
+
+function applySpotColumnOrder() {
+  const definitions = spotColumns[spotState.viewMode];
+  const selected = spotState.visibleColumns[spotState.viewMode] || [];
+  const required = selected.filter(value =>
+    definitions.find(column => column.key === value)?.required
+  );
+  const optional = selected.filter(value =>
+    !definitions.find(column => column.key === value)?.required
+  );
+  if (!spotColumnOrderDraft || spotColumnOrderDraft.length !== optional.length
+      || spotColumnOrderDraft.some(key => !optional.includes(key))) return;
+  spotState.visibleColumns[spotState.viewMode] = [...required, ...spotColumnOrderDraft];
+  persistSpotInventoryPreferences();
+  spotColumnOrderDraft = null;
+  renderSpotColumnPicker();
+  document.getElementById('spot-column-picker').open = true;
+  refreshSpotStock();
+}
+
+function renderSpotColumnPicker() {
+  const definitions = spotColumns[spotState.viewMode];
+  const selected = spotState.visibleColumns[spotState.viewMode] || [];
+  const optionalSelected = selected.filter(key =>
+    !definitions.find(column => column.key === key)?.required
+  );
+  const ordered = [
+    ...selected.map(key => definitions.find(column => column.key === key)).filter(Boolean),
+    ...definitions.filter(column => !selected.includes(column.key))
+  ];
+  document.getElementById('spot-column-options').innerHTML = `
+    <div class="spot-column-picker-head">
+      <div class="small text-secondary">勾选列即可显示；图片和款号固定在最前。</div>
+      <button class="btn btn-sm btn-outline-secondary spot-column-order-toggle" type="button"
+          data-column-order-open ${optionalSelected.length ? '' : 'disabled'} title="单独设置列显示顺序">
+        <i class="ti ti-arrows-sort me-1"></i>调整顺序
+      </button>
+    </div>
+    ${ordered.map(column => {
+      const checked = column.required || selected.includes(column.key);
+      return `<div class="spot-column-row" data-column-key="${column.key}">
+        <label class="spot-filter-option">
+          <input class="form-check-input m-0" type="checkbox" ${checked ? 'checked' : ''} ${column.required ? 'disabled' : ''}>
+          <span class="spot-column-label">${esc(column.label)}${column.required ? ' · 必选' : ''}</span>
+        </label>
+      </div>`;
+    }).join('')}`;
+}
+
+function renderSpotColumnOrderDialog() {
+  const definitions = spotColumns[spotState.viewMode];
+  const selected = spotState.visibleColumns[spotState.viewMode] || [];
+  const requiredCount = selected.filter(key =>
+    definitions.find(column => column.key === key)?.required
+  ).length;
+  const optionalSelected = selected.filter(key =>
+    !definitions.find(column => column.key === key)?.required
+  );
+  if (!spotColumnOrderDraft || spotColumnOrderDraft.length !== optionalSelected.length
+      || spotColumnOrderDraft.some(key => !optionalSelected.includes(key))) {
+    spotColumnOrderDraft = [...optionalSelected];
+  }
+  document.getElementById('spot-column-order-dialog-content').innerHTML = optionalSelected.length ? `
+    <div class="spot-column-order-list">
+      ${spotColumnOrderDraft.map((key, position) => {
+        const column = definitions.find(item => item.key === key);
+        return `<div class="spot-column-order-row">
+          <span class="spot-column-label"><strong>${position + requiredCount + 1}.</strong> ${esc(column?.label || key)}</span>
+          <div class="spot-column-order-buttons">
+            <button class="btn btn-sm btn-outline-secondary" type="button" data-column-order-move="up" data-column-order-key="${esc(key)}" ${position === 0 ? 'disabled' : ''} title="上移" aria-label="上移${esc(column?.label || key)}"><i class="ti ti-chevron-up"></i></button>
+            <button class="btn btn-sm btn-outline-secondary" type="button" data-column-order-move="down" data-column-order-key="${esc(key)}" ${position === spotColumnOrderDraft.length - 1 ? 'disabled' : ''} title="下移" aria-label="下移${esc(column?.label || key)}"><i class="ti ti-chevron-down"></i></button>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>` : '<div class="text-secondary py-3">请先在显示列中勾选至少一列。</div>';
+}
+
+function openSpotColumnOrderDialog() {
+  spotColumnOrderDraft = null;
+  renderSpotColumnOrderDialog();
+  document.getElementById('spot-column-picker').open = false;
+  document.getElementById('spot-column-order-dialog').showModal();
+}
+
+document.getElementById('spot-column-options').addEventListener('click', event => {
+  const orderOpen = event.target.closest('[data-column-order-open]');
+  if (orderOpen) {
+    event.preventDefault();
+    event.stopPropagation();
+    openSpotColumnOrderDialog();
+    return;
+  }
+  const row = event.target.closest('[data-column-key]');
+  if (!row) return;
+});
+document.getElementById('spot-column-options').addEventListener('change', event => {
+  const row = event.target.closest('[data-column-key]');
+  if (!row) return;
+  const key = row.dataset.columnKey;
+  const selected = spotState.visibleColumns[spotState.viewMode];
+  if (event.target.checked && !selected.includes(key)) selected.push(key);
+  if (!event.target.checked) {
+    spotState.visibleColumns[spotState.viewMode] =
+      selected.filter(value => value !== key);
+  }
+  persistSpotInventoryPreferences();
+  renderSpotColumnPicker();
+  refreshSpotStock();
+});
+
+const spotColumnOrderDialog = document.getElementById('spot-column-order-dialog');
+spotColumnOrderDialog.addEventListener('click', event => {
+  if (event.target === spotColumnOrderDialog || event.target.closest('[data-column-order-dialog-close]')) {
+    spotColumnOrderDraft = null;
+    spotColumnOrderDialog.close();
+    return;
+  }
+  const moveButton = event.target.closest('[data-column-order-move]');
+  if (moveButton && spotColumnOrderDraft) {
+    const key = moveButton.dataset.columnOrderKey;
+    const current = spotColumnOrderDraft.indexOf(key);
+    const direction = moveButton.dataset.columnOrderMove === 'up' ? -1 : 1;
+    const target = current + direction;
+    if (current >= 0 && target >= 0 && target < spotColumnOrderDraft.length) {
+      [spotColumnOrderDraft[current], spotColumnOrderDraft[target]] =
+        [spotColumnOrderDraft[target], spotColumnOrderDraft[current]];
+      renderSpotColumnOrderDialog();
+    }
+    return;
+  }
+  if (event.target.closest('[data-column-order-apply]')) {
+    applySpotColumnOrder();
+    spotColumnOrderDialog.close();
+  }
+});
+
+async function loadSpotStock() {
+  const target = document.getElementById('spot-stock-app');
+  target.innerHTML = '<div class="text-secondary py-4">加载中...</div>';
+  const params = new URLSearchParams({
+    view_mode: spotState.viewMode,
+    candidate_types: spotState.candidateTypes.length ? spotState.candidateTypes.join(',') : 'all',
+    product_groups: spotState.productGroups.join(','),
+    warehouses: spotState.warehouses.join(','),
+    sizes: spotState.sizes.join(','),
+    colors: spotState.colors.join(','),
+    categories: spotState.categories.join(','),
+    subcategories: spotState.subcategories.join(','),
+    allocation_statuses: spotState.allocationStatuses.join(','),
+    image_status: spotState.imageStatus,
+    order_status: spotState.orderStatus,
+    sku_coverage: spotState.skuCoverage,
+    sort_by: spotState.sortBy,
+    sort_dir: spotState.sortDir,
+    q: spotState.q,
+    limit: String(spotState.limit),
+    offset: String(spotState.offset)
+  });
+  for (const [name, value] of [
+    ['stock_min', spotState.stockMin], ['stock_max', spotState.stockMax],
+    ['product_stock_min', spotState.productStockMin], ['product_stock_max', spotState.productStockMax],
+    ['sellable_min', spotState.sellableMin], ['sellable_max', spotState.sellableMax],
+    ['occupied_min', spotState.occupiedMin], ['occupied_max', spotState.occupiedMax],
+    ['remaining_sizes_min', spotState.sizesMin], ['remaining_sizes_max', spotState.sizesMax],
+    ['ordered_min', spotState.orderedMin], ['ordered_max', spotState.orderedMax],
+    ['refund_min', spotState.refundMin], ['refund_max', spotState.refundMax],
+    ['taobao_price_min', spotState.taobaoPriceMin], ['taobao_price_max', spotState.taobaoPriceMax],
+    ['taobao_total_sold_min', spotState.taobaoTotalSoldMin], ['taobao_total_sold_max', spotState.taobaoTotalSoldMax],
+    ['taobao_sold_30d_min', spotState.taobaoSold30dMin], ['taobao_sold_30d_max', spotState.taobaoSold30dMax],
+    ['sku_count_min', spotState.skuCountMin], ['sku_count_max', spotState.skuCountMax]
+  ]) {
+    if (value !== '') params.set(name, value);
+  }
+  const response = await fetch('/api/erp/v1/inventory/spot-candidates?' + params.toString());
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  const data = await response.json();
+  const items = data.data || [];
+  const meta = data.meta || {};
+  const summary = meta.summary || {};
+  const filterMeta = meta.filters || {};
+  const observation = meta.sales_observation || {};
+  const age = meta.age_status || {};
+
+  renderSpotFilterOptions('warehouses', filterMeta.warehouses || []);
+  renderSpotFilterOptions('sizes', filterMeta.sizes || []);
+  renderSpotFilterOptions('colors', filterMeta.colors || []);
+  renderSpotFilterOptions('categories', filterMeta.categories || []);
+  renderSpotFilterOptions('subcategories', filterMeta.subcategories || []);
+  renderSpotColumnPicker();
+  document.querySelectorAll('.spot-multiselect[data-spot-filter]').forEach(updateSpotFilterLabel);
+  document.getElementById('spot-filter-summary').textContent =
+    `已启用 ${spotFilterCount()} 个条件 · 共 ${qty(meta.count || 0)} 条`;
+
+  target.innerHTML = `
+    <div class="card">
+      <div class="card-header align-items-start flex-wrap gap-2">
+        <h3 class="card-title">${spotState.viewMode === 'product' ? '商品库存查询' : 'SKU 库存查询'}</h3>
+        <div class="ms-auto text-end small">
+          <div>
+            实际库存 <strong>${qty(summary.stock_qty)}</strong>
+            · 可销售 <strong>${qty(summary.sellable_qty)}</strong>
+            · 孤品款 <strong class="text-red">${qty(summary.singleton_styles)}</strong>
+            · 断码款 <strong class="text-yellow">${qty(summary.broken_size_styles)}</strong>
+            · 观察期无订单 <strong>${qty(summary.no_order_observed_skus)}</strong>
+          </div>
+          <div class="text-secondary mt-1">
+            ${spotState.viewMode === 'product' ? `${qty(summary.product_count)} 个商品` : `${qty(summary.sku_rows)} 个 SKU`}
+            · 采集于 ${esc(meta.updated_at || '-')}
+            · 订单观察 ${esc(observation.starts_at || '-')} 至 ${esc(observation.ends_at || '-')}
+          </div>
+        </div>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-vcenter table-hover table-sm inventory-table spot-query-table mb-0" style="--spot-sticky-image-width:${spotColumnWidth('image')}px;width:${spotTableWidth()}px">
+          ${spotColgroup()}
+          <thead><tr>
+            ${spotTableHeaders()}
+          </tr></thead>
+          <tbody>${items.map(spotTableRow).join('') || `<tr><td colspan="${activeSpotColumns().length}" class="text-secondary p-3">没有匹配的${spotState.viewMode === 'product' ? '商品' : 'SKU'}</td></tr>`}</tbody>
+        </table>
+      </div>
+      <div class="card-footer d-flex align-items-center gap-2 flex-wrap">
+        <span class="text-secondary">显示 ${meta.count ? spotState.offset + 1 : 0}–${Math.min(spotState.offset + items.length, meta.count || 0)} / ${meta.count || 0} 条</span>
+        <div class="ms-auto btn-list">
+          <button class="btn btn-sm btn-outline-secondary" type="button" data-spot-page="prev" ${spotState.offset <= 0 ? 'disabled' : ''}><i class="ti ti-chevron-left"></i>上一页</button>
+          <button class="btn btn-sm btn-outline-secondary" type="button" data-spot-page="next" ${meta.has_more ? '' : 'disabled'}>下一页<i class="ti ti-chevron-right"></i></button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function refreshSpotStock() {
+  return loadSpotStock().catch(error => {
+    document.getElementById('spot-stock-app').innerHTML =
+      `<div class="alert alert-danger">加载失败: ${esc(error.message)}</div>`;
+  });
+}
+
+let spotPresets = [];
+let spotDefaultPresetId = '';
+
+function currentSpotPresetConfig() {
+  const keys = [
+    'viewMode', 'candidateTypes', 'productGroups', 'categories',
+    'subcategories', 'warehouses', 'sizes', 'colors',
+    'allocationStatuses', 'imageStatus', 'orderStatus', 'skuCoverage',
+    'productStockMin', 'productStockMax', 'stockMin', 'stockMax',
+    'sellableMin', 'sellableMax', 'occupiedMin', 'occupiedMax',
+    'sizesMin', 'sizesMax', 'orderedMin', 'orderedMax',
+    'refundMin', 'refundMax', 'taobaoPriceMin', 'taobaoPriceMax',
+    'taobaoTotalSoldMin', 'taobaoTotalSoldMax', 'taobaoSold30dMin', 'taobaoSold30dMax',
+    'skuCountMin', 'skuCountMax', 'sortBy', 'sortDir', 'limit', 'q'
+  ];
+  const config = {};
+  keys.forEach(key => {
+    config[key] = Array.isArray(spotState[key])
+      ? [...spotState[key]] : spotState[key];
+  });
+  config.visibleColumns = {
+    product: [...spotState.visibleColumns.product],
+    sku: [...spotState.visibleColumns.sku]
+  };
+  config.columnWidths = {
+    product: {...spotState.columnWidths.product},
+    sku: {...spotState.columnWidths.sku}
+  };
+  config.filterPlacement = {...spotFilterPlacement};
+  return config;
+}
+
+function applySpotPresetConfig(config) {
+  Object.assign(spotState, {
+    viewMode: 'product', candidateTypes: [], productGroups: [],
+    categories: ['apparel'], subcategories: [],
+    warehouses: ['主仓库', '走秀仓库'], sizes: [], colors: [],
+    allocationStatuses: [], imageStatus: 'all', orderStatus: 'all',
+    skuCoverage: 'all', productStockMin: '', productStockMax: '',
+    stockMin: '', stockMax: '', sellableMin: '', sellableMax: '',
+    occupiedMin: '', occupiedMax: '', sizesMin: '', sizesMax: '',
+    orderedMin: '', orderedMax: '', refundMin: '', refundMax: '',
+    taobaoPriceMin: '', taobaoPriceMax: '',
+    taobaoTotalSoldMin: '', taobaoTotalSoldMax: '',
+    taobaoSold30dMin: '', taobaoSold30dMax: '',
+    skuCountMin: '', skuCountMax: '',
+    sortBy: 'priority', sortDir: 'asc', limit: 100, offset: 0, q: ''
+  });
+  for (const [key, value] of Object.entries(config || {})) {
+    if (key === 'visibleColumns' && value && typeof value === 'object') {
+      for (const mode of ['product', 'sku']) {
+        if (Array.isArray(value[mode])) {
+          spotState.visibleColumns[mode] = normalizeSpotVisibleColumns(mode, value[mode]);
+        }
+      }
+    } else if (key === 'columnWidths' && value && typeof value === 'object') {
+      for (const mode of ['product', 'sku']) {
+        if (value[mode] && typeof value[mode] === 'object') {
+          spotState.columnWidths[mode] = {...value[mode]};
+        }
+      }
+    } else if (key === 'filterPlacement') {
+      spotFilterPlacement = normalizeSpotFilterPlacement(value);
+      saveSpotFilterPlacement();
+    } else if (Object.prototype.hasOwnProperty.call(spotState, key)) {
+      spotState[key] = Array.isArray(value) ? [...value] : value;
+    }
+  }
+  syncSpotControls();
+  persistSpotInventoryPreferences();
+}
+
+function syncSpotControls() {
+  renderSpotFilterPlacement();
+  document.querySelectorAll('[data-spot-view-mode]').forEach(button => {
+    button.classList.toggle('active', button.dataset.spotViewMode === spotState.viewMode);
+  });
+  document.querySelectorAll('[data-spot-sku-only]').forEach(item => {
+    item.classList.toggle('d-none', spotState.viewMode !== 'sku');
+  });
+  document.querySelectorAll('[data-spot-product-only]').forEach(item => {
+    item.classList.toggle('d-none', spotState.viewMode !== 'product');
+  });
+  document.getElementById('spot-view-description').textContent =
+    spotState.viewMode === 'product'
+      ? '一行一个款号，库存汇总包含全部颜色、尺码和仓库'
+      : '一行一个具体 SKU，同时保留整款实际库存筛选';
+  document.getElementById('spot-search').value = spotState.q;
+  document.getElementById('spot-image-status').value = spotState.imageStatus;
+  document.getElementById('spot-order-status').value = spotState.orderStatus;
+  document.getElementById('spot-sku-coverage').value = spotState.skuCoverage;
+  document.getElementById('spot-sort-by').value = spotState.sortBy;
+  document.getElementById('spot-page-size').value = String(spotState.limit);
+  document.getElementById('spot-sort-dir').innerHTML = spotState.sortDir === 'asc'
+    ? '<i class="ti ti-sort-ascending"></i><span class="ms-1">升序</span>'
+    : '<i class="ti ti-sort-descending"></i><span class="ms-1">降序</span>';
+  for (const [id, key] of Object.entries(spotRangeInputs)) {
+    document.getElementById(id).value = spotState[key];
+  }
+  document.querySelectorAll('.spot-multiselect[data-spot-filter]').forEach(details => {
+    const selected = new Set(spotState[details.dataset.spotFilter] || []);
+    details.querySelectorAll('input').forEach(input => {
+      input.checked = selected.has(input.value);
+    });
+    updateSpotFilterLabel(details);
+  });
+  renderSpotColumnPicker();
+}
+
+async function loadSpotPresets(autoApply=false) {
+  const response = await fetch('/api/erp/v1/inventory/query-presets');
+  if (!response.ok) return;
+  const payload = (await response.json()).data || {};
+  spotPresets = payload.items || [];
+  spotDefaultPresetId = payload.default_id || '';
+  const select = document.getElementById('spot-preset-select');
+  const selected = select.value;
+  select.innerHTML = '<option value="">当前条件</option>' + spotPresets.map(item =>
+    `<option value="${esc(item.id)}">${esc(item.name)}${item.id === spotDefaultPresetId ? ' · 默认' : ''}</option>`
+  ).join('');
+  if (selected && spotPresets.some(item => item.id === selected)) select.value = selected;
+  if (autoApply && spotDefaultPresetId) {
+    const preset = spotPresets.find(item => item.id === spotDefaultPresetId);
+    if (preset) {
+      select.value = preset.id;
+      applySpotPresetConfig(preset.config);
+    }
+  }
+  updatePresetDeleteButton();
+}
+
+function updatePresetDeleteButton() {
+  const id = document.getElementById('spot-preset-select').value;
+  const preset = spotPresets.find(item => item.id === id);
+  document.getElementById('spot-delete-preset').disabled = !preset || preset.builtin;
+}
+
+document.getElementById('spot-preset-select').addEventListener('change', event => {
+  const preset = spotPresets.find(item => item.id === event.target.value);
+  updatePresetDeleteButton();
+  if (!preset) return;
+  applySpotPresetConfig(preset.config);
+  refreshSpotStock();
+});
+document.getElementById('spot-save-preset').addEventListener('click', () => {
+  document.getElementById('spot-preset-name').value = '';
+  document.getElementById('spot-preset-default').checked = false;
+  document.getElementById('spot-preset-error').textContent = '';
+  document.getElementById('spot-preset-dialog').showModal();
+  document.getElementById('spot-preset-name').focus();
+});
+document.getElementById('spot-preset-confirm').addEventListener('click', async event => {
+  event.preventDefault();
+  const name = document.getElementById('spot-preset-name').value.trim();
+  if (!name) {
+    document.getElementById('spot-preset-error').textContent = '请输入预设名称';
+    return;
+  }
+  const response = await fetch('/api/erp/v1/inventory/query-presets', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      name,
+      config: currentSpotPresetConfig(),
+      set_default: document.getElementById('spot-preset-default').checked
+    })
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    document.getElementById('spot-preset-error').textContent =
+      error.detail || '保存失败';
+    return;
+  }
+  const saved = (await response.json()).data;
+  document.getElementById('spot-preset-dialog').close();
+  await loadSpotPresets();
+  document.getElementById('spot-preset-select').value = saved.id;
+  updatePresetDeleteButton();
+});
+document.getElementById('spot-delete-preset').addEventListener('click', async () => {
+  const select = document.getElementById('spot-preset-select');
+  const preset = spotPresets.find(item => item.id === select.value);
+  if (!preset || preset.builtin || !confirm(`删除预设“${preset.name}”？`)) return;
+  const response = await fetch(`/api/erp/v1/inventory/query-presets/${encodeURIComponent(preset.id)}`, {
+    method: 'DELETE'
+  });
+  if (!response.ok) return;
+  select.value = '';
+  await loadSpotPresets();
+});
+
+document.getElementById('inventory-view-tabs').addEventListener('click', event => {
+  const button = event.target.closest('[data-view]');
+  if (!button) return;
+  document.querySelectorAll('#inventory-view-tabs .nav-link').forEach(item =>
+    item.classList.toggle('active', item === button)
+  );
+  const spot = button.dataset.view === 'spot';
+  document.getElementById('inventory-overview-view').classList.toggle('d-none', spot);
+  document.getElementById('spot-stock-view').classList.toggle('d-none', !spot);
+  if (spot) refreshSpotStock();
+});
+
+document.querySelectorAll('.spot-multiselect[data-spot-filter]').forEach(details => {
+  updateSpotFilterLabel(details);
+  details.addEventListener('toggle', () => {
+    if (!details.open) return;
+    document.querySelectorAll('.spot-multiselect[open]').forEach(other => {
+      if (other !== details) other.open = false;
+    });
+  });
+  details.addEventListener('change', () => {
+    const key = details.dataset.spotFilter;
+    spotState[key] = [...details.querySelectorAll('input:checked')].map(input => input.value);
+    spotState.offset = 0;
+    updateSpotFilterLabel(details);
+    refreshSpotStock();
+  });
+});
+document.addEventListener('click', event => {
+  if (event.target.closest('.spot-multiselect')) return;
+  document.querySelectorAll('.spot-multiselect[open]').forEach(details => {
+    details.open = false;
+  });
+});
+document.querySelectorAll('[data-spot-view-mode]').forEach(button => {
+  button.addEventListener('click', () => {
+    spotState.viewMode = button.dataset.spotViewMode;
+    spotState.offset = 0;
+    document.querySelectorAll('[data-spot-view-mode]').forEach(item => {
+      item.classList.toggle('active', item === button);
+    });
+    document.querySelectorAll('[data-spot-sku-only]').forEach(item => {
+      item.classList.toggle('d-none', spotState.viewMode !== 'sku');
+    });
+    document.querySelectorAll('[data-spot-product-only]').forEach(item => {
+      item.classList.toggle('d-none', spotState.viewMode !== 'product');
+    });
+    document.getElementById('spot-view-description').textContent =
+      spotState.viewMode === 'product'
+        ? '一行一个款号，库存汇总包含全部颜色、尺码和仓库'
+        : '一行一个具体 SKU，同时保留整款实际库存筛选';
+    refreshSpotStock();
+  });
+});
+
+let spotSearchTimer;
+document.getElementById('spot-search').addEventListener('input', event => {
+  spotState.q = event.target.value;
+  spotState.offset = 0;
+  clearTimeout(spotSearchTimer);
+  spotSearchTimer = setTimeout(refreshSpotStock, 300);
+});
+
+for (const [id, key] of [
+  ['spot-image-status', 'imageStatus'], ['spot-order-status', 'orderStatus'],
+  ['spot-sku-coverage', 'skuCoverage'],
+  ['spot-sort-by', 'sortBy']
+]) {
+  document.getElementById(id).addEventListener('change', event => {
+    spotState[key] = event.target.value;
+    spotState.offset = 0;
+    refreshSpotStock();
+  });
+}
+document.getElementById('spot-page-size').addEventListener('change', event => {
+  spotState.limit = Number(event.target.value);
+  spotState.offset = 0;
+  refreshSpotStock();
+});
+document.getElementById('spot-sort-dir').addEventListener('click', event => {
+  spotState.sortDir = spotState.sortDir === 'asc' ? 'desc' : 'asc';
+  event.currentTarget.innerHTML = spotState.sortDir === 'asc'
+    ? '<i class="ti ti-sort-ascending"></i><span class="ms-1">升序</span>'
+    : '<i class="ti ti-sort-descending"></i><span class="ms-1">降序</span>';
+  spotState.offset = 0;
+  refreshSpotStock();
+});
+document.getElementById('spot-advanced-toggle').addEventListener('click', event => {
+  const panel = document.getElementById('spot-advanced');
+  const open = panel.classList.toggle('d-none');
+  event.currentTarget.innerHTML = open
+    ? '<i class="ti ti-adjustments-horizontal me-1"></i>更多条件'
+    : '<i class="ti ti-chevron-up me-1"></i>收起条件';
+});
+
+const spotRangeInputs = {
+  'spot-product-stock-min': 'productStockMin',
+  'spot-product-stock-max': 'productStockMax',
+  'spot-stock-min': 'stockMin', 'spot-stock-max': 'stockMax',
+  'spot-sellable-min': 'sellableMin', 'spot-sellable-max': 'sellableMax',
+  'spot-occupied-min': 'occupiedMin', 'spot-occupied-max': 'occupiedMax',
+  'spot-sizes-min': 'sizesMin', 'spot-sizes-max': 'sizesMax',
+  'spot-ordered-min': 'orderedMin', 'spot-ordered-max': 'orderedMax',
+  'spot-refund-min': 'refundMin', 'spot-refund-max': 'refundMax',
+  'spot-taobao-price-min': 'taobaoPriceMin', 'spot-taobao-price-max': 'taobaoPriceMax',
+  'spot-taobao-total-sold-min': 'taobaoTotalSoldMin', 'spot-taobao-total-sold-max': 'taobaoTotalSoldMax',
+  'spot-taobao-sold-30d-min': 'taobaoSold30dMin', 'spot-taobao-sold-30d-max': 'taobaoSold30dMax',
+  'spot-sku-count-min': 'skuCountMin', 'spot-sku-count-max': 'skuCountMax'
+};
+let spotRangeTimer;
+for (const [id, key] of Object.entries(spotRangeInputs)) {
+  document.getElementById(id).addEventListener('input', event => {
+    spotState[key] = event.target.value;
+    spotState.offset = 0;
+    clearTimeout(spotRangeTimer);
+    spotRangeTimer = setTimeout(refreshSpotStock, 400);
+  });
+}
+document.getElementById('spot-reset').addEventListener('click', () => {
+  Object.assign(spotState, {
+    candidateTypes: [], productGroups: [], categories: ['apparel'],
+    subcategories: [], warehouses: ['主仓库', '走秀仓库'],
+    sizes: [], colors: [],
+    allocationStatuses: [], imageStatus: 'all', orderStatus: 'all',
+    skuCoverage: 'all',
+    productStockMin: '', productStockMax: '',
+    stockMin: '', stockMax: '', sellableMin: '', sellableMax: '',
+    occupiedMin: '', occupiedMax: '', sizesMin: '', sizesMax: '',
+    orderedMin: '', orderedMax: '', refundMin: '', refundMax: '',
+    taobaoPriceMin: '', taobaoPriceMax: '',
+    taobaoTotalSoldMin: '', taobaoTotalSoldMax: '',
+    taobaoSold30dMin: '', taobaoSold30dMax: '',
+    skuCountMin: '', skuCountMax: '',
+    sortBy: 'priority', sortDir: 'asc', offset: 0, q: ''
+  });
+  document.getElementById('spot-search').value = '';
+  document.getElementById('spot-image-status').value = 'all';
+  document.getElementById('spot-order-status').value = 'all';
+  document.getElementById('spot-sku-coverage').value = 'all';
+  document.getElementById('spot-sort-by').value = 'priority';
+  document.getElementById('spot-sort-dir').innerHTML = '<i class="ti ti-sort-ascending"></i><span class="ms-1">升序</span>';
+  Object.keys(spotRangeInputs).forEach(id => { document.getElementById(id).value = ''; });
+  document.querySelectorAll('.spot-multiselect[data-spot-filter] input').forEach(input => { input.checked = false; });
+  document.querySelectorAll('.spot-multiselect[data-spot-filter]').forEach(updateSpotFilterLabel);
+  refreshSpotStock();
+});
+
+function closeSpotLightbox() {
+  const lightbox = document.getElementById('spot-lightbox');
+  lightbox.classList.add('d-none');
+  document.getElementById('spot-lightbox-image').removeAttribute('src');
+  document.body.style.overflow = '';
+}
+
+document.getElementById('spot-stock-app').addEventListener('pointerdown', event => {
+  const handle = event.target.closest('[data-resize-column]');
+  if (!handle) return;
+  event.preventDefault();
+  event.stopPropagation();
+  const key = handle.dataset.resizeColumn;
+  const table = handle.closest('table');
+  const col = table.querySelector(`col[data-column-key="${CSS.escape(key)}"]`);
+  const startX = event.clientX;
+  const startWidth = spotColumnWidth(key);
+  handle.classList.add('active');
+  const move = moveEvent => {
+    const minimum = key === 'image' ? 52 : (key === 'product' ? 84 : 64);
+    const width = Math.max(minimum, Math.min(420, startWidth + moveEvent.clientX - startX));
+    spotState.columnWidths[spotState.viewMode][key] = Math.round(width);
+    col.style.width = `${width}px`;
+    table.style.width = `${spotTableWidth()}px`;
+  };
+  const finish = () => {
+    handle.classList.remove('active');
+    document.removeEventListener('pointermove', move);
+    document.removeEventListener('pointerup', finish);
+    document.removeEventListener('pointercancel', finish);
+    persistSpotInventoryPreferences();
+  };
+  document.addEventListener('pointermove', move);
+  document.addEventListener('pointerup', finish);
+  document.addEventListener('pointercancel', finish);
+});
+document.getElementById('spot-stock-app').addEventListener('dblclick', event => {
+  const handle = event.target.closest('[data-resize-column]');
+  if (!handle) return;
+  delete spotState.columnWidths[spotState.viewMode][handle.dataset.resizeColumn];
+  persistSpotInventoryPreferences();
+  refreshSpotStock();
+});
+
+document.getElementById('spot-stock-app').addEventListener('click', event => {
+  const sortButton = event.target.closest('[data-spot-sort]');
+  if (sortButton) {
+    const field = sortButton.dataset.spotSort;
+    spotState.sortDir = spotState.sortBy === field && spotState.sortDir === 'asc' ? 'desc' : 'asc';
+    spotState.sortBy = field;
+    spotState.offset = 0;
+    document.getElementById('spot-sort-by').value = field;
+    document.getElementById('spot-sort-dir').innerHTML = spotState.sortDir === 'asc'
+      ? '<i class="ti ti-sort-ascending"></i><span class="ms-1">升序</span>'
+      : '<i class="ti ti-sort-descending"></i><span class="ms-1">降序</span>';
+    refreshSpotStock();
+    return;
+  }
+  const pageButton = event.target.closest('[data-spot-page]');
+  if (pageButton) {
+    spotState.offset = Math.max(0, spotState.offset + (pageButton.dataset.spotPage === 'next' ? spotState.limit : -spotState.limit));
+    refreshSpotStock();
+    return;
+  }
+  const button = event.target.closest('[data-spot-image]');
+  if (!button) return;
+  document.getElementById('spot-lightbox-image').src = button.dataset.spotImage;
+  document.getElementById('spot-lightbox-image').alt = button.dataset.spotTitle;
+  document.getElementById('spot-lightbox-title').textContent = button.dataset.spotTitle;
+  document.getElementById('spot-lightbox').classList.remove('d-none');
+  document.body.style.overflow = 'hidden';
+  document.querySelector('[data-spot-close]').focus();
+});
+document.getElementById('spot-lightbox').addEventListener('click', event => {
+  if (event.target === event.currentTarget || event.target.closest('[data-spot-close]')) {
+    closeSpotLightbox();
+  }
+});
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape' && !document.getElementById('spot-lightbox').classList.contains('d-none')) {
+    closeSpotLightbox();
+  }
+});
+
+document.getElementById('inventory-month').addEventListener('change', event => {
+  loadInventory(event.target.value);
+});
+document.getElementById('inventory-category').addEventListener('change', event => {
+  inventoryState.category = event.target.value;
+  inventoryState.subcategory = 'all';
+  loadInventory(inventoryState.month);
+});
+document.getElementById('inventory-subcategory').addEventListener('change', event => {
+  inventoryState.subcategory = event.target.value;
+  loadInventory(inventoryState.month);
+});
+document.getElementById('inventory-movement').addEventListener('change', event => {
+  inventoryState.movement = event.target.value;
+  loadInventory(inventoryState.month);
+});
+
+loadInventoryStatus();
+setInterval(loadInventoryStatus, 60 * 1000);
+async function initializeSpotInventoryPage() {
+  try {
+    await loadSpotInventoryPreferences();
+  } catch (error) {
+    spotInventoryPreferencesReady = true;
+    console.warn('库存界面服务端配置读取失败，使用本地缓存', error);
+  }
+  try {
+    await loadSpotPresets(true);
+  } catch (error) {
+    console.warn('库存查询预设读取失败，继续使用当前配置', error);
+  }
+  await refreshSpotStock();
+}
+initializeSpotInventoryPage();
+loadInventory().catch(error => {
+  document.getElementById('inventory-app').innerHTML = `<div class="alert alert-danger">加载失败: ${esc(error.message)}</div>`;
+});
+</script>
+
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Mobile bottom tab bar -->
+  <nav class="bottom-tab-bar">
+    <div class="tab-items">
+      <a href="/jun-pages/" class="tab-item ">
+        <i class="ti ti-dashboard"></i>
+        <span>运营</span>
+      </a>
+      <a href="/jun-pages/erp/" class="tab-item ">
+        <i class="ti ti-clipboard-check"></i>
+        <span>审核</span>
+      </a>
+      <a href="/jun-pages/erp/products/" class="tab-item ">
+        <i class="ti ti-shirt"></i>
+        <span>档案</span>
+      </a>
+      <a href="/jun-pages/inventory/" class="tab-item active">
+        <i class="ti ti-building-warehouse"></i>
+        <span>库存</span>
+      </a>
+    </div>
+  </nav>
+
+  <script src="https://cdn.jsdelivr.net/npm/@tabler/core@1.0.0-beta20/dist/js/tabler.min.js"></script>
+
+</body>
+</html>

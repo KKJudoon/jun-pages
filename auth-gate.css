@@ -1,0 +1,15 @@
+html.jun-auth-pending body {
+  visibility: hidden;
+}
+
+html.jun-auth-error body::before {
+  content: "登录组件加载失败，请刷新页面";
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  display: grid;
+  place-items: center;
+  color: #182433;
+  background: #f5f7fb;
+  font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}

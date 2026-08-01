@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>营销安全 - 生意中台</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/core@1.0.0-beta20/dist/css/tabler.min.css"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.3.0/dist/css/tabler-icons.min.css"/>
+  <style>
+    .nav-section-label { padding:.9rem 1rem .3rem; color:rgba(255,255,255,.48); font-size:.68rem; font-weight:700; }
+    .nav-link.active { background: rgba(32,107,196,.15) !important; font-weight: 600; border-left: 3px solid #206bc4; }
+    .bottom-tab-bar { display:none; position:fixed; bottom:0; left:0; right:0; background:#fff; border-top:1px solid #e6e8eb; z-index:1050; padding:4px 0 env(safe-area-inset-bottom,4px); }
+    .bottom-tab-bar .tab-items { display:flex; justify-content:space-around; align-items:center; }
+    .bottom-tab-bar .tab-item { display:flex; flex-direction:column; align-items:center; text-decoration:none; color:#667; font-size:.68rem; padding:4px 6px; }
+    .bottom-tab-bar .tab-item i { font-size:1.25rem; margin-bottom:2px; }
+    .bottom-tab-bar .tab-item.active { color:#d63939; font-weight:600; }
+    .metric { min-height:116px; }
+    .price-flow { white-space:nowrap; }
+    .title-cell { min-width:260px; max-width:420px; white-space:normal; }
+    @media (max-width:991px) {
+      .bottom-tab-bar { display:block; }
+      .page-body { padding-bottom:72px; }
+      .title-cell { min-width:220px; }
+    }
+  </style>
+  <link rel="stylesheet" href="/jun-pages/auth-gate.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.111.0"></script>
+  <script src="/jun-pages/config.js"></script>
+  <script src="/jun-pages/public-bridge.js"></script>
+</head>
+<body class="layout-fluid">
+  <div class="page">
+    <!-- Sidebar -->
+    <aside class="navbar navbar-vertical navbar-expand-lg" data-bs-theme="dark">
+      <div class="container-fluid">
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#sidebar-menu">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <h1 class="navbar-brand navbar-brand-autodark">
+          <a href="/jun-pages/" style="text-decoration:none;color:inherit">
+            <span class="ms-2">生意中台</span>
+          </a>
+        </h1>
+        <div class="collapse navbar-collapse" id="sidebar-menu">
+          <ul class="navbar-nav pt-lg-3">
+
+            <li class="nav-section-label">生意中台 · ERP</li>
+            <li class="nav-item">
+              <a class="nav-link " href="/jun-pages/erp/">
+                <span class="nav-link-icon"><i class="ti ti-clipboard-check"></i></span>
+                <span class="nav-link-title">订单审核</span>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link " href="/jun-pages/erp/products/">
+                <span class="nav-link-icon"><i class="ti ti-shirt"></i></span>
+                <span class="nav-link-title">商品档案</span>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="/jun-pages/inventory/">
+                <span class="nav-link-icon"><i class="ti ti-building-warehouse"></i></span>
+                <span class="nav-link-title">库存明细</span>
+              </a>
+            </li>
+
+            <li class="nav-section-label">生意中台 · 电商运营</li>
+            <li class="nav-item">
+              <a class="nav-link " href="/jun-pages/">
+                <span class="nav-link-icon"><i class="ti ti-dashboard"></i></span>
+                <span class="nav-link-title">运营总览</span>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link " href="/jun-pages/sycm/">
+                <span class="nav-link-icon"><i class="ti ti-chart-bar"></i></span>
+                <span class="nav-link-title">生意参谋</span>
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link active" href="/jun-pages/marketing-safety/">
+                <span class="nav-link-icon"><i class="ti ti-shield-exclamation"></i></span>
+                <span class="nav-link-title">营销安全</span>
+              </a>
+            </li>
+            <li class="nav-item">
+              <span class="nav-link disabled text-muted">
+                <span class="nav-link-icon"><i class="ti ti-speakerphone"></i></span>
+                <span class="nav-link-title">万相台推广</span>
+              </span>
+            </li>
+            <li class="nav-item">
+              <span class="nav-link disabled text-muted">
+                <span class="nav-link-icon"><i class="ti ti-shopping-cart"></i></span>
+                <span class="nav-link-title">千牛订单</span>
+              </span>
+            </li>
+            <li class="nav-item">
+              <span class="nav-link disabled text-muted">
+                <span class="nav-link-icon"><i class="ti ti-shirt"></i></span>
+                <span class="nav-link-title">商品管理</span>
+              </span>
+            </li>
+            <li class="nav-item">
+              <span class="nav-link disabled text-muted">
+                <span class="nav-link-icon"><i class="ti ti-tag"></i></span>
+                <span class="nav-link-title">营销大促</span>
+              </span>
+            </li>
+            <li class="nav-item">
+              <span class="nav-link disabled text-muted">
+                <span class="nav-link-icon"><i class="ti ti-headset"></i></span>
+                <span class="nav-link-title">客服售后</span>
+              </span>
+            </li>
+
+          </ul>
+        </div>
+      </div>
+    </aside>
+
+    <div class="page-wrapper">
+      <div class="page-header d-print-none">
+        <div class="container-xl">
+          <div class="page-pretitle">生意中台 · 电商运营</div>
+          <h2 class="page-title">营销安全</h2>
+        </div>
+      </div>
+      <div class="page-body">
+        <div class="container-xl">
+          <div id="status" class="mb-3"></div>
+          <div class="row row-cards mb-3" id="metrics"></div>
+
+          <section class="mb-4">
+            <div class="d-flex align-items-center mb-2">
+              <h3 class="m-0">需要处理</h3>
+              <span class="text-secondary ms-2">自动报名与明显降价</span>
+            </div>
+            <div class="table-responsive border rounded">
+              <table class="table table-vcenter table-striped mb-0">
+                <thead><tr><th>商品</th><th>报名</th><th>价格</th><th>官方立减后估算</th><th>活动</th></tr></thead>
+                <tbody id="risky-items"><tr><td colspan="5" class="text-secondary">加载中...</td></tr></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="mb-4">
+            <div class="d-flex align-items-center mb-2">
+              <h3 class="m-0">最近已报商品</h3>
+              <span class="text-secondary ms-2">历史记录；是否生效以已报活动状态为准</span>
+            </div>
+            <div class="table-responsive border rounded">
+              <table class="table table-vcenter table-sm mb-0">
+                <thead><tr><th>商品</th><th>活动状态</th><th>方式</th><th>报名时间</th><th>一口价</th><th>活动价</th><th>最低比例</th></tr></thead>
+                <tbody id="all-items"><tr><td colspan="7" class="text-secondary">加载中...</td></tr></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section>
+            <div class="d-flex align-items-center mb-2">
+              <h3 class="m-0">巡检记录</h3>
+              <span class="text-secondary ms-2">每 30 分钟</span>
+            </div>
+            <div class="table-responsive border rounded">
+              <table class="table table-vcenter table-sm mb-0">
+                <thead><tr><th>时间</th><th>状态</th><th>类型</th><th>商品</th><th>自动报名</th><th>红线价</th><th>通知群</th></tr></thead>
+                <tbody id="history"><tr><td colspan="7" class="text-secondary">加载中...</td></tr></tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mobile bottom tab bar -->
+  <nav class="bottom-tab-bar">
+    <div class="tab-items">
+      <a href="/jun-pages/" class="tab-item ">
+        <i class="ti ti-dashboard"></i>
+        <span>运营</span>
+      </a>
+      <a href="/jun-pages/erp/" class="tab-item ">
+        <i class="ti ti-clipboard-check"></i>
+        <span>审核</span>
+      </a>
+      <a href="/jun-pages/erp/products/" class="tab-item ">
+        <i class="ti ti-shirt"></i>
+        <span>档案</span>
+      </a>
+      <a href="/jun-pages/inventory/" class="tab-item">
+        <i class="ti ti-building-warehouse"></i>
+        <span>库存</span>
+      </a>
+    </div>
+  </nav>
+
+  <script>
+    const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[char]));
+    const ratio = item => item.min_ratio == null ? '-' : (Number(item.min_ratio) * 100).toFixed(1) + '%';
+    const estimated = item => {
+      const match = String(item.official_discount || '').match(/\d+(?:\.\d+)?/);
+      if (item.activity_min == null || !match) return null;
+      const factor = 1 - Number(match[0]) / 100;
+      const low = Number(item.activity_min) * factor;
+      const high = Number(item.activity_max) * factor;
+      return low.toFixed(2) + (Math.abs(high - low) > .001 ? ' ~ ' + high.toFixed(2) : '');
+    };
+    const badge = (status, severity) => {
+      const color = status === 'error' ? 'danger' : (severity === 'critical' || severity === 'high' ? 'danger' : (severity === 'warn' ? 'warning' : 'success'));
+      return `<span class="badge bg-${color}-lt">${esc(status === 'ok' ? '正常' : status === 'risk' ? '风险' : '故障')}</span>`;
+    };
+
+    async function load() {
+      try {
+        const [latestResponse, historyResponse] = await Promise.all([
+          fetch('/api/marketing/patrol'),
+          fetch('/api/marketing/patrol/history?limit=48')
+        ]);
+        const data = await latestResponse.json();
+        const history = await historyResponse.json();
+        if (!data.ready) throw new Error(data.message || '营销巡店尚未产生数据');
+
+        const risk = data.risk || {};
+        const issues = (data.issues || []).map(item => `<li>${esc(item)}</li>`).join('');
+        const alertColor = data.status === 'error' ? 'danger' : (data.status === 'risk' ? 'warning' : 'success');
+        document.getElementById('status').innerHTML = `
+          <div class="alert alert-${alertColor} d-flex align-items-start" role="alert">
+            <i class="ti ti-${data.status === 'ok' ? 'shield-check' : 'shield-exclamation'} me-2 mt-1"></i>
+            <div class="flex-fill">
+              <div class="fw-bold">${data.status === 'ok' ? '营销巡店正常' : '营销巡店发现风险'}</div>
+              <div class="small">最近检查 ${esc(data.checked_at)} · 类型 ${esc(data.category)} · 只读巡检</div>
+              ${issues ? `<ul class="mb-0 mt-2">${issues}</ul>` : ''}
+            </div>
+          </div>`;
+
+        const redlineCoverage = risk.store_products ? (Number(risk.redline_configured || 0) / Number(risk.store_products) * 100).toFixed(1) : '0.0';
+        document.getElementById('metrics').innerHTML = `
+          <div class="col-sm-6 col-lg-3"><div class="card metric"><div class="card-body"><div class="subheader">当前生效报名</div><div class="h1 mb-0">${(data.active_items || []).length}</div><div class="text-secondary">以已报活动状态为准</div></div></div></div>
+          <div class="col-sm-6 col-lg-3"><div class="card metric"><div class="card-body"><div class="subheader">自动报名低价</div><div class="h1 mb-0 ${(data.risky_items || []).length ? 'text-danger' : ''}">${(data.risky_items || []).length}</div><div class="text-secondary">活动价低于一口价九折</div></div></div></div>
+          <div class="col-sm-6 col-lg-3"><div class="card metric"><div class="card-body"><div class="subheader">红线价覆盖</div><div class="h1 mb-0 ${redlineCoverage < 95 ? 'text-danger' : ''}">${redlineCoverage}%</div><div class="text-secondary">${esc(risk.redline_configured ?? '-')} / ${esc(risk.store_products ?? '-')} 个商品</div></div></div></div>
+          <div class="col-sm-6 col-lg-3"><div class="card metric"><div class="card-body"><div class="subheader">平台通知群</div><div class="h1 mb-0 ${Number(risk.notification_groups || 0) === 0 ? 'text-danger' : ''}">${esc(risk.notification_groups ?? '-')}</div><div class="text-secondary">0 表示平台无法群通知</div></div></div></div>`;
+
+        const risky = data.risky_items || [];
+        document.getElementById('risky-items').innerHTML = risky.length ? risky.map(item => `
+          <tr>
+            <td class="title-cell"><div class="fw-bold">${esc(item.title)}</div><div class="text-secondary">ID ${esc(item.item_id)}</div></td>
+            <td><span class="badge bg-danger-lt">${esc(item.signup_method)}</span><div class="small text-secondary mt-1">${esc(item.signup_time)}</div></td>
+            <td class="price-flow"><span>${esc(item.list_price)}</span> <i class="ti ti-arrow-right"></i> <strong class="text-danger">${esc(item.activity_price)}</strong><div class="small text-secondary">最低比例 ${ratio(item)}</div></td>
+            <td><strong>${estimated(item) || '未载入'}</strong><div class="small text-secondary">${estimated(item) ? `仅扣官方立减 ${esc(item.official_discount)}，未计券` : '平台本轮未返回立减比例'}</div></td>
+            <td><div>${esc(item.activity_name)}</div><div class="small text-secondary">${esc(item.activity_time)}</div></td>
+          </tr>`).join('') : '<tr><td colspan="5" class="text-success"><i class="ti ti-circle-check me-1"></i>未发现自动报名低价商品</td></tr>';
+
+        const items = data.items || [];
+        document.getElementById('all-items').innerHTML = items.length ? items.map(item => `
+          <tr>
+            <td class="title-cell"><div>${esc(item.title)}</div><div class="text-secondary">ID ${esc(item.item_id)} · 营销 ${esc(item.marketing_id)}</div></td>
+            <td><span class="badge ${item.active_registration ? 'bg-success-lt' : 'bg-secondary-lt'}">${item.active_registration ? '生效' : (item.activity_registration_status === 'withdrawn' ? '已撤销' : item.activity_registration_status === 'ended' ? '已结束' : '未匹配')}</span></td>
+            <td><span class="badge ${item.signup_method === '自动报名' ? 'bg-danger-lt' : 'bg-secondary-lt'}">${esc(item.signup_method)}</span></td>
+            <td>${esc(item.signup_time)}</td>
+            <td>${esc(item.list_price)}</td>
+            <td class="${Number(item.min_ratio || 1) < .9 ? 'text-danger fw-bold' : ''}">${esc(item.activity_price)}</td>
+            <td>${ratio(item)}</td>
+          </tr>`).join('') : '<tr><td colspan="7" class="text-secondary">无商品数据</td></tr>';
+
+        const runs = history.runs || [];
+        document.getElementById('history').innerHTML = runs.length ? runs.map(run => `
+          <tr>
+            <td>${esc(run.checked_at)}</td><td>${badge(run.status, run.severity)}</td>
+            <td><code>${esc(run.category)}</code></td><td>${esc(run.item_count)}</td><td>${esc(run.auto_count)}</td>
+            <td>${esc(run.redline_configured ?? '-')} / ${esc(run.store_products ?? '-')}</td><td>${esc(run.notification_groups ?? '-')}</td>
+          </tr>`).join('') : '<tr><td colspan="7" class="text-secondary">暂无巡检记录</td></tr>';
+      } catch (error) {
+        document.getElementById('status').innerHTML = `<div class="alert alert-danger">加载失败: ${esc(error.message)}</div>`;
+      }
+    }
+    load();
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/@tabler/core@1.0.0-beta20/dist/js/tabler.min.js"></script>
+</body>
+</html>
