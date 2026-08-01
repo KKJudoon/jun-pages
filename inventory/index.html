@@ -1967,7 +1967,21 @@ document.getElementById('inventory-view-tabs').addEventListener('click', event =
   const spot = button.dataset.view === 'spot';
   document.getElementById('inventory-overview-view').classList.toggle('d-none', spot);
   document.getElementById('spot-stock-view').classList.toggle('d-none', !spot);
-  if (spot) refreshSpotStock();
+  if (spot) {
+    refreshSpotStock();
+  } else if (!inventoryOverviewLoaded && !inventoryOverviewLoading) {
+    inventoryOverviewLoading = loadInventory()
+      .then(() => {
+        inventoryOverviewLoaded = true;
+      })
+      .catch(error => {
+        document.getElementById('inventory-app').innerHTML =
+          `<div class="alert alert-danger">加载失败: ${esc(error.message)}</div>`;
+      })
+      .finally(() => {
+        inventoryOverviewLoading = null;
+      });
+  }
 });
 
 document.querySelectorAll('.spot-multiselect[data-spot-filter]').forEach(details => {
@@ -2206,6 +2220,8 @@ document.getElementById('inventory-movement').addEventListener('change', event =
   loadInventory(inventoryState.month);
 });
 
+let inventoryOverviewLoaded = false;
+let inventoryOverviewLoading = null;
 loadInventoryStatus();
 setInterval(loadInventoryStatus, 60 * 1000);
 async function initializeSpotInventoryPage() {
@@ -2223,9 +2239,6 @@ async function initializeSpotInventoryPage() {
   await refreshSpotStock();
 }
 initializeSpotInventoryPage();
-loadInventory().catch(error => {
-  document.getElementById('inventory-app').innerHTML = `<div class="alert alert-danger">加载失败: ${esc(error.message)}</div>`;
-});
 </script>
 
         </div>
