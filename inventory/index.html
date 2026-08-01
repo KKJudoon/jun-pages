@@ -2209,17 +2209,17 @@ document.getElementById('inventory-movement').addEventListener('change', event =
 loadInventoryStatus();
 setInterval(loadInventoryStatus, 60 * 1000);
 async function initializeSpotInventoryPage() {
-  try {
-    await loadSpotInventoryPreferences();
-  } catch (error) {
-    spotInventoryPreferencesReady = true;
-    console.warn('库存界面服务端配置读取失败，使用本地缓存', error);
-  }
-  try {
-    await loadSpotPresets(true);
-  } catch (error) {
-    console.warn('库存查询预设读取失败，继续使用当前配置', error);
-  }
+  // These two reads are independent. Waiting for them serially delayed the
+  // first candidate query by another full network round-trip.
+  await Promise.all([
+    loadSpotInventoryPreferences().catch(error => {
+      spotInventoryPreferencesReady = true;
+      console.warn('库存界面服务端配置读取失败，使用本地缓存', error);
+    }),
+    loadSpotPresets(true).catch(error => {
+      console.warn('库存查询预设读取失败，继续使用当前配置', error);
+    })
+  ]);
   await refreshSpotStock();
 }
 initializeSpotInventoryPage();
