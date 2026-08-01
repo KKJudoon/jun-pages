@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>生意中台</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="app-shell">
+    <section class="login-shell" id="login-view" aria-labelledby="login-title">
+      <div class="login-brand">
+        <div class="brand-mark" aria-hidden="true">J</div>
+        <div>
+          <p class="eyebrow">JUN BUSINESS PLATFORM</p>
+          <h1 id="login-title">生意中台</h1>
+          <p class="brand-subtitle">商品、库存与运营数据工作台</p>
+        </div>
+      </div>
+
+      <form class="login-panel" id="login-form">
+        <div class="panel-heading">
+          <h2>登录工作台</h2>
+          <p>使用公司账号登录</p>
+        </div>
+        <label class="field">
+          <span>账号</span>
+          <input id="account" name="account" type="text" autocomplete="username" autocapitalize="none" required placeholder="输入账号">
+        </label>
+        <label class="field">
+          <span>密码</span>
+          <input id="password" name="password" type="password" autocomplete="current-password" required placeholder="输入密码">
+        </label>
+        <button class="primary-button" type="submit">登录</button>
+        <p class="form-message" id="login-message" role="alert"></p>
+      </form>
+
+      <p class="login-footer">数据访问受账号权限控制 · 生意中台</p>
+    </section>
+
+    <section class="workspace-shell is-hidden" id="workspace-view" aria-labelledby="workspace-title">
+      <header class="workspace-header">
+        <div class="workspace-brand">
+          <div class="brand-mark small" aria-hidden="true">J</div>
+          <div>
+            <p class="eyebrow">JUN BUSINESS PLATFORM</p>
+            <h1 id="workspace-title">生意中台</h1>
+          </div>
+        </div>
+        <div class="account-area">
+          <span id="account-name"></span>
+          <button class="secondary-button" id="logout-button" type="button">退出登录</button>
+        </div>
+      </header>
+      <div class="workspace-body">
+        <aside class="side-nav" aria-label="模块导航">
+          <p class="nav-label">工作台</p>
+          <button class="nav-item active" type="button">总览</button>
+          <button class="nav-item" type="button" data-permission="inventory.read">库存查询</button>
+          <button class="nav-item" type="button" data-permission="orders.read">订单审核</button>
+          <button class="nav-item" type="button" data-permission="operations.overview.read">运营数据</button>
+        </aside>
+        <section class="workspace-content">
+          <div class="content-heading">
+            <div>
+              <p class="eyebrow">OVERVIEW</p>
+              <h2>欢迎进入生意中台</h2>
+            </div>
+            <span class="status-chip" id="account-role">权限读取中</span>
+          </div>
+          <div class="empty-state">
+            <div class="empty-icon" aria-hidden="true">✓</div>
+            <h3>登录成功</h3>
+            <p>业务模块和数据权限接入后，会根据你的账号角色显示。</p>
+          </div>
+        </section>
+      </div>
+    </section>
+  </main>
+  <script src="config.js"></script>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
