@@ -56,24 +56,192 @@
       <div class="workspace-body">
         <aside class="side-nav" aria-label="模块导航">
           <p class="nav-label">工作台</p>
-          <button class="nav-item active" type="button">总览</button>
-          <button class="nav-item" type="button" data-permission="inventory.read">库存查询</button>
-          <button class="nav-item" type="button" data-permission="orders.read">订单审核</button>
-          <button class="nav-item" type="button" data-permission="operations.overview.read">运营数据</button>
+          <button class="nav-item active" type="button" data-view="overview">总览</button>
+          <button class="nav-item" type="button" data-view="products" data-permission="products.read">商品档案</button>
+          <button class="nav-item" type="button" data-view="inventory" data-permission="inventory.read">库存查询</button>
+          <button class="nav-item" type="button" data-view="orders" data-permission="orders.read">订单审核</button>
+          <button class="nav-item" type="button" data-view="operations" data-permission="operations.overview.read">运营数据</button>
         </aside>
         <section class="workspace-content">
           <div class="content-heading">
             <div>
-              <p class="eyebrow">OVERVIEW</p>
-              <h2>欢迎进入生意中台</h2>
+              <p class="eyebrow" id="view-eyebrow">OVERVIEW</p>
+              <h2 id="view-title">经营数据总览</h2>
             </div>
             <span class="status-chip" id="account-role">权限读取中</span>
           </div>
-          <div class="empty-state">
-            <div class="empty-icon" aria-hidden="true">✓</div>
-            <h3>登录成功</h3>
-            <p>业务模块和数据权限接入后，会根据你的账号角色显示。</p>
-          </div>
+          <p class="view-message is-hidden" id="view-message" role="status"></p>
+
+          <section class="view-panel" data-panel="overview">
+            <div class="metric-grid" aria-label="数据规模">
+              <article class="metric-card">
+                <p>商品档案</p>
+                <strong id="metric-products">—</strong>
+                <span>ERP 商品</span>
+              </article>
+              <article class="metric-card">
+                <p>SKU 档案</p>
+                <strong id="metric-skus">—</strong>
+                <span>颜色与尺码明细</span>
+              </article>
+              <article class="metric-card">
+                <p>库存记录</p>
+                <strong id="metric-inventory">—</strong>
+                <span>仓库 × SKU</span>
+              </article>
+              <article class="metric-card">
+                <p>仓库</p>
+                <strong id="metric-warehouses">—</strong>
+                <span>当前库存仓</span>
+              </article>
+            </div>
+            <div class="overview-grid">
+              <article class="surface-card">
+                <div class="section-heading">
+                  <div>
+                    <p class="eyebrow">DATA STATUS</p>
+                    <h3>云端数据状态</h3>
+                  </div>
+                  <button class="compact-button" id="refresh-overview" type="button">刷新</button>
+                </div>
+                <div class="sync-list" id="sync-list">
+                  <p class="muted-text">正在读取同步状态…</p>
+                </div>
+              </article>
+              <article class="surface-card access-card">
+                <p class="eyebrow">ACCESS</p>
+                <h3>权限内直接查询</h3>
+                <p>商品、SKU 和库存从 Supabase 只读视图实时读取；未登录用户和无权限账号无法访问业务数据。</p>
+                <div class="access-actions">
+                  <button class="compact-button" type="button" data-open-view="products">查看商品</button>
+                  <button class="compact-button" type="button" data-open-view="inventory">查询库存</button>
+                </div>
+              </article>
+            </div>
+          </section>
+
+          <section class="view-panel is-hidden" data-panel="products">
+            <form class="query-toolbar" id="product-search-form">
+              <label class="search-field">
+                <span class="sr-only">搜索商品</span>
+                <input id="product-search" type="search" maxlength="64" placeholder="搜索款号、商品名、简称或条码">
+              </label>
+              <button class="primary-action" type="submit">查询</button>
+              <button class="compact-button" id="product-reset" type="button">清空</button>
+            </form>
+            <div class="results-bar">
+              <p id="product-results-meta">准备读取商品档案</p>
+              <p>点击“查看 SKU”展开颜色与尺码</p>
+            </div>
+            <div class="table-shell">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>商品</th>
+                    <th>款号</th>
+                    <th>品牌</th>
+                    <th>零售价</th>
+                    <th>状态</th>
+                    <th>更新</th>
+                    <th><span class="sr-only">操作</span></th>
+                  </tr>
+                </thead>
+                <tbody id="product-table-body"></tbody>
+              </table>
+            </div>
+            <div class="pagination" aria-label="商品翻页">
+              <button class="compact-button" id="product-prev" type="button">上一页</button>
+              <span id="product-page-label">第 1 页</span>
+              <button class="compact-button" id="product-next" type="button">下一页</button>
+            </div>
+
+            <section class="detail-panel is-hidden" id="sku-detail" aria-labelledby="sku-detail-title">
+              <div class="section-heading">
+                <div>
+                  <p class="eyebrow">SKU DETAIL</p>
+                  <h3 id="sku-detail-title">SKU 明细</h3>
+                  <p class="muted-text" id="sku-detail-meta"></p>
+                </div>
+                <button class="compact-button" id="sku-detail-close" type="button">收起</button>
+              </div>
+              <div class="table-shell compact-table-shell">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>SKU 编码</th>
+                      <th>条码</th>
+                      <th>颜色</th>
+                      <th>尺码</th>
+                      <th>其他规格</th>
+                      <th>单位</th>
+                      <th>更新</th>
+                    </tr>
+                  </thead>
+                  <tbody id="sku-table-body"></tbody>
+                </table>
+              </div>
+            </section>
+          </section>
+
+          <section class="view-panel is-hidden" data-panel="inventory">
+            <form class="query-toolbar inventory-toolbar" id="inventory-search-form">
+              <label class="search-field">
+                <span class="sr-only">搜索库存</span>
+                <input id="inventory-search" type="search" maxlength="64" placeholder="搜索款号、商品名、SKU、条码或规格">
+              </label>
+              <label class="select-field">
+                <span class="sr-only">选择仓库</span>
+                <select id="warehouse-filter">
+                  <option value="">全部仓库</option>
+                </select>
+              </label>
+              <button class="primary-action" type="submit">查询</button>
+              <button class="compact-button" id="inventory-reset" type="button">清空</button>
+            </form>
+            <div class="results-bar">
+              <p id="inventory-results-meta">准备读取当前库存</p>
+              <p id="inventory-captured-at"></p>
+            </div>
+            <div class="table-shell">
+              <table class="data-table inventory-table">
+                <thead>
+                  <tr>
+                    <th>商品 / SKU</th>
+                    <th>规格</th>
+                    <th>仓库</th>
+                    <th class="number-cell">库存</th>
+                    <th class="number-cell">占用</th>
+                    <th class="number-cell">可售</th>
+                    <th class="number-cell">零售价</th>
+                    <th>库位</th>
+                    <th>更新</th>
+                  </tr>
+                </thead>
+                <tbody id="inventory-table-body"></tbody>
+              </table>
+            </div>
+            <div class="pagination" aria-label="库存翻页">
+              <button class="compact-button" id="inventory-prev" type="button">上一页</button>
+              <span id="inventory-page-label">第 1 页</span>
+              <button class="compact-button" id="inventory-next" type="button">下一页</button>
+            </div>
+          </section>
+
+          <section class="view-panel is-hidden" data-panel="orders">
+            <div class="empty-state">
+              <div class="empty-icon" aria-hidden="true">↗</div>
+              <h3>订单模块待接入</h3>
+              <p>当前阶段先完成商品、SKU 和库存只读查询；订单数据仍由现有中台处理。</p>
+            </div>
+          </section>
+
+          <section class="view-panel is-hidden" data-panel="operations">
+            <div class="empty-state">
+              <div class="empty-icon" aria-hidden="true">↗</div>
+              <h3>运营模块待接入</h3>
+              <p>经营指标接入前会先统一口径，避免把实时、T+1 和退款口径混在一起。</p>
+            </div>
+          </section>
         </section>
       </div>
     </section>
