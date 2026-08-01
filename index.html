@@ -195,36 +195,45 @@
 
 document.addEventListener('DOMContentLoaded', async () => {
   try {
-    const [erpRes, sycmRes, inventoryRes] = await Promise.all([
-      fetch('/api/erp/stats'),
-      fetch('/api/sycm/overview').catch(() => null),
-      fetch('/api/erp/inventory/summary').catch(() => null),
-    ]);
+    // Keep the ERP overview responsive when an optional analytics endpoint is slow.
+    // The original cards remain unchanged; SYCM and inventory fill in as they arrive.
+    const fetchJson = (url, timeoutMs = 8000) => {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      return fetch(url, {signal: controller.signal})
+        .then(r => r.ok ? r.json() : null)
+        .catch(() => null)
+        .finally(() => clearTimeout(timer));
+    };
+    const sycmPromise = fetchJson('/api/sycm/overview');
+    const inventoryPromise = fetchJson('/api/erp/inventory/summary');
+    const erpRes = await fetch('/api/erp/stats', {signal: AbortSignal.timeout(8000)});
     const s = erpRes.ok ? await erpRes.json() : null;
-    const sycm = sycmRes && sycmRes.ok ? await sycmRes.json() : null;
-    const inventory = inventoryRes && inventoryRes.ok ? await inventoryRes.json() : null;
+    const sycm = null;
+    const inventory = null;
 
     if (!s) { document.getElementById('overview').innerHTML = '<div class="alert alert-warning">无法加载数据</div>'; return; }
 
-    const sycmCurrent = sycm ? (sycm.current_month || {
-      ...sycm.current,
-      date: sycm.range ? sycm.range.end : ''
-    }) : null;
-    const sycmCard = sycmCurrent ? `
-      <div class="col-sm-6 col-lg-3">
+    const renderSycmCard = (data) => {
+      const current = data ? (data.current_month || {
+        ...data.current,
+        date: data.range ? data.range.end : ''
+      }) : null;
+      return current ? `
+      <div id="overview-sycm-card" class="col-sm-6 col-lg-3">
         <a href="/jun-pages/sycm/" class="card card-link card-link-pop" style="border-left:4px solid #206bc4">
           <div class="card-body text-center py-4">
             <i class="ti ti-chart-bar mb-2" style="font-size:2rem"></i>
             <div class="fw-bold">生意参谋</div>
-            <div class="small text-secondary">${sycmCurrent.date ? sycmCurrent.date.slice(0,7) : ''}</div>
+            <div class="small text-secondary">${current.date ? current.date.slice(0,7) : ''}</div>
             <div class="mt-1">
-              <span class="fw-bold">&yen;${Number(sycmCurrent.pay_amount).toLocaleString('zh-CN', {maximumFractionDigits:0})}</span>
-              <span class="text-secondary ms-2">${Number(sycmCurrent.visitors).toLocaleString()} 访客</span>
+              <span class="fw-bold">&yen;${Number(current.pay_amount).toLocaleString('zh-CN', {maximumFractionDigits:0})}</span>
+              <span class="text-secondary ms-2">${Number(current.visitors).toLocaleString()} 访客</span>
             </div>
           </div>
         </a>
       </div>` : `
-      <div class="col-sm-6 col-lg-3">
+      <div id="overview-sycm-card" class="col-sm-6 col-lg-3">
         <div class="card bg-secondary-lt">
           <div class="card-body text-center py-4 text-muted">
             <i class="ti ti-chart-bar mb-2" style="font-size:2rem"></i>
@@ -233,24 +242,25 @@ document.addEventListener('DOMContentLoaded', async () => {
           </div>
         </div>
       </div>`;
+    };
 
-    const inventoryCard = inventory && inventory.ready ? `
-      <div class="col-sm-6 col-lg-3">
+    const renderInventoryCard = (data) => data && data.ready ? `
+      <div id="overview-inventory-card" class="col-sm-6 col-lg-3">
         <a href="/jun-pages/inventory/" class="card card-link card-link-pop" style="border-left:4px solid #f59f00">
           <div class="card-body text-center py-4">
             <i class="ti ti-building-warehouse mb-2" style="font-size:2rem"></i>
             <div class="fw-bold">库存明细</div>
-            <div class="small text-secondary">${inventory.month}</div>
+            <div class="small text-secondary">${data.month}</div>
             <div class="mt-1">
-              <span class="fw-bold">${Number(inventory.summary.closing_qty).toLocaleString('zh-CN', {maximumFractionDigits:1})} 件</span>
-              <span class="${inventory.summary.net_change_qty > 0 ? 'text-danger' : 'text-success'} ms-2">
-                ${inventory.summary.net_change_qty > 0 ? '+' : ''}${Number(inventory.summary.net_change_qty).toLocaleString('zh-CN', {maximumFractionDigits:1})}
+              <span class="fw-bold">${Number(data.summary.closing_qty).toLocaleString('zh-CN', {maximumFractionDigits:1})} 件</span>
+              <span class="${data.summary.net_change_qty > 0 ? 'text-danger' : 'text-success'} ms-2">
+                ${data.summary.net_change_qty > 0 ? '+' : ''}${Number(data.summary.net_change_qty).toLocaleString('zh-CN', {maximumFractionDigits:1})}
               </span>
             </div>
           </div>
         </a>
       </div>` : `
-      <div class="col-sm-6 col-lg-3">
+      <div id="overview-inventory-card" class="col-sm-6 col-lg-3">
         <a href="/jun-pages/inventory/" class="card bg-secondary-lt">
           <div class="card-body text-center py-4 text-muted">
             <i class="ti ti-building-warehouse mb-2" style="font-size:2rem"></i>
@@ -316,8 +326,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                   </div>
                 </a>
               </div>
-              ${sycmCard}
-              ${inventoryCard}
+              ${renderSycmCard(sycm)}
+              ${renderInventoryCard(inventory)}
               <div class="col-sm-6 col-lg-3">
                 <div class="card bg-secondary-lt">
                   <div class="card-body text-center py-4 text-muted">
@@ -374,6 +384,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         </div>
       </div>
     `;
+
+    // Optional cards update independently; a slow SYCM/inventory response no longer
+    // holds the complete overview hostage.
+    Promise.all([sycmPromise, inventoryPromise]).then(([nextSycm, nextInventory]) => {
+      const sycmNode = document.getElementById('overview-sycm-card');
+      const inventoryNode = document.getElementById('overview-inventory-card');
+      if (sycmNode) sycmNode.outerHTML = renderSycmCard(nextSycm);
+      if (inventoryNode) inventoryNode.outerHTML = renderInventoryCard(nextInventory);
+    });
   } catch(e) {
     document.getElementById('overview').innerHTML = '<div class="alert alert-danger">加载失败: '+e.message+'</div>';
   }
