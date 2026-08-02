@@ -507,15 +507,13 @@
       <div class="spot-filter-control d-none" data-spot-filter-control="stock" data-spot-sku-only><label class="form-label mb-1" for="spot-stock-min">当前 SKU 库存</label><div class="spot-range"><input class="form-control" type="number" id="spot-stock-min" placeholder="最小"><input class="form-control" type="number" id="spot-stock-max" placeholder="最大"></div></div>
       <div class="spot-filter-control" data-spot-filter-control="occupied"><label class="form-label mb-1" for="spot-occupied-min">占用数量</label><div class="spot-range"><input class="form-control" type="number" id="spot-occupied-min" placeholder="最小"><input class="form-control" type="number" id="spot-occupied-max" placeholder="最大"></div></div>
       <div class="spot-filter-control" data-spot-filter-control="remainingSizes"><label class="form-label mb-1" for="spot-sizes-min">可售尺码数</label><div class="spot-range"><input class="form-control" type="number" id="spot-sizes-min" placeholder="最小"><input class="form-control" type="number" id="spot-sizes-max" placeholder="最大"></div></div>
-      <div class="spot-filter-control" data-spot-filter-control="ordered"><label class="form-label mb-1" for="spot-ordered-min">观察期下单</label><div class="spot-range"><input class="form-control" type="number" id="spot-ordered-min" placeholder="最小"><input class="form-control" type="number" id="spot-ordered-max" placeholder="最大"></div></div>
-      <div class="spot-filter-control" data-spot-filter-control="refund"><label class="form-label mb-1" for="spot-refund-min">退款数量</label><div class="spot-range"><input class="form-control" type="number" id="spot-refund-min" placeholder="最小"><input class="form-control" type="number" id="spot-refund-max" placeholder="最大"></div></div>
       <div class="spot-filter-control" data-spot-filter-control="taobaoPrice"><label class="form-label mb-1" for="spot-taobao-price-min">淘宝价</label><div class="spot-range"><input class="form-control" type="number" step="0.01" id="spot-taobao-price-min" placeholder="最小"><input class="form-control" type="number" step="0.01" id="spot-taobao-price-max" placeholder="最大"></div></div>
       <div class="spot-filter-control" data-spot-filter-control="taobaoTotalSold"><label class="form-label mb-1" for="spot-taobao-total-sold-min">淘宝总销量</label><div class="spot-range"><input class="form-control" type="number" id="spot-taobao-total-sold-min" placeholder="最小"><input class="form-control" type="number" id="spot-taobao-total-sold-max" placeholder="最大"></div></div>
       <div class="spot-filter-control" data-spot-filter-control="taobaoSold30d"><label class="form-label mb-1" for="spot-taobao-sold-30d-min">淘宝近30天</label><div class="spot-range"><input class="form-control" type="number" id="spot-taobao-sold-30d-min" placeholder="最小"><input class="form-control" type="number" id="spot-taobao-sold-30d-max" placeholder="最大"></div></div>
       <div class="spot-filter-control" data-spot-filter-control="skuCount" data-spot-product-only><label class="form-label mb-1" for="spot-sku-count-min">可售 SKU 数</label><div class="spot-range"><input class="form-control" type="number" id="spot-sku-count-min" placeholder="最小"><input class="form-control" type="number" id="spot-sku-count-max" placeholder="最大"></div></div>
     </div>
     <div class="spot-filter-row mt-2">
-      <div class="spot-filter-control"><label class="form-label mb-1" for="spot-sort-by">排序</label><select id="spot-sort-by" class="form-select"><option value="priority">候选优先级</option><option value="product_code">款号</option><option value="sku_code">SKU</option><option value="warehouse_name">仓库</option><option value="color">颜色</option><option value="size">尺码</option><option value="stock_qty">实际库存</option><option value="sellable_qty">可销售库存</option><option value="occupied_qty">占用</option><option value="remaining_size_count">可售尺码数</option><option value="sku_count">可售 SKU 数</option><option value="ordered_qty">观察期下单</option><option value="refund_qty">退款</option><option value="taobao_price">淘宝价</option><option value="taobao_total_sold">淘宝总销量</option><option value="taobao_sold_30d">淘宝近30天</option><option value="last_order_at">最后下单</option></select></div>
+      <div class="spot-filter-control"><label class="form-label mb-1" for="spot-sort-by">排序</label><select id="spot-sort-by" class="form-select"><option value="priority">库存优先级</option><option value="product_code">款号</option><option value="sku_code">SKU</option><option value="warehouse_name">仓库</option><option value="color">颜色</option><option value="size">尺码</option><option value="stock_qty">实际库存</option><option value="sellable_qty">可销售库存</option><option value="occupied_qty">占用</option><option value="remaining_size_count">可售尺码数</option><option value="sku_count">可售 SKU 数</option><option value="taobao_price">淘宝价</option><option value="taobao_total_sold">淘宝总销量</option><option value="taobao_sold_30d">淘宝近30天</option></select></div>
       <button id="spot-sort-dir" class="btn btn-outline-secondary" type="button" title="切换升降序"><i class="ti ti-sort-ascending"></i><span class="ms-1">升序</span></button>
       <div class="spot-filter-control"><label class="form-label mb-1" for="spot-page-size">每页</label><select id="spot-page-size" class="form-select"><option value="50">50 条</option><option value="100" selected>100 条</option><option value="250">250 条</option></select></div>
       <div id="spot-filter-summary" class="spot-filter-summary text-secondary small ms-lg-auto"></div>
@@ -614,7 +612,6 @@ const spotState = {
   productStockMin: '', productStockMax: '',
   stockMin: '', stockMax: '', sellableMin: '', sellableMax: '',
   occupiedMin: '', occupiedMax: '', sizesMin: '', sizesMax: '',
-  orderedMin: '', orderedMax: '', refundMin: '', refundMax: '',
   taobaoPriceMin: '', taobaoPriceMax: '',
   taobaoTotalSoldMin: '', taobaoTotalSoldMax: '',
   taobaoSold30dMin: '', taobaoSold30dMax: '',
@@ -638,9 +635,6 @@ const spotColumns = {
     {key:'warehouses', label:'仓库', sort:'warehouse_name'},
     {key:'colors', label:'颜色', sort:'color'},
     {key:'sku_coverage', label:'SKU 明细'},
-    {key:'ordered_qty', label:'观察期下单', sort:'ordered_qty', numeric:true},
-    {key:'refund_qty', label:'退款', sort:'refund_qty', numeric:true},
-    {key:'last_order_at', label:'最后下单', sort:'last_order_at'},
     {key:'flags', label:'判断'}
   ],
   sku: [
@@ -658,9 +652,6 @@ const spotColumns = {
     {key:'warehouse', label:'仓库', sort:'warehouse_name'},
     {key:'color', label:'颜色', sort:'color'},
     {key:'sizes', label:'整款可售尺码', sort:'remaining_size_count'},
-    {key:'ordered_qty', label:'观察期下单', sort:'ordered_qty', numeric:true},
-    {key:'refund_qty', label:'退款', sort:'refund_qty', numeric:true},
-    {key:'last_order_at', label:'最后下单', sort:'last_order_at'},
     {key:'flags', label:'判断'}
   ]
 };
@@ -681,8 +672,7 @@ const spotDefaultColumnWidths = {
   image:64, product:124, category:100, sellable_qty:96, stock_qty:88,
   product_stock_qty:104, sizes:190, sku_count:88, occupied_qty:84,
   warehouses:130, warehouse:110, colors:140, color:90, size:78,
-  sku_coverage:96, ordered_qty:104, refund_qty:80,
-  last_order_at:150, flags:160, taobao_price:88,
+  sku_coverage:96, flags:160, taobao_price:88,
   taobao_total_sold:104, taobao_sold_30d:104
 };
 const spotFilterDefinitions = [
@@ -699,8 +689,6 @@ const spotFilterDefinitions = [
   {key:'stock', label:'当前 SKU 库存', placement:'advanced', selector:'[data-spot-filter-control="stock"]'},
   {key:'occupied', label:'占用数量', placement:'advanced', selector:'[data-spot-filter-control="occupied"]'},
   {key:'remainingSizes', label:'可售尺码数', placement:'advanced', selector:'[data-spot-filter-control="remainingSizes"]'},
-  {key:'ordered', label:'观察期下单', placement:'advanced', selector:'[data-spot-filter-control="ordered"]'},
-  {key:'refund', label:'退款数量', placement:'advanced', selector:'[data-spot-filter-control="refund"]'},
   {key:'taobaoPrice', label:'淘宝价', placement:'advanced', selector:'[data-spot-filter-control="taobaoPrice"]'},
   {key:'taobaoTotalSold', label:'淘宝总销量', placement:'advanced', selector:'[data-spot-filter-control="taobaoTotalSold"]'},
   {key:'taobaoSold30d', label:'淘宝近30天', placement:'advanced', selector:'[data-spot-filter-control="taobaoSold30d"]'},
@@ -858,8 +846,6 @@ const spotFilterHelp = {
   'spot-sellable-min': ['可销售库存', 'ERP 当前真正可以继续销售的库存数量，通常等于实际库存减去占用。页面的可售尺码和断码判断也以可销售库存大于 0 为准。'],
   'spot-occupied-min': ['占用数量', '已被订单或业务流程占用、暂时不能自由销售的库存数量。'],
   'spot-sizes-min': ['可售尺码数', '同一款号跨颜色统计可销售库存大于 0 的不同尺码数量。该条件依赖完整 SKU 明细，未覆盖商品不会被当作零尺码参与判断。'],
-  'spot-ordered-min': ['观察期下单', '当前本地订单观察窗口内匹配到的下单件数，不是 ERP 全历史销量，也不等同于最终成交净件数。'],
-  'spot-refund-min': ['退款数量', '当前本地订单观察窗口内匹配到退款状态的件数，用于辅助判断下单量中可能被退款的部分。'],
   'spot-taobao-price-min': ['淘宝价', '按当前已匹配淘宝商品显示的价格筛选。一个款号关联多个淘宝商品时，按接口返回的第一个有效价格参与筛选；没有价格的条目不会命中数值范围。'],
   'spot-taobao-total-sold-min': ['淘宝总销量', '按已匹配淘宝商品采集到的总销量筛选；没有淘宝销量数据的条目不会被当作 0 参与范围筛选。'],
   'spot-taobao-sold-30d-min': ['淘宝近30天', '按已匹配淘宝商品采集到的近 30 天销量筛选；没有淘宝销量数据的条目不会被当作 0 参与范围筛选。'],
@@ -1325,7 +1311,6 @@ function spotFlag(item) {
   const flags = [];
   if (item.is_singleton) flags.push('<span class="badge bg-red-lt">孤品款</span>');
   if (item.is_broken_size) flags.push('<span class="badge bg-yellow-lt">断码款</span>');
-  if (item.no_order_observed) flags.push('<span class="badge bg-secondary-lt">观察期无订单</span>');
   if (item.allocation_status === 'unassigned') flags.push('<span class="badge bg-orange-lt">未分配SKU</span>');
   if (Number(item.occupied_qty || 0) > 0) flags.push('<span class="badge bg-blue-lt">有占用</span>');
   return flags.join(' ');
@@ -1447,7 +1432,6 @@ function spotFilterCount() {
   const rangePairs = [
     ['productStockMin', 'productStockMax'], ['sellableMin', 'sellableMax'],
     ['occupiedMin', 'occupiedMax'], ['sizesMin', 'sizesMax'],
-    ['orderedMin', 'orderedMax'], ['refundMin', 'refundMax'],
     ['taobaoPriceMin', 'taobaoPriceMax'],
     ['taobaoTotalSoldMin', 'taobaoTotalSoldMax'],
     ['taobaoSold30dMin', 'taobaoSold30dMax'],
@@ -1509,8 +1493,6 @@ function spotColgroup() {
 }
 
 function spotColumnCell(item, key) {
-  const lastOrder = `${esc(item.last_order_at || (item.order_coverage === false ? '未覆盖' : '观察期无记录'))}${item.days_since_last_order != null
-    ? `<div class="small text-secondary">${qty(item.days_since_last_order)} 天前</div>` : ''}`;
   const cells = {
     image: `<td class="spot-image-cell spot-sticky-image">${spotImage(item)}</td>`,
     product: `<td class="spot-sku spot-sticky-product"><span class="spot-product-code">${esc(item.product_code || '-')}</span>${spotTaobaoBadge(item)}${item.sku_code
@@ -1535,9 +1517,6 @@ function spotColumnCell(item, key) {
           `<span class="text-nowrap">${esc(entry.size)}*${qty(entry.qty)}</span>`
         ).join(' / ') || '-'}`}</td>`,
     sku_coverage: `<td>${item.sku_coverage ? '<span class="badge bg-green-lt">已覆盖</span>' : '<span class="badge bg-secondary-lt">未覆盖</span>'}</td>`,
-    ordered_qty: `<td class="qty-cell">${item.order_coverage === false ? '-' : qty(item.ordered_qty)}</td>`,
-    refund_qty: `<td class="qty-cell">${item.order_coverage === false ? '-' : qty(item.refund_qty)}</td>`,
-    last_order_at: `<td class="text-nowrap">${lastOrder}</td>`,
     flags: `<td>${spotFlag(item)}</td>`
   };
   return cells[key] || '<td>-</td>';
@@ -1713,8 +1692,6 @@ async function loadSpotStock() {
     ['sellable_min', spotState.sellableMin], ['sellable_max', spotState.sellableMax],
     ['occupied_min', spotState.occupiedMin], ['occupied_max', spotState.occupiedMax],
     ['remaining_sizes_min', spotState.sizesMin], ['remaining_sizes_max', spotState.sizesMax],
-    ['ordered_min', spotState.orderedMin], ['ordered_max', spotState.orderedMax],
-    ['refund_min', spotState.refundMin], ['refund_max', spotState.refundMax],
     ['taobao_price_min', spotState.taobaoPriceMin], ['taobao_price_max', spotState.taobaoPriceMax],
     ['taobao_total_sold_min', spotState.taobaoTotalSoldMin], ['taobao_total_sold_max', spotState.taobaoTotalSoldMax],
     ['taobao_sold_30d_min', spotState.taobaoSold30dMin], ['taobao_sold_30d_max', spotState.taobaoSold30dMax],
@@ -1729,8 +1706,6 @@ async function loadSpotStock() {
   const meta = data.meta || {};
   const summary = meta.summary || {};
   const filterMeta = meta.filters || {};
-  const observation = meta.sales_observation || {};
-  const age = meta.age_status || {};
 
   renderSpotFilterOptions('warehouses', filterMeta.warehouses || []);
   renderSpotFilterOptions('sizes', filterMeta.sizes || []);
@@ -1752,11 +1727,9 @@ async function loadSpotStock() {
             · 可销售 <strong>${qty(summary.sellable_qty)}</strong>
             · 孤品款 <strong class="text-red">${qty(summary.singleton_styles)}</strong>
             · 断码款 <strong class="text-yellow">${qty(summary.broken_size_styles)}</strong>
-            · 观察期无订单 <strong>${qty(summary.no_order_observed_skus)}</strong>
           </div>
           <div class="text-secondary mt-1">
             ${spotState.viewMode === 'product' ? `${qty(summary.product_count)} 个商品` : `${qty(summary.sku_rows)} 个 SKU`}
-            · 订单观察 ${esc(observation.starts_at || '-')} 至 ${esc(observation.ends_at || '-')}
           </div>
           <div class="spot-collection-status" id="spot-collection-status">
             ${renderInventoryStatus(latestInventoryStatus)}
@@ -1799,8 +1772,7 @@ function currentSpotPresetConfig() {
     'allocationStatuses', 'imageStatus', 'skuCoverage',
     'productStockMin', 'productStockMax', 'stockMin', 'stockMax',
     'sellableMin', 'sellableMax', 'occupiedMin', 'occupiedMax',
-    'sizesMin', 'sizesMax', 'orderedMin', 'orderedMax',
-    'refundMin', 'refundMax', 'taobaoPriceMin', 'taobaoPriceMax',
+    'sizesMin', 'sizesMax', 'taobaoPriceMin', 'taobaoPriceMax',
     'taobaoTotalSoldMin', 'taobaoTotalSoldMax', 'taobaoSold30dMin', 'taobaoSold30dMax',
     'skuCountMin', 'skuCountMax', 'q'
   ];
@@ -1836,7 +1808,6 @@ function applySpotPresetConfig(config) {
     skuCoverage: 'all', productStockMin: '', productStockMax: '',
     stockMin: '', stockMax: '', sellableMin: '', sellableMax: '',
     occupiedMin: '', occupiedMax: '', sizesMin: '', sizesMax: '',
-    orderedMin: '', orderedMax: '', refundMin: '', refundMax: '',
     taobaoPriceMin: '', taobaoPriceMax: '',
     taobaoTotalSoldMin: '', taobaoTotalSoldMax: '',
     taobaoSold30dMin: '', taobaoSold30dMax: '',
@@ -2117,8 +2088,6 @@ const spotRangeInputs = {
   'spot-sellable-min': 'sellableMin', 'spot-sellable-max': 'sellableMax',
   'spot-occupied-min': 'occupiedMin', 'spot-occupied-max': 'occupiedMax',
   'spot-sizes-min': 'sizesMin', 'spot-sizes-max': 'sizesMax',
-  'spot-ordered-min': 'orderedMin', 'spot-ordered-max': 'orderedMax',
-  'spot-refund-min': 'refundMin', 'spot-refund-max': 'refundMax',
   'spot-taobao-price-min': 'taobaoPriceMin', 'spot-taobao-price-max': 'taobaoPriceMax',
   'spot-taobao-total-sold-min': 'taobaoTotalSoldMin', 'spot-taobao-total-sold-max': 'taobaoTotalSoldMax',
   'spot-taobao-sold-30d-min': 'taobaoSold30dMin', 'spot-taobao-sold-30d-max': 'taobaoSold30dMax',
@@ -2143,7 +2112,6 @@ document.getElementById('spot-reset').addEventListener('click', () => {
     productStockMin: '', productStockMax: '',
     stockMin: '', stockMax: '', sellableMin: '', sellableMax: '',
     occupiedMin: '', occupiedMax: '', sizesMin: '', sizesMax: '',
-    orderedMin: '', orderedMax: '', refundMin: '', refundMax: '',
     taobaoPriceMin: '', taobaoPriceMax: '',
     taobaoTotalSoldMin: '', taobaoTotalSoldMax: '',
     taobaoSold30dMin: '', taobaoSold30dMax: '',
