@@ -211,8 +211,19 @@
   }
   .spot-sort-button.active { color:#206bc4; }
   .spot-filter-summary { min-height:24px; }
-  .spot-preset-tools { display:flex; align-items:end; gap:.5rem; margin-left:auto; flex-wrap:wrap; }
-  .spot-preset-select { min-width:13rem; }
+  .spot-preset-row {
+    display:flex; align-items:center; gap:.85rem; flex-wrap:wrap;
+    padding:.7rem .85rem; border:1px solid #e7ebef; border-radius:6px;
+    background:#f8fafc;
+  }
+  .spot-preset-heading {
+    display:flex; align-items:center; gap:.45rem; flex:0 0 auto;
+    color:#344054; font-weight:600;
+  }
+  .spot-preset-heading .ti { color:#206bc4; font-size:1.1rem; }
+  .spot-preset-heading .text-secondary { font-weight:400; }
+  .spot-preset-tools { display:flex; align-items:end; gap:.5rem; flex:1 1 30rem; min-width:0; flex-wrap:wrap; }
+  .spot-preset-select { flex:1 1 16rem; min-width:13rem; }
   .spot-column-menu { width:340px; max-width:calc(100vw - 24px); }
   .spot-column-picker-head { display:flex; align-items:flex-start; justify-content:space-between; gap:.5rem; padding:.15rem .25rem .45rem; }
   .spot-column-picker-head .small { min-width:0; }
@@ -315,8 +326,6 @@
     flex-wrap:wrap; font-weight:600;
   }
   .spot-collection-status-main .ti { font-size:1rem; }
-  .spot-collection-status-detail { margin-top:.15rem; }
-  .spot-collection-status-error { margin-top:.15rem; color:#d63939; }
   .spot-col-resizer {
     position:absolute; z-index:2; top:0; right:-5px; width:10px; height:100%;
     cursor:col-resize; touch-action:none;
@@ -338,7 +347,10 @@
     .spot-primary-filter-items { flex:1 1 100%; }
     .spot-primary-filter-items > .spot-filter-control { flex:1 1 calc(50% - .35rem); min-width:0; }
     .spot-filter-actions { width:100%; margin-left:0; }
-    .spot-filter-actions .btn { flex:1; }
+    .spot-filter-actions { flex-wrap:wrap; }
+    .spot-filter-actions .btn,
+    .spot-filter-actions > .spot-multiselect { flex:1 1 calc(50% - .375rem); min-width:0; }
+    .spot-filter-actions > .spot-multiselect > summary { box-sizing:border-box; width:100%; white-space:nowrap; text-align:center; }
     .spot-advanced { grid-template-columns:repeat(2,minmax(0,1fr)); }
     .spot-filter-menu {
       position:fixed; z-index:1090; left:12px; right:12px;
@@ -351,7 +363,9 @@
       left:12px; right:auto; width:calc(100vw - 24px); min-width:0; max-width:calc(100vw - 24px);
     }
     .spot-filter-layout-row { grid-template-columns:minmax(0,1fr) 7.5rem; }
-    .spot-preset-tools { width:100%; margin-left:0; }
+    .spot-preset-row { align-items:stretch; }
+    .spot-preset-heading { width:100%; }
+    .spot-preset-tools { width:100%; flex:1 1 100%; }
     .spot-preset-select { flex:1 1 12rem; min-width:0; }
     .spot-sku { min-width:7rem; max-width:8.5rem; }
     .spot-query-meta { width:100%; min-width:0; flex:1 1 100%; text-align:left !important; }
@@ -398,17 +412,20 @@
         <button class="btn btn-sm" type="button" data-spot-view-mode="sku"><i class="ti ti-list-details me-1"></i>SKU 模式</button>
       </div>
       <span id="spot-view-description" class="text-secondary small">一行一个款号，库存汇总包含全部颜色、尺码和仓库</span>
+    </div>
+    <div class="spot-preset-row mb-3">
+      <div class="spot-preset-heading">
+        <i class="ti ti-bookmark"></i>
+        <span>查询预设</span>
+        <span class="text-secondary small">条件、显示列和排序一起保存</span>
+      </div>
       <div class="spot-preset-tools">
         <div class="spot-preset-select">
-          <label class="form-label mb-1" for="spot-preset-select">查询预设</label>
+          <label class="visually-hidden" for="spot-preset-select">查询预设</label>
           <select id="spot-preset-select" class="form-select"><option value="">当前条件</option></select>
         </div>
-        <button id="spot-save-preset" class="btn btn-outline-secondary" type="button" title="保存当前查询预设"><i class="ti ti-device-floppy"></i><span class="ms-1">保存</span></button>
+        <button id="spot-save-preset" class="btn btn-outline-secondary" type="button" title="保存当前查询预设"><i class="ti ti-device-floppy"></i><span class="ms-1">保存预设</span></button>
         <button id="spot-delete-preset" class="btn btn-icon btn-outline-secondary" type="button" title="删除当前预设" disabled><i class="ti ti-trash"></i></button>
-        <details class="spot-multiselect" id="spot-column-picker">
-          <summary><span><i class="ti ti-columns-3 me-1"></i>显示列</span></summary>
-          <div class="spot-filter-menu spot-column-menu" id="spot-column-options"></div>
-        </details>
       </div>
     </div>
     <div class="spot-filter-row">
@@ -420,18 +437,6 @@
         </div>
       </div>
       <div id="spot-primary-filter-items" class="spot-primary-filter-items">
-      <div class="spot-filter-control" data-spot-filter-control="candidateTypes">
-        <label class="form-label mb-1">候选类型</label>
-        <details class="spot-multiselect" data-spot-filter="candidateTypes">
-          <summary><span data-filter-label>已选 1 项</span></summary>
-          <div class="spot-filter-menu">
-            <label class="spot-filter-option"><input class="form-check-input m-0" type="checkbox" value="singleton">孤品款 · 整款实际库存1件</label>
-            <label class="spot-filter-option"><input class="form-check-input m-0" type="checkbox" value="broken_size">断码款 · 整款≤2尺码</label>
-            <label class="spot-filter-option"><input class="form-check-input m-0" type="checkbox" value="no_order">观察期无订单</label>
-            <label class="spot-filter-option"><input class="form-check-input m-0" type="checkbox" value="unassigned">未分配 SKU</label>
-          </div>
-        </details>
-      </div>
       <div class="spot-filter-control" data-spot-filter-control="categories">
         <label class="form-label mb-1">分类</label>
         <details class="spot-multiselect" data-spot-filter="categories">
@@ -472,6 +477,10 @@
       <div class="spot-filter-actions">
         <button id="spot-advanced-toggle" class="btn btn-outline-secondary" type="button"><i class="ti ti-adjustments-horizontal me-1"></i>更多条件</button>
         <button id="spot-filter-layout" class="btn btn-outline-secondary spot-filter-layout-button" type="button" title="设置筛选条件显示在外部或更多条件"><i class="ti ti-layout-distribute-horizontal me-1"></i>筛选布局</button>
+        <details class="spot-multiselect" id="spot-column-picker">
+          <summary><span><i class="ti ti-columns-3 me-1"></i>显示列</span></summary>
+          <div class="spot-filter-menu spot-column-menu" id="spot-column-options"></div>
+        </details>
         <button id="spot-reset" class="btn btn-outline-secondary" type="button"><i class="ti ti-restore me-1"></i>恢复默认</button>
       </div>
     </div>
@@ -494,7 +503,6 @@
         </details>
       </div>
       <div class="spot-filter-control" data-spot-filter-control="imageStatus"><label class="form-label mb-1" for="spot-image-status">图片</label><select id="spot-image-status" class="form-select"><option value="all">全部</option><option value="with_image">有图片</option><option value="without_image">无图片</option></select></div>
-      <div class="spot-filter-control" data-spot-filter-control="orderStatus"><label class="form-label mb-1" for="spot-order-status">订单状态</label><select id="spot-order-status" class="form-select"><option value="all">全部</option><option value="ordered">观察期有下单</option><option value="no_order">观察期无订单</option><option value="refunded">有退款</option></select></div>
       <div class="spot-filter-control" data-spot-filter-control="skuCoverage" data-spot-product-only><label class="form-label mb-1" for="spot-sku-coverage">SKU 明细</label><select id="spot-sku-coverage" class="form-select"><option value="all">全部</option><option value="covered">已有完整 SKU 明细</option><option value="not_covered">暂无 SKU 明细</option></select></div>
       <div class="spot-filter-control d-none" data-spot-filter-control="stock" data-spot-sku-only><label class="form-label mb-1" for="spot-stock-min">当前 SKU 库存</label><div class="spot-range"><input class="form-control" type="number" id="spot-stock-min" placeholder="最小"><input class="form-control" type="number" id="spot-stock-max" placeholder="最大"></div></div>
       <div class="spot-filter-control" data-spot-filter-control="occupied"><label class="form-label mb-1" for="spot-occupied-min">占用数量</label><div class="spot-range"><input class="form-control" type="number" id="spot-occupied-min" placeholder="最小"><input class="form-control" type="number" id="spot-occupied-max" placeholder="最大"></div></div>
@@ -599,9 +607,9 @@ const inventoryState = {
 };
 const spotState = {
   viewMode: 'product',
-  candidateTypes: [], productGroups: [], categories: ['apparel'], subcategories: [],
+  productGroups: [], categories: ['apparel'], subcategories: [],
   warehouses: ['主仓库', '走秀仓库'], sizes: [],
-  colors: [], allocationStatuses: [], imageStatus: 'all', orderStatus: 'all',
+  colors: [], allocationStatuses: [], imageStatus: 'all',
   skuCoverage: 'all',
   productStockMin: '', productStockMax: '',
   stockMin: '', stockMax: '', sellableMin: '', sellableMax: '',
@@ -678,7 +686,6 @@ const spotDefaultColumnWidths = {
   taobao_total_sold:104, taobao_sold_30d:104
 };
 const spotFilterDefinitions = [
-  {key:'candidateTypes', label:'候选类型', placement:'primary', selector:'[data-spot-filter-control="candidateTypes"]'},
   {key:'categories', label:'分类', placement:'primary', selector:'[data-spot-filter-control="categories"]'},
   {key:'warehouses', label:'仓库', placement:'primary', selector:'[data-spot-filter-control="warehouses"]'},
   {key:'sizes', label:'尺码', placement:'primary', selector:'[data-spot-filter-control="sizes"]'},
@@ -688,7 +695,6 @@ const spotFilterDefinitions = [
   {key:'colors', label:'颜色', placement:'advanced', selector:'[data-spot-filter-control="colors"]'},
   {key:'allocationStatuses', label:'SKU 分配', placement:'advanced', selector:'[data-spot-filter-control="allocationStatuses"]'},
   {key:'imageStatus', label:'图片', placement:'advanced', selector:'[data-spot-filter-control="imageStatus"]'},
-  {key:'orderStatus', label:'订单状态', placement:'advanced', selector:'[data-spot-filter-control="orderStatus"]'},
   {key:'skuCoverage', label:'SKU 明细', placement:'advanced', selector:'[data-spot-filter-control="skuCoverage"]'},
   {key:'stock', label:'当前 SKU 库存', placement:'advanced', selector:'[data-spot-filter-control="stock"]'},
   {key:'occupied', label:'占用数量', placement:'advanced', selector:'[data-spot-filter-control="occupied"]'},
@@ -839,7 +845,6 @@ if (localSpotInventoryPreferences) {
 const spotFilterHelp = {
   'spot-preset-select': ['查询预设', '保存并恢复一整套查询设置，包括商品或 SKU 模式、全部筛选条件、排序、每页数量、显示列及列顺序。设为默认后，下次打开页面会自动载入。'],
   'spot-search': ['搜索', '在当前模式中按款号、商品名称、SKU、颜色和尺码模糊查找。商品模式会搜索该商品已覆盖的全部颜色和尺码。'],
-  candidateTypes: ['候选类型', '快捷业务条件。孤品款指整款实际库存为 1；断码款指已取得 SKU 明细且整款只剩不超过 2 个可售尺码；观察期无订单只依据当前本地订单观察窗口。'],
   categories: ['分类', '按商品编码规则划分的大类筛选，例如服装、特卖、头饰、鞋等。商品模式覆盖 ERP 全量分类。'],
   warehouses: ['仓库', '筛选在所选仓库中仍有正库存的商品或 SKU。商品模式显示的实际库存仍是该商品跨全部仓库的合计，不会因为选择一个仓库而改写实际库存。'],
   sizes: ['尺码', '筛选包含所选尺码的商品或具体 SKU。尺码依赖 SKU 明细；尚未采集 SKU 明细的商品不会被尺码条件命中。'],
@@ -847,7 +852,6 @@ const spotFilterHelp = {
   subcategories: ['商品小类', '按商品编码前缀进一步细分，例如 K 女童、D 男童、B 宝宝衣、G 高定、TM 特卖妈妈装等。'],
   allocationStatuses: ['SKU 分配', '“已分配”表示 ERP 库存能对应到明确的颜色尺码 SKU；“未分配”表示只有商品库存，暂时无法准确落到具体 SKU。'],
   'spot-image-status': ['图片', '按图片是否可用筛选。库存查询优先使用淘宝商品缩略图，没有淘宝图时再使用管家婆商品图。'],
-  'spot-order-status': ['订单状态', '只依据生意中台当前保存的订单观察窗口，不代表 ERP 全历史销量。“有退款”表示观察窗口内匹配到退款记录。'],
   'spot-sku-coverage': ['SKU 明细', '“已覆盖”表示已采集到具体颜色、尺码和 SKU 库存；“未覆盖”仍有准确的商品实际库存，但颜色、尺码及 SKU 数不应作为完整数据使用。'],
   'spot-product-stock-min': ['实际库存', 'ERP 中同一商品跨所有尺码、颜色和仓库的物理库存合计，包含已经被占用、暂时不能销售的部分。最小和最大都填 1，即筛出实际库存恰好为 1 的商品。'],
   'spot-stock-min': ['当前 SKU 实际库存', '仅在 SKU 模式使用，表示当前这一条具体颜色尺码 SKU 的物理库存数量，不等于整款实际库存。'],
@@ -1044,24 +1048,20 @@ let latestInventoryStatus = null;
 function renderInventoryStatus(status) {
   if (!status) {
     return `<div class="spot-collection-status-main text-secondary">
-      <i class="ti ti-loader-2"></i><span>ERP 采集状态读取中…</span>
+      <i class="ti ti-loader-2"></i><span>ERP 采集：读取中…</span>
     </div>`;
   }
   const unavailable = status.status === 'unavailable';
-  const color = unavailable ? 'secondary' : (status.healthy ? 'success' : (status.status === 'error' ? 'danger' : 'warning'));
-  const icon = unavailable ? 'cloud-off' : (status.healthy ? 'circle-check' : 'alert-circle');
-  const text = unavailable ? '状态读取失败' : (status.status === 'never' ? '尚未采集' :
-    (status.status === 'error' ? '实时库存采集失败' :
-      (status.stale ? `实时库存超过 ${status.realtime_stale_minutes || 12} 分钟` : '采集正常')));
-  const collector = unavailable ? '状态不可用' : `采集器 19489 ${status.browser_alive ? '在线' : '离线'}`;
-  const currentStock = status.current_stock
-    ? ` · ${esc(status.current_stock.warehouse_name)}库存 ${qty(status.current_stock.stock_qty)}，可售 ${qty(status.current_stock.sellable_qty)}`
-    : '';
+  const normal = Boolean(status.healthy) && !status.stale;
+  const waiting = status.status === 'never';
+  const color = unavailable ? 'secondary' : (normal ? 'success' : (status.status === 'error' ? 'danger' : 'warning'));
+  const icon = unavailable ? 'cloud-off' : (normal ? 'circle-check' : 'alert-circle');
+  const text = unavailable ? '无法确认' : (waiting ? '尚未采集' : (normal ? '正常' : '异常'));
+  const latest = status.realtime_finished_at || status.updated_at || '-';
   return `<div class="spot-collection-status-main text-${color}">
       <i class="ti ti-${icon}"></i><span>ERP 采集：${text}</span>
-    </div>
-    <div class="spot-collection-status-detail text-secondary">${collector} · 最近成功 ${esc(status.realtime_finished_at || '-')} ${currentStock}</div>
-    ${status.error_message ? `<div class="spot-collection-status-error">${esc(status.error_message)}</div>` : ''}`;
+      <span class="text-secondary fw-normal">· 最新数据 ${esc(latest)}</span>
+    </div>`;
 }
 
 async function loadInventoryStatus() {
@@ -1442,7 +1442,7 @@ function spotSortHeader(label, field, align='', columnKey='') {
 }
 
 function spotFilterCount() {
-  const arrayKeys = ['candidateTypes', 'productGroups', 'categories', 'subcategories',
+  const arrayKeys = ['productGroups', 'categories', 'subcategories',
     'warehouses', 'sizes', 'colors', 'allocationStatuses'];
   const rangePairs = [
     ['productStockMin', 'productStockMax'], ['sellableMin', 'sellableMax'],
@@ -1458,7 +1458,6 @@ function spotFilterCount() {
   count += rangePairs.reduce((sum, pair) =>
     sum + (pair.some(key => spotState[key] !== '') ? 1 : 0), 0);
   if (spotState.imageStatus !== 'all') count += 1;
-  if (spotState.orderStatus !== 'all') count += 1;
   if (spotState.skuCoverage !== 'all' && spotState.viewMode === 'product') count += 1;
   if (spotState.q) count += 1;
   return count;
@@ -1690,7 +1689,9 @@ async function loadSpotStock() {
   target.innerHTML = '<div class="text-secondary py-4">加载中...</div>';
   const params = new URLSearchParams({
     view_mode: spotState.viewMode,
-    candidate_types: spotState.candidateTypes.length ? spotState.candidateTypes.join(',') : 'all',
+    // Keep the request compatible with an older Edge Function deployment while
+    // the candidate-type control remains removed from the UI.
+    candidate_types: 'all',
     product_groups: spotState.productGroups.join(','),
     warehouses: spotState.warehouses.join(','),
     sizes: spotState.sizes.join(','),
@@ -1699,7 +1700,6 @@ async function loadSpotStock() {
     subcategories: spotState.subcategories.join(','),
     allocation_statuses: spotState.allocationStatuses.join(','),
     image_status: spotState.imageStatus,
-    order_status: spotState.orderStatus,
     sku_coverage: spotState.skuCoverage,
     sort_by: spotState.sortBy,
     sort_dir: spotState.sortDir,
@@ -1756,7 +1756,6 @@ async function loadSpotStock() {
           </div>
           <div class="text-secondary mt-1">
             ${spotState.viewMode === 'product' ? `${qty(summary.product_count)} 个商品` : `${qty(summary.sku_rows)} 个 SKU`}
-            · 采集于 ${esc(meta.updated_at || '-')}
             · 订单观察 ${esc(observation.starts_at || '-')} 至 ${esc(observation.ends_at || '-')}
           </div>
           <div class="spot-collection-status" id="spot-collection-status">
@@ -1795,21 +1794,27 @@ let spotDefaultPresetId = '';
 
 function currentSpotPresetConfig() {
   const keys = [
-    'viewMode', 'candidateTypes', 'productGroups', 'categories',
+    'viewMode', 'productGroups', 'categories',
     'subcategories', 'warehouses', 'sizes', 'colors',
-    'allocationStatuses', 'imageStatus', 'orderStatus', 'skuCoverage',
+    'allocationStatuses', 'imageStatus', 'skuCoverage',
     'productStockMin', 'productStockMax', 'stockMin', 'stockMax',
     'sellableMin', 'sellableMax', 'occupiedMin', 'occupiedMax',
     'sizesMin', 'sizesMax', 'orderedMin', 'orderedMax',
     'refundMin', 'refundMax', 'taobaoPriceMin', 'taobaoPriceMax',
     'taobaoTotalSoldMin', 'taobaoTotalSoldMax', 'taobaoSold30dMin', 'taobaoSold30dMax',
-    'skuCountMin', 'skuCountMax', 'sortBy', 'sortDir', 'limit', 'q'
+    'skuCountMin', 'skuCountMax', 'q'
   ];
-  const config = {};
+  const filters = {};
   keys.forEach(key => {
-    config[key] = Array.isArray(spotState[key])
+    filters[key] = Array.isArray(spotState[key])
       ? [...spotState[key]] : spotState[key];
   });
+  const config = {
+    version: 2,
+    filters,
+    sort: {by: spotState.sortBy, dir: spotState.sortDir},
+    pagination: {limit: spotState.limit},
+  };
   config.visibleColumns = {
     product: [...spotState.visibleColumns.product],
     sku: [...spotState.visibleColumns.sku]
@@ -1824,10 +1829,10 @@ function currentSpotPresetConfig() {
 
 function applySpotPresetConfig(config) {
   Object.assign(spotState, {
-    viewMode: 'product', candidateTypes: [], productGroups: [],
+    viewMode: 'product', productGroups: [],
     categories: ['apparel'], subcategories: [],
     warehouses: ['主仓库', '走秀仓库'], sizes: [], colors: [],
-    allocationStatuses: [], imageStatus: 'all', orderStatus: 'all',
+    allocationStatuses: [], imageStatus: 'all',
     skuCoverage: 'all', productStockMin: '', productStockMax: '',
     stockMin: '', stockMax: '', sellableMin: '', sellableMax: '',
     occupiedMin: '', occupiedMax: '', sizesMin: '', sizesMax: '',
@@ -1838,7 +1843,23 @@ function applySpotPresetConfig(config) {
     skuCountMin: '', skuCountMax: '',
     sortBy: 'priority', sortDir: 'asc', limit: 100, offset: 0, q: ''
   });
+  const source = {...(config?.filters && typeof config.filters === 'object' ? config.filters : {})};
   for (const [key, value] of Object.entries(config || {})) {
+    if (Object.prototype.hasOwnProperty.call(spotState, key)) source[key] = value;
+  }
+  if (config?.sort && typeof config.sort === 'object') {
+    if (config.sort.by) source.sortBy = config.sort.by;
+    if (config.sort.dir) source.sortDir = config.sort.dir;
+  }
+  if (config?.pagination && typeof config.pagination === 'object' && config.pagination.limit) {
+    source.limit = config.pagination.limit;
+  }
+  for (const [key, value] of Object.entries({
+    ...source,
+    visibleColumns: config?.visibleColumns,
+    columnWidths: config?.columnWidths,
+    filterPlacement: config?.filterPlacement
+  })) {
     if (key === 'visibleColumns' && value && typeof value === 'object') {
       for (const mode of ['product', 'sku']) {
         if (Array.isArray(value[mode])) {
@@ -1879,7 +1900,6 @@ function syncSpotControls() {
       : '一行一个具体 SKU，同时保留整款实际库存筛选';
   document.getElementById('spot-search').value = spotState.q;
   document.getElementById('spot-image-status').value = spotState.imageStatus;
-  document.getElementById('spot-order-status').value = spotState.orderStatus;
   document.getElementById('spot-sku-coverage').value = spotState.skuCoverage;
   document.getElementById('spot-sort-by').value = spotState.sortBy;
   document.getElementById('spot-page-size').value = String(spotState.limit);
@@ -2059,7 +2079,7 @@ document.getElementById('spot-search').addEventListener('input', event => {
 });
 
 for (const [id, key] of [
-  ['spot-image-status', 'imageStatus'], ['spot-order-status', 'orderStatus'],
+  ['spot-image-status', 'imageStatus'],
   ['spot-sku-coverage', 'skuCoverage'],
   ['spot-sort-by', 'sortBy']
 ]) {
@@ -2115,10 +2135,10 @@ for (const [id, key] of Object.entries(spotRangeInputs)) {
 }
 document.getElementById('spot-reset').addEventListener('click', () => {
   Object.assign(spotState, {
-    candidateTypes: [], productGroups: [], categories: ['apparel'],
+    productGroups: [], categories: ['apparel'],
     subcategories: [], warehouses: ['主仓库', '走秀仓库'],
     sizes: [], colors: [],
-    allocationStatuses: [], imageStatus: 'all', orderStatus: 'all',
+    allocationStatuses: [], imageStatus: 'all',
     skuCoverage: 'all',
     productStockMin: '', productStockMax: '',
     stockMin: '', stockMax: '', sellableMin: '', sellableMax: '',
@@ -2132,7 +2152,6 @@ document.getElementById('spot-reset').addEventListener('click', () => {
   });
   document.getElementById('spot-search').value = '';
   document.getElementById('spot-image-status').value = 'all';
-  document.getElementById('spot-order-status').value = 'all';
   document.getElementById('spot-sku-coverage').value = 'all';
   document.getElementById('spot-sort-by').value = 'priority';
   document.getElementById('spot-sort-dir').innerHTML = '<i class="ti ti-sort-ascending"></i><span class="ms-1">升序</span>';
