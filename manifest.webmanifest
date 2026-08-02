@@ -1,0 +1,24 @@
+{
+  "name": "JUN 生意中台",
+  "short_name": "JUN",
+  "description": "JUN君设计生意中台",
+  "start_url": "/jun-pages/",
+  "scope": "/jun-pages/",
+  "display": "standalone",
+  "background_color": "#101b3d",
+  "theme_color": "#101b3d",
+  "icons": [
+    {
+      "src": "/jun-pages/assets/jun-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/jun-pages/assets/jun-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
