@@ -308,6 +308,15 @@
   .spot-query-table .spot-sku, .spot-query-table .spot-sizes {
     min-width:0; max-width:none; overflow-wrap:anywhere;
   }
+  .spot-query-meta { min-width:min(100%, 33rem); }
+  .spot-collection-status { margin-top:.45rem; overflow-wrap:anywhere; }
+  .spot-collection-status-main {
+    display:flex; align-items:center; justify-content:flex-end; gap:.35rem;
+    flex-wrap:wrap; font-weight:600;
+  }
+  .spot-collection-status-main .ti { font-size:1rem; }
+  .spot-collection-status-detail { margin-top:.15rem; }
+  .spot-collection-status-error { margin-top:.15rem; color:#d63939; }
   .spot-col-resizer {
     position:absolute; z-index:2; top:0; right:-5px; width:10px; height:100%;
     cursor:col-resize; touch-action:none;
@@ -345,10 +354,10 @@
     .spot-preset-tools { width:100%; margin-left:0; }
     .spot-preset-select { flex:1 1 12rem; min-width:0; }
     .spot-sku { min-width:7rem; max-width:8.5rem; }
+    .spot-query-meta { width:100%; min-width:0; flex:1 1 100%; text-align:left !important; }
+    .spot-collection-status-main { justify-content:flex-start; }
   }
 </style>
-
-<div id="inventory-status" class="mb-3"></div>
 
 <ul class="nav nav-pills mb-3" id="inventory-view-tabs" aria-label="库存视图">
   <li class="nav-item"><button class="nav-link active" type="button" data-view="spot">库存查询</button></li>
@@ -1030,31 +1039,41 @@ function itemCategory(item) {
     || '未分类';
 }
 
+let latestInventoryStatus = null;
+
+function renderInventoryStatus(status) {
+  if (!status) {
+    return `<div class="spot-collection-status-main text-secondary">
+      <i class="ti ti-loader-2"></i><span>ERP 采集状态读取中…</span>
+    </div>`;
+  }
+  const unavailable = status.status === 'unavailable';
+  const color = unavailable ? 'secondary' : (status.healthy ? 'success' : (status.status === 'error' ? 'danger' : 'warning'));
+  const icon = unavailable ? 'cloud-off' : (status.healthy ? 'circle-check' : 'alert-circle');
+  const text = unavailable ? '状态读取失败' : (status.status === 'never' ? '尚未采集' :
+    (status.status === 'error' ? '实时库存采集失败' :
+      (status.stale ? `实时库存超过 ${status.realtime_stale_minutes || 12} 分钟` : '采集正常')));
+  const collector = unavailable ? '状态不可用' : `采集器 19489 ${status.browser_alive ? '在线' : '离线'}`;
+  const currentStock = status.current_stock
+    ? ` · ${esc(status.current_stock.warehouse_name)}库存 ${qty(status.current_stock.stock_qty)}，可售 ${qty(status.current_stock.sellable_qty)}`
+    : '';
+  return `<div class="spot-collection-status-main text-${color}">
+      <i class="ti ti-${icon}"></i><span>ERP 采集：${text}</span>
+    </div>
+    <div class="spot-collection-status-detail text-secondary">${collector} · 最近成功 ${esc(status.realtime_finished_at || '-')} ${currentStock}</div>
+    ${status.error_message ? `<div class="spot-collection-status-error">${esc(status.error_message)}</div>` : ''}`;
+}
+
 async function loadInventoryStatus() {
-  const target = document.getElementById('inventory-status');
   try {
     const response = await fetch('/api/erp/inventory/sync-status');
-    const status = await response.json();
-    const color = status.healthy ? 'success' : (status.status === 'error' ? 'danger' : 'warning');
-    const icon = status.healthy ? 'circle-check' : 'alert-circle';
-    const text = status.status === 'never' ? '尚未采集' :
-      (status.status === 'error' ? '实时库存采集失败' :
-        (status.stale ? `实时库存超过 ${status.realtime_stale_minutes || 12} 分钟` : '采集正常'));
-    target.innerHTML = `<div class="alert alert-${color} d-flex align-items-center py-2 mb-0">
-      <i class="ti ti-${icon} me-2"></i>
-      <div class="flex-fill"><strong>ERP 库存</strong>: ${text}
-        <span class="text-secondary ms-2">|</span>
-        <span class="ms-2">正式采集器 19489 ${status.browser_alive ? '在线' : '离线'}</span>
-        ${status.current_stock ? `<span class="text-secondary ms-2">|</span>
-        <span class="ms-2">${esc(status.current_stock.warehouse_name)}实际库存 ${qty(status.current_stock.stock_qty)}，可销售 ${qty(status.current_stock.sellable_qty)}，占用 ${qty(status.current_stock.occupied_qty)}，采集于 ${esc(status.current_stock.captured_at || '-')}</span>` : ''}
-        <span class="text-secondary ms-2">|</span>
-        <span class="ms-2">最近成功 ${esc(status.realtime_finished_at || '-')}</span>
-        ${status.error_message ? `<div class="small mt-1">${esc(status.error_message)}</div>` : ''}
-      </div>
-    </div>`;
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    latestInventoryStatus = await response.json();
   } catch (error) {
-    target.innerHTML = '<div class="alert alert-secondary py-2 mb-0">库存同步状态读取失败</div>';
+    latestInventoryStatus = {status: 'unavailable', error_message: '库存同步状态读取失败'};
   }
+  const target = document.getElementById('spot-collection-status');
+  if (target) target.innerHTML = renderInventoryStatus(latestInventoryStatus);
 }
 
 async function loadInventory(month='') {
@@ -1727,7 +1746,7 @@ async function loadSpotStock() {
     <div class="card">
       <div class="card-header align-items-start flex-wrap gap-2">
         <h3 class="card-title">${spotState.viewMode === 'product' ? '商品库存查询' : 'SKU 库存查询'}</h3>
-        <div class="ms-auto text-end small">
+        <div class="spot-query-meta ms-auto text-end small">
           <div>
             实际库存 <strong>${qty(summary.stock_qty)}</strong>
             · 可销售 <strong>${qty(summary.sellable_qty)}</strong>
@@ -1739,6 +1758,9 @@ async function loadSpotStock() {
             ${spotState.viewMode === 'product' ? `${qty(summary.product_count)} 个商品` : `${qty(summary.sku_rows)} 个 SKU`}
             · 采集于 ${esc(meta.updated_at || '-')}
             · 订单观察 ${esc(observation.starts_at || '-')} 至 ${esc(observation.ends_at || '-')}
+          </div>
+          <div class="spot-collection-status" id="spot-collection-status">
+            ${renderInventoryStatus(latestInventoryStatus)}
           </div>
         </div>
       </div>

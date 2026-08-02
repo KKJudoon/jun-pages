@@ -158,7 +158,12 @@ html.jun-auth-error body::before {
 .jun-device-list button { border: 1px solid #d63939; border-radius: 6px; background: white; color: #d63939; }
 
 @media (max-width: 700px) {
-  .jun-account-shell { top: max(8px, env(safe-area-inset-top)); right: max(8px, env(safe-area-inset-right)); }
+  /* The compact dark navbar is 56px tall on mobile. Keep the account control
+     in the white page header below it instead of covering the brand title. */
+  .jun-account-shell {
+    top: 64px;
+    right: max(8px, env(safe-area-inset-right));
+  }
   .jun-account-copy { display: none; }
   .jun-account-button { min-width: 42px; padding-right: 7px; }
   .jun-account-button > .ti-chevron-down { display: none; }
