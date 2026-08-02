@@ -98,6 +98,20 @@
         anchor.setAttribute('aria-hidden', 'true');
       }
     });
+
+    const permissionStyles = document.createElement('style');
+    permissionStyles.id = 'jun-permission-styles';
+    const hiddenSelectors = [];
+    if (!permissions.has('inventory.preferences.manage')) {
+      hiddenSelectors.push('#spot-column-picker', '#spot-filter-layout', '[data-resize-column]');
+    }
+    if (!permissions.has('inventory.presets.manage')) {
+      hiddenSelectors.push('#spot-save-preset', '#spot-delete-preset');
+    }
+    if (hiddenSelectors.length) {
+      permissionStyles.textContent = `${hiddenSelectors.join(',')} { display: none !important; }`;
+      document.head.appendChild(permissionStyles);
+    }
   }
 
   function dialogShell(id, title, body) {

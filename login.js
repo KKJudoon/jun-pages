@@ -58,6 +58,7 @@
 
   function showLogin(text) {
     stopPolling();
+    message.classList.remove('info');
     fields.hidden = false;
     devicePanel.hidden = true;
     passwordPanel.hidden = true;
@@ -67,6 +68,7 @@
 
   function showPassword(context) {
     stopPolling();
+    message.classList.remove('info');
     fields.hidden = true;
     devicePanel.hidden = true;
     passwordPanel.hidden = false;
@@ -79,6 +81,7 @@
     devicePanel.hidden = false;
     passwordPanel.hidden = true;
     const status = payload.device?.status || 'pending';
+    message.classList.toggle('info', status === 'pending');
     deviceTitle.textContent = status === 'rejected' ? '设备申请已拒绝' : status === 'revoked' ? '设备授权已撤销' : '等待管理员审批';
     deviceName.textContent = payload.device?.label || window.JUN_DEVICE.label();
     deviceTime.textContent = payload.device?.requested_at ? `申请时间：${new Date(payload.device.requested_at).toLocaleString('zh-CN')}` : '';
@@ -145,6 +148,7 @@
     const update = await client.auth.updateUser({password});
     if (update.error) { message.textContent = '密码更新失败，请稍后重试。'; passwordSubmit.disabled = false; return; }
     const session = (await client.auth.getSession()).data.session;
+    if (!session) { showLogin('登录已过期，请使用新密码重新登录。'); return; }
     const headers = new Headers({'Authorization': `Bearer ${session.access_token}`, 'apikey': config.supabasePublishableKey});
     Object.entries(window.JUN_DEVICE.headers()).forEach(function (entry) { headers.set(entry[0], entry[1]); });
     const acknowledgement = await fetch(`${config.supabaseUrl}/functions/v1/${config.edgeFunctionName}/api/account/password-changed`, {method: 'POST', headers});
