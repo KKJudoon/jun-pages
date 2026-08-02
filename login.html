@@ -22,6 +22,15 @@
     .login-card button:disabled { opacity: .65; }
     #login-message { min-height: 24px; margin: 14px 0 0; color: #d63939; }
     .security-note { margin-top: 18px; color: #7a8699; font-size: 13px; line-height: 1.6; }
+    .status-panel { padding: 18px; border: 1px solid #dce2ea; border-radius: 8px; background: #f8fafc; }
+    .status-panel h3 { margin: 0 0 8px; font-size: 18px; }
+    .status-panel p { margin: 6px 0; color: #667085; line-height: 1.6; }
+    .status-panel .device-name { color: #182433; font-weight: 700; }
+    .status-actions { display: flex; gap: 10px; }
+    .status-actions button { margin-top: 14px; }
+    .status-actions .secondary { border: 1px solid #cfd7e3; background: white; color: #344054; }
+    .password-hint { margin: 7px 0 0; color: #7a8699; font-size: 12px; }
+    [hidden] { display: none !important; }
     @media (max-width: 760px) {
       .login-shell { grid-template-columns: 1fr; }
       .brand-panel { padding: 26px 24px; }
@@ -40,19 +49,39 @@
     <section class="login-main">
       <form class="login-card" id="login-form">
         <h2>账号登录</h2>
-        <p class="muted">仅已授权的管理员账号可以访问业务数据。</p>
-        <label for="login-email">邮箱</label>
-        <input id="login-email" name="email" type="email" autocomplete="username" required>
-        <label for="login-password">密码</label>
-        <input id="login-password" name="password" type="password" autocomplete="current-password" required>
-        <button id="login-submit" type="submit">登录</button>
+        <p class="muted">使用管理员创建的账号登录；非管理员首次使用新设备需要审批。</p>
+        <div id="login-fields">
+          <label for="login-account">账号</label>
+          <input id="login-account" name="account" type="text" autocomplete="username" placeholder="例如：admin" autocapitalize="none" spellcheck="false" required>
+          <label for="login-password">密码</label>
+          <input id="login-password" name="password" type="password" autocomplete="current-password" required>
+          <button id="login-submit" type="submit">登录</button>
+        </div>
+        <section class="status-panel" id="device-panel" hidden>
+          <h3 id="device-title">等待管理员审批</h3>
+          <p>登录密码已验证。管理员批准此设备后即可进入。</p>
+          <p class="device-name" id="device-name"></p>
+          <p id="device-time"></p>
+          <div class="status-actions"><button type="button" id="device-refresh">刷新状态</button><button type="button" class="secondary" id="device-logout">退出</button></div>
+        </section>
+        <section id="password-panel" hidden>
+          <h3>设置新密码</h3>
+          <p class="muted">这是临时密码登录，进入前请设置自己的密码。</p>
+          <label for="new-password">新密码</label>
+          <input id="new-password" type="password" autocomplete="new-password" minlength="12">
+          <label for="confirm-password">再次输入</label>
+          <input id="confirm-password" type="password" autocomplete="new-password" minlength="12">
+          <p class="password-hint">至少 12 位，并包含大小写字母、数字和符号。</p>
+          <button id="password-submit" type="button">保存新密码并进入</button>
+        </section>
         <p id="login-message" role="alert" aria-live="polite"></p>
         <p class="security-note">页面代码公开托管；订单、商品和库存数据均需通过账号验证后读取。</p>
       </form>
     </section>
   </main>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.111.0"></script>
+  <script src="vendor/supabase.js"></script>
   <script src="config.js"></script>
+  <script src="device.js"></script>
   <script src="login.js"></script>
 </body>
 </html>

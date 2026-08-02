@@ -13,3 +13,156 @@ html.jun-auth-error body::before {
   background: #f5f7fb;
   font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
+
+.jun-account-shell {
+  position: fixed;
+  top: max(12px, env(safe-area-inset-top));
+  right: max(14px, env(safe-area-inset-right));
+  z-index: 10050;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #182433;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.jun-account-button,
+.jun-notification-button {
+  display: flex;
+  align-items: center;
+  min-height: 42px;
+  border: 1px solid #d8e0ea;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, .96);
+  box-shadow: 0 5px 18px rgba(24, 36, 51, .12);
+  color: #182433;
+  cursor: pointer;
+  backdrop-filter: blur(10px);
+}
+
+.jun-account-button { gap: 9px; padding: 4px 11px 4px 5px; }
+.jun-notification-button { position: relative; justify-content: center; width: 42px; padding: 0; font-size: 20px; }
+.jun-account-copy { display: grid; min-width: 82px; text-align: left; line-height: 1.15; }
+.jun-account-copy strong { max-width: 130px; overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.jun-account-copy small { margin-top: 3px; color: #7a8699; font-size: 11px; }
+
+.jun-avatar {
+  display: inline-block;
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  border-radius: 7px;
+  background-image: url('/jun-pages/assets/avatar-sprite.png');
+  background-position: var(--jun-avatar-x, 0%) var(--jun-avatar-y, 0%);
+  background-size: 400% 400%;
+  image-rendering: pixelated;
+}
+.jun-avatar-lg { width: 48px; height: 48px; border-radius: 10px; }
+.jun-avatar-option { width: 54px; height: 54px; border-radius: 9px; }
+
+.jun-notification-badge {
+  position: absolute;
+  top: -4px;
+  right: -3px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border: 2px solid white;
+  border-radius: 10px;
+  background: #d63939;
+  color: white;
+  font: 700 10px/14px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.jun-account-menu,
+.jun-notification-menu {
+  position: absolute;
+  top: 50px;
+  right: 0;
+  width: min(310px, calc(100vw - 24px));
+  overflow: hidden;
+  border: 1px solid #d8e0ea;
+  border-radius: 12px;
+  background: white;
+  box-shadow: 0 15px 42px rgba(24, 36, 51, .18);
+}
+.jun-notification-menu { right: 80px; width: min(380px, calc(100vw - 24px)); }
+.jun-account-summary { display: flex; gap: 12px; align-items: center; padding: 16px; border-bottom: 1px solid #edf0f5; background: #f8fafc; }
+.jun-account-summary div { display: grid; min-width: 0; }
+.jun-account-summary strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.jun-account-summary small { margin-top: 4px; color: #7a8699; }
+.jun-account-menu > a,
+.jun-account-menu > button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 42px;
+  padding: 9px 15px;
+  border: 0;
+  background: white;
+  color: #344054;
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+.jun-account-menu > a:hover,
+.jun-account-menu > button:hover { background: #f1f5f9; }
+.jun-account-menu .jun-menu-danger { border-top: 1px solid #edf0f5; color: #c92a2a; }
+
+.jun-notification-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid #edf0f5; }
+.jun-notification-header a { color: #206bc4; font-size: 12px; text-decoration: none; }
+.jun-notification-list { max-height: 360px; overflow: auto; }
+.jun-notification-list > a { display: grid; grid-template-columns: 34px 1fr auto; gap: 10px; align-items: center; padding: 12px 15px; border-bottom: 1px solid #f0f2f6; color: #182433; text-decoration: none; }
+.jun-notification-list > a:hover { background: #f8fafc; }
+.jun-notification-list > a div { display: grid; min-width: 0; }
+.jun-notification-list small { overflow: hidden; color: #667085; text-overflow: ellipsis; white-space: nowrap; }
+.jun-notification-list time { color: #98a2b3; font-size: 10px; }
+.jun-notification-list > p { margin: 0; padding: 26px 16px; color: #7a8699; text-align: center; }
+
+.jun-dialog {
+  width: min(560px, calc(100vw - 24px));
+  max-height: min(760px, calc(100dvh - 32px));
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 14px;
+  box-shadow: 0 22px 70px rgba(15, 23, 42, .28);
+  color: #182433;
+}
+.jun-dialog::backdrop { background: rgba(15, 23, 42, .48); backdrop-filter: blur(2px); }
+.jun-dialog-card { display: grid; max-height: inherit; margin: 0; }
+.jun-dialog-card > header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid #e7ebf0; }
+.jun-dialog-card > header h3 { margin: 0; font-size: 18px; }
+.jun-icon-button { width: 34px; height: 34px; border: 0; border-radius: 50%; background: #eef2f6; color: #667085; font-size: 23px; line-height: 1; cursor: pointer; }
+.jun-dialog-body { padding: 18px 20px 20px; overflow: auto; }
+.jun-dialog-body label { display: grid; gap: 6px; margin-bottom: 14px; font-weight: 600; }
+.jun-dialog-body input { min-height: 42px; padding: 8px 11px; border: 1px solid #cfd7e3; border-radius: 7px; color: #182433; }
+.jun-field-label { margin: 4px 0 9px; font-weight: 600; }
+.jun-avatar-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 7px; }
+.jun-avatar-choice { display: grid; place-items: center; padding: 3px; border: 2px solid transparent; border-radius: 11px; background: transparent; cursor: pointer; }
+.jun-avatar-choice:hover { background: #edf4ff; }
+.jun-avatar-choice.active { border-color: #206bc4; background: #e6f0fc; }
+.jun-dialog-body footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
+.jun-primary-button,
+.jun-secondary-button { min-height: 40px; padding: 8px 16px; border-radius: 7px; font-weight: 700; cursor: pointer; }
+.jun-primary-button { border: 1px solid #206bc4; background: #206bc4; color: white; }
+.jun-secondary-button { border: 1px solid #cfd7e3; background: white; color: #344054; }
+.jun-form-message { min-height: 20px; margin: 12px 0 0; color: #d63939; }
+.jun-form-message.success { color: #2fb344; }
+.jun-password-hint { color: #7a8699; font-size: 12px; }
+.jun-device-list article { display: flex; gap: 12px; align-items: center; justify-content: space-between; padding: 13px 0; border-bottom: 1px solid #edf0f5; }
+.jun-device-list article div { display: grid; }
+.jun-device-list small { margin-top: 4px; color: #7a8699; }
+.jun-device-list button { border: 1px solid #d63939; border-radius: 6px; background: white; color: #d63939; }
+
+@media (max-width: 700px) {
+  .jun-account-shell { top: max(8px, env(safe-area-inset-top)); right: max(8px, env(safe-area-inset-right)); }
+  .jun-account-copy { display: none; }
+  .jun-account-button { min-width: 42px; padding-right: 7px; }
+  .jun-account-button > .ti-chevron-down { display: none; }
+  .jun-account-menu { top: 48px; }
+  .jun-notification-menu { top: 48px; right: 0; }
+  .jun-avatar-grid { grid-template-columns: repeat(4, 1fr); }
+}
