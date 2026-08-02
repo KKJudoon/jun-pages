@@ -211,6 +211,17 @@
   .spot-range { display:grid; grid-template-columns:1fr 1fr; gap:.35rem; }
   .spot-filter-actions { margin-left:auto; display:flex; gap:.5rem; }
   .spot-filter-layout-button { white-space:nowrap; }
+  .spot-column-picker { display:inline-flex; }
+  .spot-column-picker-button {
+    display:inline-flex !important; align-items:center; justify-content:center;
+    min-height:38px; padding:.4375rem .75rem; gap:.25rem;
+    list-style:none; white-space:nowrap; text-align:center;
+  }
+  .spot-column-picker-button::-webkit-details-marker { display:none; }
+  .spot-column-picker[open] > .spot-column-picker-button {
+    color:#0054a6; border-color:#0054a6;
+    box-shadow:0 0 0 .25rem rgba(0,84,166,.15);
+  }
   .spot-sort-button {
     display:inline-flex; align-items:center; gap:.3rem; padding:0; border:0;
     color:inherit; background:transparent; font:inherit; font-weight:600;
@@ -483,8 +494,8 @@
       <div class="spot-filter-actions">
         <button id="spot-advanced-toggle" class="btn btn-outline-secondary" type="button"><i class="ti ti-adjustments-horizontal me-1"></i>更多条件</button>
         <button id="spot-filter-layout" class="btn btn-outline-secondary spot-filter-layout-button" type="button" title="设置筛选条件显示在外部或更多条件"><i class="ti ti-layout-distribute-horizontal me-1"></i>筛选布局</button>
-        <details class="spot-multiselect" id="spot-column-picker">
-          <summary><span><i class="ti ti-columns-3 me-1"></i>显示列</span></summary>
+        <details class="spot-multiselect spot-column-picker" id="spot-column-picker">
+          <summary class="btn btn-outline-secondary spot-column-picker-button"><span><i class="ti ti-columns-3 me-1"></i>显示列</span></summary>
           <div class="spot-filter-menu spot-column-menu" id="spot-column-options"></div>
         </details>
         <button id="spot-reset" class="btn btn-outline-secondary" type="button"><i class="ti ti-restore me-1"></i>恢复默认</button>
