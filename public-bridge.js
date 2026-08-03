@@ -106,7 +106,7 @@
       hiddenSelectors.push('#spot-column-picker', '#spot-filter-layout', '[data-resize-column]');
     }
     if (!permissions.has('inventory.presets.manage')) {
-      hiddenSelectors.push('#spot-save-preset', '#spot-delete-preset');
+      hiddenSelectors.push('#spot-save-preset', '#spot-delete-preset', '#spot-preset-order');
     }
     if (!permissions.has('products.tags.manage')) {
       hiddenSelectors.push('[data-product-tags-manage]', '[data-product-tag-edit]');
@@ -135,6 +135,9 @@
     const shell = document.createElement('div');
     shell.className = 'jun-account-shell';
     shell.innerHTML = `
+      <button class="jun-refresh-button" type="button" title="刷新当前页面" aria-label="刷新当前页面">
+        <i class="ti ti-refresh" aria-hidden="true"></i>
+      </button>
       <button class="jun-notification-button" type="button" aria-label="登录审批通知" hidden>
         <i class="ti ti-bell"></i><span class="jun-notification-badge" hidden></span>
       </button>
@@ -156,9 +159,16 @@
 
     const accountButton = shell.querySelector('.jun-account-button');
     const accountMenu = shell.querySelector('.jun-account-menu');
+    const refreshButton = shell.querySelector('.jun-refresh-button');
     const notificationButton = shell.querySelector('.jun-notification-button');
     const notificationMenu = shell.querySelector('.jun-notification-menu');
 
+    refreshButton.addEventListener('click', function () {
+      refreshButton.disabled = true;
+      refreshButton.classList.add('is-refreshing');
+      refreshButton.setAttribute('aria-label', '正在刷新当前页面');
+      window.location.reload();
+    });
     accountButton.addEventListener('click', function () {
       const opening = accountMenu.hidden;
       accountMenu.hidden = !opening;

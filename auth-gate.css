@@ -27,6 +27,7 @@ html.jun-auth-error body::before {
 }
 
 .jun-account-button,
+.jun-refresh-button,
 .jun-notification-button {
   display: flex;
   align-items: center;
@@ -41,7 +42,15 @@ html.jun-auth-error body::before {
 }
 
 .jun-account-button { gap: 9px; padding: 4px 11px 4px 5px; }
+.jun-refresh-button,
 .jun-notification-button { position: relative; justify-content: center; width: 42px; padding: 0; font-size: 20px; }
+.jun-refresh-button:hover,
+.jun-refresh-button:focus-visible,
+.jun-notification-button:hover,
+.jun-notification-button:focus-visible { border-color: #9fc3ed; background: white; color: #206bc4; }
+.jun-refresh-button:disabled { cursor: wait; opacity: .72; }
+.jun-refresh-button.is-refreshing i { animation: jun-refresh-spin .7s linear infinite; }
+@keyframes jun-refresh-spin { to { transform: rotate(360deg); } }
 .jun-account-copy { display: grid; min-width: 82px; text-align: left; line-height: 1.15; }
 .jun-account-copy strong { max-width: 130px; overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
 .jun-account-copy small { margin-top: 3px; color: #7a8699; font-size: 11px; }
