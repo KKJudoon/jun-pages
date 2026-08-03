@@ -228,6 +228,15 @@
   }
   .spot-sort-button.active { color:#206bc4; }
   .spot-filter-summary { min-height:24px; }
+  #spot-stock-app { position:relative; min-height:3rem; }
+  #spot-stock-app.spot-is-updating::before {
+    content:""; position:absolute; z-index:20; top:0; left:0; width:32%; height:2px;
+    border-radius:999px; background:#206bc4; animation:spot-query-progress 1s ease-in-out infinite;
+  }
+  @keyframes spot-query-progress {
+    from { transform:translateX(0); }
+    to { transform:translateX(212.5%); }
+  }
   .spot-preset-row {
     display:flex; align-items:center; gap:.85rem; flex-wrap:wrap;
     padding:.7rem .85rem; border:1px solid #e7ebef; border-radius:6px;
@@ -751,6 +760,17 @@ let spotVisibleItems = new Map();
 let spotTagEditorProduct = null;
 let spotTagEditingId = null;
 let spotTagSelectedColor = 'blue';
+let spotCurrentResult = null;
+let spotCurrentQueryKey = '';
+let spotRequestController = null;
+let spotRequestKey = '';
+let spotRequestPromise = null;
+let spotRequestSequence = 0;
+let spotRefreshScheduleTimer = null;
+const spotQueryCache = new Map();
+const spotQueryCacheFreshMs = 30 * 1000;
+const spotQueryCacheStaleMs = 5 * 60 * 1000;
+const spotQueryCacheLimit = 12;
 const spotTagPalette = [
   ['slate', '灰'], ['blue', '蓝'], ['azure', '天蓝'], ['indigo', '靛蓝'],
   ['purple', '紫'], ['pink', '粉'], ['red', '红'], ['orange', '橙'],
@@ -1545,13 +1565,17 @@ function spotTagChip(tag) {
 }
 
 function spotProductTagsCell(item) {
+  return `<td class="spot-tags-cell" data-product-tags-cell="${esc(item.ptypeid || '')}">${spotProductTagsCellContent(item)}</td>`;
+}
+
+function spotProductTagsCellContent(item) {
   const tags = Array.isArray(item.product_tags) ? item.product_tags : [];
   const label = tags.length ? tags.map(spotTagChip).join('') : '<span class="spot-tag-empty">未标记</span>';
-  return `<td class="spot-tags-cell"><div class="spot-tag-list">${label}
+  return `<div class="spot-tag-list">${label}
     <button class="spot-tag-edit-button" type="button" data-product-tag-edit
       data-erp-product-id="${esc(item.ptypeid || '')}" title="设置商品标记" aria-label="设置${esc(item.product_code || '商品')}的标记">
       <i class="ti ti-plus"></i>
-    </button></div></td>`;
+    </button></div>`;
 }
 
 function updateSpotFilterLabel(details) {
@@ -1735,7 +1759,7 @@ function applySpotColumnOrder() {
   spotColumnOrderDraft = null;
   renderSpotColumnPicker();
   document.getElementById('spot-column-picker').open = true;
-  refreshSpotStock();
+  rerenderCurrentSpotStock();
 }
 
 function renderSpotColumnPicker() {
@@ -1825,7 +1849,7 @@ document.getElementById('spot-column-options').addEventListener('change', event 
   }
   persistSpotInventoryPreferences();
   renderSpotColumnPicker();
-  refreshSpotStock();
+  rerenderCurrentSpotStock();
 });
 
 const spotColumnOrderDialog = document.getElementById('spot-column-order-dialog');
@@ -1916,11 +1940,94 @@ function openSpotTagManager() {
   setTimeout(() => document.getElementById('spot-tag-name').focus(), 0);
 }
 
+function spotResultDatasets() {
+  const datasets = new Set();
+  if (spotCurrentResult) datasets.add(spotCurrentResult);
+  spotQueryCache.forEach(entry => {
+    if (entry?.data) datasets.add(entry.data);
+  });
+  return datasets;
+}
+
+function renderSpotProductTagCells(erpProductId) {
+  const key = String(erpProductId || '');
+  const item = spotVisibleItems.get(key);
+  if (!item) return;
+  document.querySelectorAll('[data-product-tags-cell]').forEach(cell => {
+    if (cell.dataset.productTagsCell === key) {
+      cell.innerHTML = spotProductTagsCellContent(item);
+    }
+  });
+  const taggedCount = document.getElementById('spot-tagged-products-count');
+  if (taggedCount && spotCurrentResult?.meta?.summary) {
+    taggedCount.textContent = qty(spotCurrentResult.meta.summary.tagged_products || 0);
+  }
+}
+
+function reconcileSpotTagDefinitions() {
+  const definitions = new Map(spotTags.map(tag => [String(tag.id), tag]));
+  spotResultDatasets().forEach(data => {
+    (data.data || []).forEach(item => {
+      item.product_tags = (item.product_tags || [])
+        .map(tag => definitions.get(String(tag.id)))
+        .filter(Boolean)
+        .map(tag => ({id: tag.id, name: tag.name, color: tag.color}));
+    });
+    if (data.meta?.filters) data.meta.filters.product_tags = spotTags;
+  });
+  [...spotVisibleItems.keys()].forEach(renderSpotProductTagCells);
+}
+
+function patchSpotProductTagsLocally(erpProductId, previousTags, nextTags) {
+  const key = String(erpProductId || '');
+  const before = Array.isArray(previousTags) ? previousTags : [];
+  const after = Array.isArray(nextTags) ? nextTags : [];
+  const beforeIds = new Set(before.map(tag => String(tag.id)));
+  const afterIds = new Set(after.map(tag => String(tag.id)));
+
+  spotTags.forEach(tag => {
+    const id = String(tag.id);
+    const delta = Number(afterIds.has(id)) - Number(beforeIds.has(id));
+    if (delta) tag.assignment_count = Math.max(0, Number(tag.assignment_count || 0) + delta);
+  });
+
+  spotResultDatasets().forEach(data => {
+    let previousHadTags = null;
+    let changed = false;
+    (data.data || []).forEach(item => {
+      if (String(item.ptypeid || '') !== key) return;
+      if (previousHadTags === null) previousHadTags = (item.product_tags || []).length > 0;
+      item.product_tags = after.map(tag => ({id: tag.id, name: tag.name, color: tag.color}));
+      changed = true;
+    });
+    if (changed && previousHadTags !== (after.length > 0) && data.meta?.summary) {
+      data.meta.summary.tagged_products = Math.max(
+        0,
+        Number(data.meta.summary.tagged_products || 0) + (after.length ? 1 : -1)
+      );
+    }
+    if (data.meta?.filters) data.meta.filters.product_tags = spotTags;
+  });
+
+  // A tag-filtered cache may have different membership after this mutation.
+  // Drop it so the next visit revalidates, while the current table stays stable.
+  spotQueryCache.forEach((entry, queryKey) => {
+    const params = new URLSearchParams(queryKey);
+    if (params.get('tag_ids') || params.get('tagged') !== 'all') {
+      spotQueryCache.delete(queryKey);
+    }
+  });
+  renderSpotProductTagCells(key);
+  renderSpotTagFilterOptions();
+  renderSpotTagManagerList();
+}
+
 async function loadSpotTagDefinitions() {
   const response = await fetch('/api/catalog/tags');
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(payload.detail || `HTTP ${response.status}`);
   spotTags = Array.isArray(payload.tags) ? payload.tags : [];
+  reconcileSpotTagDefinitions();
   renderSpotTagFilterOptions();
   renderSpotTagManagerList();
   if (spotTagEditorProduct) renderSpotProductTagOptions();
@@ -1963,7 +2070,6 @@ document.getElementById('spot-tag-save').addEventListener('click', async event =
     if (!response.ok) throw new Error(payload.detail || '标签保存失败');
     await loadSpotTagDefinitions();
     resetSpotTagEditor();
-    await refreshSpotStock();
   } catch (error) {
     errorTarget.textContent = error.message;
   } finally {
@@ -2008,30 +2114,39 @@ document.getElementById('spot-product-tags-save').addEventListener('click', asyn
   if (!spotTagEditorProduct) return;
   const button = event.currentTarget;
   const selected = [...document.querySelectorAll('#spot-product-tags-options input:checked')].map(input => Number(input.value));
+  const product = spotTagEditorProduct;
+  const previousTags = (product.product_tags || []).map(tag => ({id: tag.id, name: tag.name, color: tag.color}));
+  const nextTags = selected.map(id => spotTags.find(tag => Number(tag.id) === id)).filter(Boolean)
+    .map(tag => ({id: tag.id, name: tag.name, color: tag.color}));
   const errorTarget = document.getElementById('spot-product-tags-error');
   button.disabled = true;
   errorTarget.textContent = '';
+  patchSpotProductTagsLocally(product.ptypeid, previousTags, nextTags);
+  document.getElementById('spot-product-tags-dialog').close();
+  spotTagEditorProduct = null;
   try {
-    const response = await fetch(`/api/catalog/products/${encodeURIComponent(spotTagEditorProduct.ptypeid)}/tags`, {
+    const response = await fetch(`/api/catalog/products/${encodeURIComponent(product.ptypeid)}/tags`, {
       method: 'PUT',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({tag_ids: selected})
     });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(payload.detail || '商品标记保存失败');
-    document.getElementById('spot-product-tags-dialog').close();
-    spotTagEditorProduct = null;
-    await refreshSpotStock();
+    if (Array.isArray(payload.tags)) {
+      patchSpotProductTagsLocally(product.ptypeid, nextTags, payload.tags);
+    }
   } catch (error) {
+    patchSpotProductTagsLocally(product.ptypeid, nextTags, previousTags);
+    spotTagEditorProduct = product;
+    product.product_tags = previousTags;
+    openSpotProductTagDialog(product);
     errorTarget.textContent = error.message;
   } finally {
     button.disabled = false;
   }
 });
 
-async function loadSpotStock() {
-  const target = document.getElementById('spot-stock-app');
-  target.innerHTML = '<div class="text-secondary py-4">加载中...</div>';
+function spotStockQueryParams() {
   const params = new URLSearchParams({
     view_mode: spotState.viewMode,
     // Keep the request compatible with an older Edge Function deployment while
@@ -2067,13 +2182,32 @@ async function loadSpotStock() {
   ]) {
     if (value !== '') params.set(name, value);
   }
-  const response = await fetch('/api/erp/v1/inventory/spot-candidates?' + params.toString());
-  if (!response.ok) throw new Error(`HTTP ${response.status}`);
-  const data = await response.json();
+  return params;
+}
+
+function cacheSpotQueryResult(queryKey, data) {
+  spotQueryCache.delete(queryKey);
+  spotQueryCache.set(queryKey, {data, storedAt: Date.now()});
+  while (spotQueryCache.size > spotQueryCacheLimit) {
+    spotQueryCache.delete(spotQueryCache.keys().next().value);
+  }
+}
+
+function setSpotStockUpdating(updating) {
+  const target = document.getElementById('spot-stock-app');
+  target.classList.toggle('spot-is-updating', updating);
+  target.setAttribute('aria-busy', updating ? 'true' : 'false');
+}
+
+function renderSpotStockResult(data, queryKey=spotCurrentQueryKey) {
+  const target = document.getElementById('spot-stock-app');
+  const previousScrollLeft = target.querySelector('.table-responsive')?.scrollLeft || 0;
   const items = data.data || [];
   const meta = data.meta || {};
   const summary = meta.summary || {};
   const filterMeta = meta.filters || {};
+  spotCurrentResult = data;
+  spotCurrentQueryKey = queryKey;
   spotTags = Array.isArray(filterMeta.product_tags) ? filterMeta.product_tags : spotTags;
   spotVisibleItems = new Map();
   items.forEach(item => {
@@ -2100,7 +2234,7 @@ async function loadSpotStock() {
           <div>
             实际库存 <strong>${qty(summary.stock_qty)}</strong>
             · 可销售 <strong>${qty(summary.sellable_qty)}</strong>
-            · 已标记 <strong>${qty(summary.tagged_products)}</strong>
+            · 已标记 <strong id="spot-tagged-products-count">${qty(summary.tagged_products)}</strong>
             · 孤品款 <strong class="text-red">${qty(summary.singleton_styles)}</strong>
             · 断码款 <strong class="text-yellow">${qty(summary.broken_size_styles)}</strong>
           </div>
@@ -2129,13 +2263,100 @@ async function loadSpotStock() {
         </div>
       </div>
     </div>`;
+  const scroller = target.querySelector('.table-responsive');
+  if (scroller) scroller.scrollLeft = previousScrollLeft;
+  setSpotStockUpdating(false);
 }
 
-function refreshSpotStock() {
-  return loadSpotStock().catch(error => {
-    document.getElementById('spot-stock-app').innerHTML =
-      `<div class="alert alert-danger">加载失败: ${esc(error.message)}</div>`;
+function rerenderCurrentSpotStock() {
+  if (spotCurrentResult) {
+    renderSpotStockResult(spotCurrentResult, spotCurrentQueryKey);
+    return Promise.resolve(spotCurrentResult);
+  }
+  return refreshSpotStock();
+}
+
+async function loadSpotStock({force=false}={}) {
+  const target = document.getElementById('spot-stock-app');
+  const queryKey = spotStockQueryParams().toString();
+
+  if (!force && spotRequestPromise && spotRequestKey === queryKey) {
+    return spotRequestPromise;
+  }
+
+  const requestSequence = ++spotRequestSequence;
+  if (spotRequestController) spotRequestController.abort();
+  spotRequestController = null;
+  spotRequestPromise = null;
+  spotRequestKey = '';
+
+  let cached = force ? null : spotQueryCache.get(queryKey);
+  if (cached && Date.now() - cached.storedAt > spotQueryCacheStaleMs) {
+    spotQueryCache.delete(queryKey);
+    cached = null;
+  }
+  if (cached) {
+    // Stale-while-revalidate: show the known result immediately, then quietly
+    // refresh it only after the short freshness window has elapsed.
+    renderSpotStockResult(cached.data, queryKey);
+    if (Date.now() - cached.storedAt <= spotQueryCacheFreshMs) return cached.data;
+  } else if (!target.querySelector('.spot-query-table')) {
+    target.innerHTML = '<div class="text-secondary py-4">加载中...</div>';
+  }
+
+  const controller = new AbortController();
+  spotRequestController = controller;
+  spotRequestKey = queryKey;
+  setSpotStockUpdating(true);
+  const requestPromise = (async () => {
+    try {
+      const response = await fetch('/api/erp/v1/inventory/spot-candidates?' + queryKey, {
+        signal: controller.signal
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = await response.json();
+      if (requestSequence !== spotRequestSequence || controller.signal.aborted) return data;
+      cacheSpotQueryResult(queryKey, data);
+      renderSpotStockResult(data, queryKey);
+      return data;
+    } catch (error) {
+      if (error.name === 'AbortError') return null;
+      if (cached) {
+        console.warn('库存后台刷新失败，继续显示缓存结果', error);
+        return cached.data;
+      }
+      throw error;
+    } finally {
+      if (requestSequence === spotRequestSequence) {
+        setSpotStockUpdating(false);
+        spotRequestController = null;
+        spotRequestKey = '';
+        spotRequestPromise = null;
+      }
+    }
+  })();
+  spotRequestPromise = requestPromise;
+  return requestPromise;
+}
+
+function refreshSpotStock(options) {
+  return loadSpotStock(options).catch(error => {
+    const target = document.getElementById('spot-stock-app');
+    if (target.querySelector('.spot-query-table')) {
+      target.querySelector('[data-spot-load-error]')?.remove();
+      target.insertAdjacentHTML('afterbegin',
+        `<div class="alert alert-danger mb-2" data-spot-load-error>更新失败，仍显示上一次结果：${esc(error.message)}</div>`);
+    } else {
+      target.innerHTML = `<div class="alert alert-danger">加载失败: ${esc(error.message)}</div>`;
+    }
+    setSpotStockUpdating(false);
+    return null;
   });
+}
+
+function scheduleSpotStockRefresh(delay=180) {
+  clearTimeout(spotRefreshScheduleTimer);
+  spotRefreshScheduleTimer = setTimeout(refreshSpotStock, delay);
 }
 
 let spotPresets = [];
@@ -2391,7 +2612,7 @@ document.querySelectorAll('.spot-multiselect[data-spot-filter]').forEach(details
     spotState[key] = [...details.querySelectorAll('input:checked')].map(input => input.value);
     spotState.offset = 0;
     updateSpotFilterLabel(details);
-    refreshSpotStock();
+    scheduleSpotStockRefresh();
   });
 });
 document.addEventListener('click', event => {
@@ -2550,7 +2771,7 @@ document.getElementById('spot-stock-app').addEventListener('dblclick', event => 
   if (!handle) return;
   delete spotState.columnWidths[spotState.viewMode][handle.dataset.resizeColumn];
   persistSpotInventoryPreferences();
-  refreshSpotStock();
+  rerenderCurrentSpotStock();
 });
 
 document.getElementById('spot-stock-app').addEventListener('click', event => {
