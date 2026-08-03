@@ -108,6 +108,9 @@
     if (!permissions.has('inventory.presets.manage')) {
       hiddenSelectors.push('#spot-save-preset', '#spot-delete-preset');
     }
+    if (!permissions.has('products.tags.manage')) {
+      hiddenSelectors.push('[data-product-tags-manage]', '[data-product-tag-edit]');
+    }
     if (hiddenSelectors.length) {
       permissionStyles.textContent = `${hiddenSelectors.join(',')} { display: none !important; }`;
       document.head.appendChild(permissionStyles);

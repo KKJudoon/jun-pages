@@ -308,6 +308,63 @@
     text-decoration:none;
   }
   .spot-taobao-badge:hover, .spot-taobao-badge:focus-visible { background:#dbeafe; color:#1d4ed8; }
+  .spot-tags-cell { min-width:8.5rem; white-space:normal; }
+  .spot-tag-list { display:flex; align-items:center; justify-content:center; gap:.3rem; flex-wrap:wrap; }
+  .spot-tag-chip {
+    display:inline-flex; align-items:center; max-width:10rem; min-height:22px;
+    padding:.16rem .48rem; border:1px solid var(--spot-tag-border,#bfdbfe);
+    border-radius:999px; background:var(--spot-tag-bg,#eff6ff);
+    color:var(--spot-tag-text,#1d4ed8); font-size:.72rem; font-weight:600;
+    line-height:1.15; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .spot-tag-slate { --spot-tag-bg:#f1f5f9; --spot-tag-border:#cbd5e1; --spot-tag-text:#475569; }
+  .spot-tag-blue { --spot-tag-bg:#eff6ff; --spot-tag-border:#bfdbfe; --spot-tag-text:#1d4ed8; }
+  .spot-tag-azure { --spot-tag-bg:#ecfeff; --spot-tag-border:#a5f3fc; --spot-tag-text:#0e7490; }
+  .spot-tag-indigo { --spot-tag-bg:#eef2ff; --spot-tag-border:#c7d2fe; --spot-tag-text:#4338ca; }
+  .spot-tag-purple { --spot-tag-bg:#faf5ff; --spot-tag-border:#e9d5ff; --spot-tag-text:#7e22ce; }
+  .spot-tag-pink { --spot-tag-bg:#fdf2f8; --spot-tag-border:#fbcfe8; --spot-tag-text:#be185d; }
+  .spot-tag-red { --spot-tag-bg:#fef2f2; --spot-tag-border:#fecaca; --spot-tag-text:#b91c1c; }
+  .spot-tag-orange { --spot-tag-bg:#fff7ed; --spot-tag-border:#fed7aa; --spot-tag-text:#c2410c; }
+  .spot-tag-amber { --spot-tag-bg:#fffbeb; --spot-tag-border:#fde68a; --spot-tag-text:#b45309; }
+  .spot-tag-yellow { --spot-tag-bg:#fefce8; --spot-tag-border:#fef08a; --spot-tag-text:#a16207; }
+  .spot-tag-lime { --spot-tag-bg:#f7fee7; --spot-tag-border:#d9f99d; --spot-tag-text:#4d7c0f; }
+  .spot-tag-green { --spot-tag-bg:#f0fdf4; --spot-tag-border:#bbf7d0; --spot-tag-text:#15803d; }
+  .spot-tag-teal { --spot-tag-bg:#f0fdfa; --spot-tag-border:#99f6e4; --spot-tag-text:#0f766e; }
+  .spot-tag-cyan { --spot-tag-bg:#ecfeff; --spot-tag-border:#a5f3fc; --spot-tag-text:#0e7490; }
+  .spot-tag-edit-button {
+    display:inline-flex; align-items:center; justify-content:center; width:26px; height:26px;
+    padding:0; border:1px dashed #aeb6c2; border-radius:999px; color:#667085; background:#fff;
+  }
+  .spot-tag-edit-button:hover, .spot-tag-edit-button:focus-visible { color:#206bc4; border-color:#206bc4; }
+  .spot-tag-filter-menu { min-width:220px; }
+  .spot-tag-option-dot, .spot-tag-color-dot {
+    display:inline-block; flex:0 0 auto; width:.72rem; height:.72rem;
+    border-radius:999px; background:var(--spot-tag-text,#1d4ed8);
+  }
+  .spot-tag-dialog { width:min(92vw,520px); }
+  .spot-tag-dialog-list { display:grid; gap:.45rem; max-height:min(44vh,360px); overflow:auto; }
+  .spot-tag-dialog-option {
+    display:flex; align-items:center; gap:.65rem; min-height:42px; padding:.48rem .58rem;
+    border:1px solid #e7ebef; border-radius:5px; cursor:pointer;
+  }
+  .spot-tag-dialog-option:hover { background:#f8fafc; }
+  .spot-tag-dialog-option .spot-tag-chip { margin-right:auto; }
+  .spot-tag-manager-list { display:grid; gap:.5rem; max-height:min(38vh,300px); overflow:auto; }
+  .spot-tag-manager-row {
+    display:flex; align-items:center; gap:.55rem; min-height:44px; padding:.45rem .55rem;
+    border:1px solid #e7ebef; border-radius:5px;
+  }
+  .spot-tag-manager-row .spot-tag-chip { margin-right:auto; }
+  .spot-tag-manager-count { color:#667085; font-size:.75rem; white-space:nowrap; }
+  .spot-tag-editor { padding:.7rem; border:1px solid #e7ebef; border-radius:5px; background:#f8fafc; }
+  .spot-tag-color-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:.4rem; }
+  .spot-tag-color-choice {
+    display:flex; align-items:center; justify-content:center; height:34px; padding:0;
+    border:1px solid #d9dce1; border-radius:5px; background:#fff;
+  }
+  .spot-tag-color-choice .spot-tag-color-dot { width:1rem; height:1rem; }
+  .spot-tag-color-choice.active { border-color:#206bc4; box-shadow:0 0 0 .15rem rgba(32,107,196,.14); }
+  .spot-tag-empty { color:#98a2b3; font-size:.75rem; }
   .spot-sizes { min-width:10rem; white-space:normal; }
   .spot-query-table { table-layout:fixed; }
   .spot-query-table th, .spot-query-table td {
@@ -454,6 +511,13 @@
         </div>
       </div>
       <div id="spot-primary-filter-items" class="spot-primary-filter-items">
+      <div class="spot-filter-control" data-spot-filter-control="tagFilters">
+        <label class="form-label mb-1">商品标记</label>
+        <details class="spot-multiselect" data-spot-filter="tagFilters">
+          <summary><span data-filter-label>全部</span></summary>
+          <div class="spot-filter-menu spot-tag-filter-menu" data-filter-options></div>
+        </details>
+      </div>
       <div class="spot-filter-control" data-spot-filter-control="categories">
         <label class="form-label mb-1">分类</label>
         <details class="spot-multiselect" data-spot-filter="categories">
@@ -593,6 +657,52 @@
   </form>
 </dialog>
 
+<dialog id="spot-product-tags-dialog" class="spot-dialog spot-tag-dialog">
+  <form method="dialog" class="spot-dialog-body">
+    <div class="d-flex align-items-start gap-2 mb-3">
+      <div class="flex-fill">
+        <h3 class="h3 mb-1">标记商品</h3>
+        <p id="spot-product-tags-title" class="text-secondary small mb-0"></p>
+      </div>
+      <button class="btn btn-icon btn-ghost-secondary" value="cancel" aria-label="关闭商品标记"><i class="ti ti-x"></i></button>
+    </div>
+    <div id="spot-product-tags-options" class="spot-tag-dialog-list"></div>
+    <div id="spot-product-tags-error" class="text-danger small mt-2" aria-live="polite"></div>
+    <div class="d-flex justify-content-between gap-2 mt-3">
+      <button class="btn btn-outline-secondary" type="button" data-product-tags-manage><i class="ti ti-tags me-1"></i>管理标签</button>
+      <div class="d-flex gap-2">
+        <button class="btn btn-outline-secondary" value="cancel">取消</button>
+        <button id="spot-product-tags-save" class="btn btn-primary" type="button"><i class="ti ti-check me-1"></i>保存标记</button>
+      </div>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="spot-tag-manager-dialog" class="spot-dialog spot-tag-dialog">
+  <form method="dialog" class="spot-dialog-body">
+    <div class="d-flex align-items-start gap-2 mb-3">
+      <div class="flex-fill">
+        <h3 class="h3 mb-1">商品标签管理</h3>
+        <p class="text-secondary small mb-0">标签是全平台通用的固定选项，库存和后续运营页面会共用。</p>
+      </div>
+      <button class="btn btn-icon btn-ghost-secondary" value="cancel" aria-label="关闭标签管理"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="spot-tag-editor mb-3">
+      <label class="form-label" for="spot-tag-name">标签名称</label>
+      <input id="spot-tag-name" class="form-control" maxlength="30" placeholder="例如：重点关注">
+      <div class="form-label mt-2 mb-1">颜色</div>
+      <div id="spot-tag-color-grid" class="spot-tag-color-grid"></div>
+      <div id="spot-tag-manager-error" class="text-danger small mt-2" aria-live="polite"></div>
+      <div class="d-flex justify-content-end gap-2 mt-2">
+        <button id="spot-tag-edit-cancel" class="btn btn-sm btn-outline-secondary d-none" type="button">取消编辑</button>
+        <button id="spot-tag-save" class="btn btn-sm btn-primary" type="button"><i class="ti ti-plus me-1"></i>新增标签</button>
+      </div>
+    </div>
+    <div id="spot-tag-manager-list" class="spot-tag-manager-list"></div>
+    <div class="text-end mt-3"><button class="btn btn-outline-secondary" value="cancel">完成</button></div>
+  </form>
+</dialog>
+
 <dialog id="spot-help-dialog" class="spot-dialog">
   <div class="spot-dialog-body">
     <div class="d-flex align-items-start gap-2">
@@ -624,7 +734,7 @@ const spotState = {
   viewMode: 'product',
   productGroups: [], categories: ['apparel'], subcategories: [],
   warehouses: ['主仓库', '走秀仓库'], sizes: [],
-  colors: [], allocationStatuses: [], imageStatus: 'all',
+  colors: [], allocationStatuses: [], tagFilters: [], imageStatus: 'all',
   skuCoverage: 'all',
   productStockMin: '', productStockMax: '',
   stockMin: '', stockMax: '', sellableMin: '', sellableMax: '',
@@ -636,10 +746,23 @@ const spotState = {
   sortBy: 'priority', sortDir: 'asc', limit: 100, offset: 0, q: ''
 };
 let spotColumnOrderDraft = null;
+let spotTags = [];
+let spotVisibleItems = new Map();
+let spotTagEditorProduct = null;
+let spotTagEditingId = null;
+let spotTagSelectedColor = 'blue';
+const spotTagPalette = [
+  ['slate', '灰'], ['blue', '蓝'], ['azure', '天蓝'], ['indigo', '靛蓝'],
+  ['purple', '紫'], ['pink', '粉'], ['red', '红'], ['orange', '橙'],
+  ['amber', '琥珀'], ['yellow', '黄'], ['lime', '青柠'], ['green', '绿'],
+  ['teal', '青绿'], ['cyan', '青']
+];
+const spotTagColorKeys = new Set(spotTagPalette.map(item => item[0]));
 const spotColumns = {
   product: [
     {key:'image', label:'图片', required:true},
     {key:'product', label:'款号', required:true, sort:'product_code'},
+    {key:'tags', label:'标记'},
     {key:'taobao_price', label:'淘宝价', sort:'taobao_price', numeric:true},
     {key:'taobao_total_sold', label:'淘宝总销量', sort:'taobao_total_sold', numeric:true},
     {key:'taobao_sold_30d', label:'淘宝近30天', sort:'taobao_sold_30d', numeric:true},
@@ -657,6 +780,7 @@ const spotColumns = {
   sku: [
     {key:'image', label:'图片', required:true},
     {key:'product', label:'款号 / SKU', required:true, sort:'product_code'},
+    {key:'tags', label:'标记'},
     {key:'taobao_price', label:'淘宝价', sort:'taobao_price', numeric:true},
     {key:'taobao_total_sold', label:'淘宝总销量', sort:'taobao_total_sold', numeric:true},
     {key:'taobao_sold_30d', label:'淘宝近30天', sort:'taobao_sold_30d', numeric:true},
@@ -681,18 +805,19 @@ function normalizeSpotVisibleColumns(mode, values) {
     .filter((key, index, array) => array.indexOf(key) === index);
 }
 spotState.visibleColumns = {
-  product: ['image','product','taobao_price','taobao_total_sold','taobao_sold_30d','sellable_qty','stock_qty','sizes'],
-  sku: ['image','product','taobao_price','taobao_total_sold','taobao_sold_30d','size','sellable_qty','stock_qty','product_stock_qty']
+  product: ['image','product','tags','taobao_price','taobao_total_sold','taobao_sold_30d','sellable_qty','stock_qty','sizes'],
+  sku: ['image','product','tags','taobao_price','taobao_total_sold','taobao_sold_30d','size','sellable_qty','stock_qty','product_stock_qty']
 };
 spotState.columnWidths = {product: {}, sku: {}};
 const spotDefaultColumnWidths = {
   image:64, product:124, category:100, sellable_qty:96, stock_qty:88,
   product_stock_qty:104, sizes:190, sku_count:88, occupied_qty:84,
   warehouses:130, warehouse:110, colors:140, color:90, size:78,
-  sku_coverage:96, flags:160, taobao_price:88,
+  sku_coverage:96, flags:160, tags:150, taobao_price:88,
   taobao_total_sold:104, taobao_sold_30d:104
 };
 const spotFilterDefinitions = [
+  {key:'tagFilters', label:'商品标记', placement:'primary', selector:'[data-spot-filter-control="tagFilters"]'},
   {key:'categories', label:'分类', placement:'primary', selector:'[data-spot-filter-control="categories"]'},
   {key:'warehouses', label:'仓库', placement:'primary', selector:'[data-spot-filter-control="warehouses"]'},
   {key:'sizes', label:'尺码', placement:'primary', selector:'[data-spot-filter-control="sizes"]'},
@@ -747,6 +872,7 @@ let spotInventoryPreferencesSaveTimer = null;
 
 function currentSpotInventoryPreferences() {
   return {
+    version: 2,
     visibleColumns: {
       product: [...spotState.visibleColumns.product],
       sku: [...spotState.visibleColumns.sku]
@@ -764,7 +890,11 @@ function applySpotInventoryPreferences(preferences) {
   if (preferences.visibleColumns && typeof preferences.visibleColumns === 'object') {
     for (const mode of ['product', 'sku']) {
       if (Array.isArray(preferences.visibleColumns[mode])) {
-        spotState.visibleColumns[mode] = normalizeSpotVisibleColumns(mode, preferences.visibleColumns[mode]);
+        const columns = [...preferences.visibleColumns[mode]];
+        if (Number(preferences.version || 0) < 2 && !columns.includes('tags')) {
+          columns.splice(Math.max(0, columns.indexOf('product') + 1), 0, 'tags');
+        }
+        spotState.visibleColumns[mode] = normalizeSpotVisibleColumns(mode, columns);
       }
     }
   }
@@ -832,7 +962,7 @@ async function loadSpotInventoryPreferences() {
   const payload = await response.json();
   const serverPreferences = payload.data || {};
   const hasServerPreferences = [
-    'visibleColumns', 'columnWidths', 'filterPlacement'
+    'visibleColumns', 'columnWidths', 'filterPlacement', 'version'
   ].some(key => Object.prototype.hasOwnProperty.call(serverPreferences, key));
   if (hasServerPreferences) {
     applySpotInventoryPreferences(serverPreferences);
@@ -850,6 +980,7 @@ if (localSpotInventoryPreferences) {
 const spotFilterHelp = {
   'spot-preset-select': ['查询预设', '保存并恢复一整套查询设置，包括商品或 SKU 模式、全部筛选条件、排序、每页数量、显示列及列顺序。设为默认后，下次打开页面会自动载入。'],
   'spot-search': ['搜索', '在当前模式中按款号、商品名称、SKU、颜色和尺码模糊查找。商品模式会搜索该商品已覆盖的全部颜色和尺码。'],
+  tagFilters: ['商品标记', '筛选全部已标记商品或指定标签。同一标签会同时出现在商品模式和该商品的全部 SKU 行中。'],
   categories: ['分类', '按商品编码规则划分的大类筛选，例如服装、特卖、头饰、鞋等。商品模式覆盖 ERP 全量分类。'],
   warehouses: ['仓库', '筛选在所选仓库中仍有正库存的商品或 SKU。商品模式显示的实际库存仍是该商品跨全部仓库的合计，不会因为选择一个仓库而改写实际库存。'],
   sizes: ['尺码', '筛选包含所选尺码的商品或具体 SKU。尺码依赖 SKU 明细；尚未采集 SKU 明细的商品不会被尺码条件命中。'],
@@ -1404,6 +1535,25 @@ function spotTaobaoPrices(item) {
   return prices.length ? prices.map(spotMoney).join('<br>') : '-';
 }
 
+function spotTagColorClass(color) {
+  const key = spotTagColorKeys.has(String(color)) ? String(color) : 'blue';
+  return `spot-tag-${key}`;
+}
+
+function spotTagChip(tag) {
+  return `<span class="spot-tag-chip ${spotTagColorClass(tag.color)}" title="${esc(tag.name)}">${esc(tag.name)}</span>`;
+}
+
+function spotProductTagsCell(item) {
+  const tags = Array.isArray(item.product_tags) ? item.product_tags : [];
+  const label = tags.length ? tags.map(spotTagChip).join('') : '<span class="spot-tag-empty">未标记</span>';
+  return `<td class="spot-tags-cell"><div class="spot-tag-list">${label}
+    <button class="spot-tag-edit-button" type="button" data-product-tag-edit
+      data-erp-product-id="${esc(item.ptypeid || '')}" title="设置商品标记" aria-label="设置${esc(item.product_code || '商品')}的标记">
+      <i class="ti ti-plus"></i>
+    </button></div></td>`;
+}
+
 function updateSpotFilterLabel(details) {
   const selected = [...details.querySelectorAll('input:checked')];
   const label = details.querySelector('[data-filter-label]');
@@ -1429,6 +1579,29 @@ function renderSpotFilterOptions(key, values) {
   updateSpotFilterLabel(details);
 }
 
+function renderSpotTagFilterOptions() {
+  const details = document.querySelector('[data-spot-filter="tagFilters"]');
+  const target = details?.querySelector('[data-filter-options]');
+  if (!target) return;
+  const selected = new Set(spotState.tagFilters || []);
+  target.innerHTML = `
+    <label class="spot-filter-option">
+      <input class="form-check-input m-0" type="checkbox" value="__tagged__" ${selected.has('__tagged__') ? 'checked' : ''}>
+      <i class="ti ti-tags text-secondary"></i><span>全部已标记</span>
+    </label>
+    ${spotTags.length ? '<div class="border-top my-1"></div>' : ''}
+    ${spotTags.map(tag => `<label class="spot-filter-option">
+      <input class="form-check-input m-0" type="checkbox" value="${esc(String(tag.id))}" ${selected.has(String(tag.id)) ? 'checked' : ''}>
+      <span class="spot-tag-option-dot ${spotTagColorClass(tag.color)}"></span><span>${esc(tag.name)}</span>
+    </label>`).join('')}
+    <div class="border-top mt-1 pt-1" data-product-tags-manage>
+      <button class="btn btn-sm btn-ghost-secondary w-100" type="button" data-product-tags-manage>
+        <i class="ti ti-settings me-1"></i>管理固定标签
+      </button>
+    </div>`;
+  updateSpotFilterLabel(details);
+}
+
 function spotResizeHandle(key) {
   return `<span class="spot-col-resizer" data-resize-column="${esc(key)}" title="拖拽调整列宽；双击恢复默认"></span>`;
 }
@@ -1445,7 +1618,7 @@ function spotSortHeader(label, field, align='', columnKey='') {
 
 function spotFilterCount() {
   const arrayKeys = ['productGroups', 'categories', 'subcategories',
-    'warehouses', 'sizes', 'colors', 'allocationStatuses'];
+    'warehouses', 'sizes', 'colors', 'allocationStatuses', 'tagFilters'];
   const rangePairs = [
     ['productStockMin', 'productStockMax'], ['sellableMin', 'sellableMax'],
     ['occupiedMin', 'occupiedMax'], ['sizesMin', 'sizesMax'],
@@ -1515,6 +1688,7 @@ function spotColumnCell(item, key) {
     product: `<td class="spot-sku spot-sticky-product"><span class="spot-product-code">${esc(item.product_code || '-')}</span>${spotTaobaoBadge(item)}${item.sku_code
       ? `<div class="small text-secondary">${esc(item.sku_code)}</div>` : ''}${item.product_name && item.product_name !== item.product_code
       ? `<div class="small text-secondary">${esc(item.product_name)}</div>` : ''}</td>`,
+    tags: spotProductTagsCell(item),
     taobao_price: `<td class="qty-cell">${spotTaobaoPrices(item)}</td>`,
     taobao_total_sold: `<td class="qty-cell">${spotMetric(item.taobao_total_sold, item.taobao_total_sold_item_count || 0, item.taobao_item_count || 0)}</td>`,
     taobao_sold_30d: `<td class="qty-cell">${spotMetric(item.taobao_sold_30d, item.taobao_sold_30d_item_count || 0, item.taobao_item_count || 0)}</td>`,
@@ -1680,6 +1854,181 @@ spotColumnOrderDialog.addEventListener('click', event => {
   }
 });
 
+function renderSpotTagColorGrid() {
+  document.getElementById('spot-tag-color-grid').innerHTML = spotTagPalette.map(([key, label]) => `
+    <button class="spot-tag-color-choice ${key === spotTagSelectedColor ? 'active' : ''}" type="button"
+      data-tag-color="${key}" title="${esc(label)}" aria-label="选择${esc(label)}色" aria-pressed="${key === spotTagSelectedColor}">
+      <span class="spot-tag-color-dot spot-tag-${key}"></span>
+    </button>`).join('');
+}
+
+function renderSpotTagManagerList() {
+  const target = document.getElementById('spot-tag-manager-list');
+  target.innerHTML = spotTags.length ? spotTags.map(tag => `
+    <div class="spot-tag-manager-row">
+      ${spotTagChip(tag)}
+      <span class="spot-tag-manager-count">${qty(tag.assignment_count || 0)} 个商品</span>
+      <button class="btn btn-sm btn-icon btn-outline-secondary" type="button" data-tag-edit-id="${esc(String(tag.id))}" title="编辑${esc(tag.name)}" aria-label="编辑${esc(tag.name)}"><i class="ti ti-edit"></i></button>
+      <button class="btn btn-sm btn-icon btn-outline-danger" type="button" data-tag-archive-id="${esc(String(tag.id))}" title="停用${esc(tag.name)}" aria-label="停用${esc(tag.name)}"><i class="ti ti-trash"></i></button>
+    </div>`).join('') : '<div class="text-secondary text-center py-3">还没有固定标签，请先新增一个。</div>';
+}
+
+function resetSpotTagEditor() {
+  spotTagEditingId = null;
+  spotTagSelectedColor = 'blue';
+  document.getElementById('spot-tag-name').value = '';
+  document.getElementById('spot-tag-manager-error').textContent = '';
+  document.getElementById('spot-tag-edit-cancel').classList.add('d-none');
+  document.getElementById('spot-tag-save').innerHTML = '<i class="ti ti-plus me-1"></i>新增标签';
+  renderSpotTagColorGrid();
+}
+
+function renderSpotProductTagOptions() {
+  const target = document.getElementById('spot-product-tags-options');
+  if (!spotTagEditorProduct) {
+    target.innerHTML = '';
+    return;
+  }
+  const selected = new Set((spotTagEditorProduct.product_tags || []).map(tag => String(tag.id)));
+  target.innerHTML = spotTags.length ? spotTags.map(tag => `
+    <label class="spot-tag-dialog-option">
+      <input class="form-check-input m-0" type="checkbox" value="${esc(String(tag.id))}" ${selected.has(String(tag.id)) ? 'checked' : ''}>
+      ${spotTagChip(tag)}
+      <span class="text-secondary small">${selected.has(String(tag.id)) ? '已标记' : ''}</span>
+    </label>`).join('') : '<div class="text-secondary text-center py-4">还没有固定标签，请先进入“管理标签”新增。</div>';
+}
+
+function openSpotProductTagDialog(item) {
+  spotTagEditorProduct = item;
+  document.getElementById('spot-product-tags-title').textContent = `${item.product_code || '未命名商品'}${item.product_name && item.product_name !== item.product_code ? ` · ${item.product_name}` : ''}`;
+  document.getElementById('spot-product-tags-error').textContent = '';
+  renderSpotProductTagOptions();
+  document.getElementById('spot-product-tags-dialog').showModal();
+}
+
+function openSpotTagManager() {
+  document.querySelectorAll('.spot-multiselect[open]').forEach(details => { details.open = false; });
+  const productDialog = document.getElementById('spot-product-tags-dialog');
+  if (productDialog.open) productDialog.close();
+  resetSpotTagEditor();
+  renderSpotTagManagerList();
+  document.getElementById('spot-tag-manager-dialog').showModal();
+  setTimeout(() => document.getElementById('spot-tag-name').focus(), 0);
+}
+
+async function loadSpotTagDefinitions() {
+  const response = await fetch('/api/catalog/tags');
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(payload.detail || `HTTP ${response.status}`);
+  spotTags = Array.isArray(payload.tags) ? payload.tags : [];
+  renderSpotTagFilterOptions();
+  renderSpotTagManagerList();
+  if (spotTagEditorProduct) renderSpotProductTagOptions();
+}
+
+document.addEventListener('click', event => {
+  const manage = event.target.closest('[data-product-tags-manage]');
+  if (!manage) return;
+  event.preventDefault();
+  event.stopPropagation();
+  openSpotTagManager();
+});
+
+document.getElementById('spot-tag-color-grid').addEventListener('click', event => {
+  const button = event.target.closest('[data-tag-color]');
+  if (!button) return;
+  spotTagSelectedColor = button.dataset.tagColor;
+  renderSpotTagColorGrid();
+});
+
+document.getElementById('spot-tag-edit-cancel').addEventListener('click', resetSpotTagEditor);
+
+document.getElementById('spot-tag-save').addEventListener('click', async event => {
+  const button = event.currentTarget;
+  const name = document.getElementById('spot-tag-name').value.trim();
+  const errorTarget = document.getElementById('spot-tag-manager-error');
+  if (!name) {
+    errorTarget.textContent = '请输入标签名称';
+    return;
+  }
+  button.disabled = true;
+  errorTarget.textContent = '';
+  try {
+    const response = await fetch(spotTagEditingId ? `/api/catalog/tags/${spotTagEditingId}` : '/api/catalog/tags', {
+      method: spotTagEditingId ? 'PATCH' : 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({name, color: spotTagSelectedColor})
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.detail || '标签保存失败');
+    await loadSpotTagDefinitions();
+    resetSpotTagEditor();
+    await refreshSpotStock();
+  } catch (error) {
+    errorTarget.textContent = error.message;
+  } finally {
+    button.disabled = false;
+  }
+});
+
+document.getElementById('spot-tag-manager-list').addEventListener('click', async event => {
+  const editButton = event.target.closest('[data-tag-edit-id]');
+  if (editButton) {
+    const tag = spotTags.find(item => String(item.id) === editButton.dataset.tagEditId);
+    if (!tag) return;
+    spotTagEditingId = tag.id;
+    spotTagSelectedColor = spotTagColorKeys.has(tag.color) ? tag.color : 'blue';
+    document.getElementById('spot-tag-name').value = tag.name;
+    document.getElementById('spot-tag-manager-error').textContent = '';
+    document.getElementById('spot-tag-edit-cancel').classList.remove('d-none');
+    document.getElementById('spot-tag-save').innerHTML = '<i class="ti ti-check me-1"></i>保存修改';
+    renderSpotTagColorGrid();
+    document.getElementById('spot-tag-name').focus();
+    return;
+  }
+  const archiveButton = event.target.closest('[data-tag-archive-id]');
+  if (!archiveButton) return;
+  const tag = spotTags.find(item => String(item.id) === archiveButton.dataset.tagArchiveId);
+  if (!tag || !confirm(`停用标签“${tag.name}”？商品上的这个标记将不再显示。`)) return;
+  archiveButton.disabled = true;
+  const response = await fetch(`/api/catalog/tags/${tag.id}`, {method: 'DELETE'});
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    document.getElementById('spot-tag-manager-error').textContent = payload.detail || '标签停用失败';
+    archiveButton.disabled = false;
+    return;
+  }
+  spotState.tagFilters = spotState.tagFilters.filter(value => value !== String(tag.id));
+  await loadSpotTagDefinitions();
+  resetSpotTagEditor();
+  await refreshSpotStock();
+});
+
+document.getElementById('spot-product-tags-save').addEventListener('click', async event => {
+  if (!spotTagEditorProduct) return;
+  const button = event.currentTarget;
+  const selected = [...document.querySelectorAll('#spot-product-tags-options input:checked')].map(input => Number(input.value));
+  const errorTarget = document.getElementById('spot-product-tags-error');
+  button.disabled = true;
+  errorTarget.textContent = '';
+  try {
+    const response = await fetch(`/api/catalog/products/${encodeURIComponent(spotTagEditorProduct.ptypeid)}/tags`, {
+      method: 'PUT',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({tag_ids: selected})
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.detail || '商品标记保存失败');
+    document.getElementById('spot-product-tags-dialog').close();
+    spotTagEditorProduct = null;
+    await refreshSpotStock();
+  } catch (error) {
+    errorTarget.textContent = error.message;
+  } finally {
+    button.disabled = false;
+  }
+});
+
 async function loadSpotStock() {
   const target = document.getElementById('spot-stock-app');
   target.innerHTML = '<div class="text-secondary py-4">加载中...</div>';
@@ -1695,6 +2044,8 @@ async function loadSpotStock() {
     categories: spotState.categories.join(','),
     subcategories: spotState.subcategories.join(','),
     allocation_statuses: spotState.allocationStatuses.join(','),
+    tag_ids: spotState.tagFilters.filter(value => value !== '__tagged__').join(','),
+    tagged: spotState.tagFilters.includes('__tagged__') ? 'any' : 'all',
     image_status: spotState.imageStatus,
     sku_coverage: spotState.skuCoverage,
     sort_by: spotState.sortBy,
@@ -1723,7 +2074,14 @@ async function loadSpotStock() {
   const meta = data.meta || {};
   const summary = meta.summary || {};
   const filterMeta = meta.filters || {};
+  spotTags = Array.isArray(filterMeta.product_tags) ? filterMeta.product_tags : spotTags;
+  spotVisibleItems = new Map();
+  items.forEach(item => {
+    const key = String(item.ptypeid || '');
+    if (key && !spotVisibleItems.has(key)) spotVisibleItems.set(key, item);
+  });
 
+  renderSpotTagFilterOptions();
   renderSpotFilterOptions('warehouses', filterMeta.warehouses || []);
   renderSpotFilterOptions('sizes', filterMeta.sizes || []);
   renderSpotFilterOptions('colors', filterMeta.colors || []);
@@ -1742,6 +2100,7 @@ async function loadSpotStock() {
           <div>
             实际库存 <strong>${qty(summary.stock_qty)}</strong>
             · 可销售 <strong>${qty(summary.sellable_qty)}</strong>
+            · 已标记 <strong>${qty(summary.tagged_products)}</strong>
             · 孤品款 <strong class="text-red">${qty(summary.singleton_styles)}</strong>
             · 断码款 <strong class="text-yellow">${qty(summary.broken_size_styles)}</strong>
           </div>
@@ -1784,7 +2143,7 @@ let spotDefaultPresetId = '';
 
 function currentSpotPresetConfig() {
   const keys = [
-    'viewMode', 'productGroups', 'categories',
+    'viewMode', 'productGroups', 'categories', 'tagFilters',
     'subcategories', 'warehouses', 'sizes', 'colors',
     'allocationStatuses', 'imageStatus', 'skuCoverage',
     'productStockMin', 'productStockMax', 'stockMin', 'stockMax',
@@ -1799,7 +2158,7 @@ function currentSpotPresetConfig() {
       ? [...spotState[key]] : spotState[key];
   });
   const config = {
-    version: 2,
+    version: 3,
     filters,
     sort: {by: spotState.sortBy, dir: spotState.sortDir},
     pagination: {limit: spotState.limit},
@@ -1821,7 +2180,7 @@ function applySpotPresetConfig(config) {
     viewMode: 'product', productGroups: [],
     categories: ['apparel'], subcategories: [],
     warehouses: ['主仓库', '走秀仓库'], sizes: [], colors: [],
-    allocationStatuses: [], imageStatus: 'all',
+    allocationStatuses: [], tagFilters: [], imageStatus: 'all',
     skuCoverage: 'all', productStockMin: '', productStockMax: '',
     stockMin: '', stockMax: '', sellableMin: '', sellableMax: '',
     occupiedMin: '', occupiedMax: '', sizesMin: '', sizesMax: '',
@@ -1851,7 +2210,11 @@ function applySpotPresetConfig(config) {
     if (key === 'visibleColumns' && value && typeof value === 'object') {
       for (const mode of ['product', 'sku']) {
         if (Array.isArray(value[mode])) {
-          spotState.visibleColumns[mode] = normalizeSpotVisibleColumns(mode, value[mode]);
+          const columns = [...value[mode]];
+          if (Number(config?.version || 0) < 3 && !columns.includes('tags')) {
+            columns.splice(Math.max(0, columns.indexOf('product') + 1), 0, 'tags');
+          }
+          spotState.visibleColumns[mode] = normalizeSpotVisibleColumns(mode, columns);
         }
       }
     } else if (key === 'columnWidths' && value && typeof value === 'object') {
@@ -2124,7 +2487,7 @@ document.getElementById('spot-reset').addEventListener('click', () => {
     productGroups: [], categories: ['apparel'],
     subcategories: [], warehouses: ['主仓库', '走秀仓库'],
     sizes: [], colors: [],
-    allocationStatuses: [], imageStatus: 'all',
+    allocationStatuses: [], tagFilters: [], imageStatus: 'all',
     skuCoverage: 'all',
     productStockMin: '', productStockMax: '',
     stockMin: '', stockMax: '', sellableMin: '', sellableMax: '',
@@ -2191,6 +2554,12 @@ document.getElementById('spot-stock-app').addEventListener('dblclick', event => 
 });
 
 document.getElementById('spot-stock-app').addEventListener('click', event => {
+  const tagButton = event.target.closest('[data-product-tag-edit]');
+  if (tagButton) {
+    const item = spotVisibleItems.get(String(tagButton.dataset.erpProductId || ''));
+    if (item) openSpotProductTagDialog(item);
+    return;
+  }
   const sortButton = event.target.closest('[data-spot-sort]');
   if (sortButton) {
     const field = sortButton.dataset.spotSort;
