@@ -20,10 +20,13 @@
   let pollTimer = null;
 
   function safeReturnPath(context) {
-    const candidate = query.get('return') || `${basePath}/`;
-    if (candidate === basePath || candidate.startsWith(`${basePath}/`)) return candidate;
-    const home = String(context?.role?.home_path || '/');
-    return `${basePath}${home === '/' ? '/' : home}`;
+    const requested = query.get('return');
+    if (requested && (requested === basePath || requested.startsWith(`${basePath}/`))) return requested;
+    const home = String(context?.role?.home_path || '/inventory/');
+    const destination = `${basePath}${home === '/' ? '/' : home}`;
+    return destination === basePath || destination.startsWith(`${basePath}/`)
+      ? destination
+      : `${basePath}/inventory/`;
   }
 
   function reasonMessage() {
