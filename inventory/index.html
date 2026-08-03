@@ -228,6 +228,12 @@
     color:inherit; background:transparent; font:inherit; font-weight:600;
   }
   .spot-sort-button.active { color:#206bc4; }
+  .spot-discount-cell { min-width:9rem; }
+  .spot-discount-editor { display:flex; flex-direction:column; align-items:flex-end; gap:.2rem; }
+  .spot-discount-input-group { width:6.6rem; }
+  .spot-discount-input { min-width:0; text-align:right; font-variant-numeric:tabular-nums; }
+  .spot-discount-preview { min-height:1rem; font-size:.72rem; line-height:1.25; white-space:nowrap; }
+  .spot-discount-status { min-height:.9rem; font-size:.68rem; line-height:1.2; white-space:nowrap; }
   .spot-filter-summary { min-height:24px; }
   #spot-stock-app { position:relative; min-height:3rem; }
   #spot-stock-app.spot-is-updating::before {
@@ -639,7 +645,7 @@
       </div>
     </div>
     <div class="spot-filter-row mt-2">
-      <div class="spot-filter-control"><label class="form-label mb-1" for="spot-sort-by">排序</label><select id="spot-sort-by" class="form-select"><option value="priority">库存优先级</option><option value="product_code">款号</option><option value="sku_code">SKU</option><option value="warehouse_name">仓库</option><option value="color">颜色</option><option value="size">尺码</option><option value="stock_qty">实际库存</option><option value="sellable_qty">可销售库存</option><option value="occupied_qty">占用</option><option value="remaining_size_count">可售尺码数</option><option value="sku_count">可售 SKU 数</option><option value="taobao_price">淘宝价</option><option value="taobao_total_sold">淘宝总销量</option><option value="taobao_sold_30d">淘宝近30天</option></select></div>
+      <div class="spot-filter-control"><label class="form-label mb-1" for="spot-sort-by">排序</label><select id="spot-sort-by" class="form-select"><option value="priority">库存优先级</option><option value="product_code">款号</option><option value="sku_code">SKU</option><option value="warehouse_name">仓库</option><option value="color">颜色</option><option value="size">尺码</option><option value="stock_qty">实际库存</option><option value="sellable_qty">可销售库存</option><option value="occupied_qty">占用</option><option value="remaining_size_count">可售尺码数</option><option value="sku_count">可售 SKU 数</option><option value="taobao_price">淘宝价</option><option value="minimum_discount_price">最低折扣价</option><option value="taobao_total_sold">淘宝总销量</option><option value="taobao_sold_30d">淘宝近30天</option></select></div>
       <button id="spot-sort-dir" class="btn btn-outline-secondary" type="button" title="切换升降序"><i class="ti ti-sort-ascending"></i><span class="ms-1">升序</span></button>
       <div class="spot-filter-control"><label class="form-label mb-1" for="spot-page-size">每页</label><select id="spot-page-size" class="form-select"><option value="50">50 条</option><option value="100" selected>100 条</option><option value="250">250 条</option></select></div>
       <div id="spot-filter-summary" class="spot-filter-summary text-secondary small ms-lg-auto"></div>
@@ -844,6 +850,8 @@ let spotRequestPromise = null;
 let spotRequestSequence = 0;
 let spotRefreshScheduleTimer = null;
 let spotNextPagePrefetchHandle = null;
+let spotPricingAccess = {readable:false, editable:false};
+const spotPricingSaveSequence = new Map();
 const spotQueryCache = new Map();
 const spotPrefetchRequests = new Map();
 const spotQueryCacheFreshMs = 60 * 1000;
@@ -864,6 +872,7 @@ const spotColumns = {
     {key:'taobao_status', label:'淘宝状态'},
     {key:'match_method', label:'匹配方式'},
     {key:'taobao_price', label:'淘宝价', sort:'taobao_price', numeric:true},
+    {key:'minimum_discount_price', label:'最低折扣价', sort:'minimum_discount_price', numeric:true},
     {key:'taobao_total_sold', label:'淘宝总销量', sort:'taobao_total_sold', numeric:true},
     {key:'taobao_sold_30d', label:'淘宝近30天', sort:'taobao_sold_30d', numeric:true},
     {key:'category', label:'分类'},
@@ -884,6 +893,7 @@ const spotColumns = {
     {key:'taobao_status', label:'淘宝状态'},
     {key:'match_method', label:'匹配方式'},
     {key:'taobao_price', label:'淘宝价', sort:'taobao_price', numeric:true},
+    {key:'minimum_discount_price', label:'最低折扣价', sort:'minimum_discount_price', numeric:true},
     {key:'taobao_total_sold', label:'淘宝总销量', sort:'taobao_total_sold', numeric:true},
     {key:'taobao_sold_30d', label:'淘宝近30天', sort:'taobao_sold_30d', numeric:true},
     {key:'category', label:'分类'},
@@ -906,8 +916,14 @@ function normalizeSpotVisibleColumns(mode, values) {
   return [...required, ...selected.filter(key => !required.includes(key))]
     .filter((key, index, array) => array.indexOf(key) === index);
 }
+
+function availableSpotColumns(mode=spotState.viewMode) {
+  return (spotColumns[mode] || []).filter(column =>
+    column.key !== 'minimum_discount_price' || spotPricingAccess.readable
+  );
+}
 spotState.visibleColumns = {
-  product: ['image','product','tags','taobao_status','match_method','taobao_price','taobao_total_sold','taobao_sold_30d','sellable_qty','stock_qty','sizes'],
+  product: ['image','product','tags','taobao_status','match_method','taobao_price','minimum_discount_price','taobao_total_sold','taobao_sold_30d','sellable_qty','stock_qty','sizes'],
   sku: ['image','product','tags','taobao_status','match_method','taobao_price','taobao_total_sold','taobao_sold_30d','size','sellable_qty','stock_qty','product_stock_qty']
 };
 spotState.columnWidths = {product: {}, sku: {}};
@@ -916,7 +932,7 @@ const spotDefaultColumnWidths = {
   product_stock_qty:104, sizes:190, sku_count:88, occupied_qty:84,
   warehouses:130, warehouse:110, colors:140, color:90, size:78,
   sku_coverage:96, flags:160, tags:150, taobao_status:110,
-  match_method:150, taobao_price:88,
+  match_method:150, taobao_price:88, minimum_discount_price:152,
   taobao_total_sold:104, taobao_sold_30d:104
 };
 const spotFilterDefinitions = [
@@ -977,7 +993,7 @@ let spotInventoryPreferencesSaveTimer = null;
 
 function currentSpotInventoryPreferences() {
   return {
-    version: 3,
+    version: 4,
     visibleColumns: {
       product: [...spotState.visibleColumns.product],
       sku: [...spotState.visibleColumns.sku]
@@ -1003,6 +1019,11 @@ function applySpotInventoryPreferences(preferences) {
           const additions = ['taobao_status', 'match_method'].filter(key => !columns.includes(key));
           const anchor = Math.max(0, columns.indexOf('tags') + 1);
           columns.splice(anchor, 0, ...additions);
+        }
+        if (Number(preferences.version || 0) < 4 && mode === 'product'
+            && !columns.includes('minimum_discount_price')) {
+          const anchor = Math.max(0, columns.indexOf('taobao_price') + 1);
+          columns.splice(anchor, 0, 'minimum_discount_price');
         }
         spotState.visibleColumns[mode] = normalizeSpotVisibleColumns(mode, columns);
       }
@@ -1644,6 +1665,65 @@ function spotTaobaoPrices(item) {
   return prices.length ? prices.map(spotMoney).join('<br>') : '-';
 }
 
+function spotDiscountRateValue(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? Math.round(parsed * 100) / 100 : null;
+}
+
+function spotDiscountRateText(value) {
+  const rate = spotDiscountRateValue(value);
+  return rate === null ? '' : String(rate);
+}
+
+function spotDiscountPriceValue(basePrice, rate) {
+  const price = spotDiscountRateValue(basePrice);
+  const discount = spotDiscountRateValue(rate);
+  if (price === null || discount === null) return null;
+  return Math.round(price * discount * 10) / 100;
+}
+
+function spotDiscountPreview(item) {
+  const rate = spotDiscountRateValue(item.minimum_discount_rate);
+  if (rate === null) return '<span class="text-secondary">输入折扣后计算</span>';
+  const basePrice = spotDiscountRateValue(item.minimum_discount_base_price ?? item.taobao_price);
+  if (basePrice === null) return '<span class="text-yellow">暂无淘宝价</span>';
+  const price = spotDiscountRateValue(item.minimum_discount_price)
+    ?? spotDiscountPriceValue(basePrice, rate);
+  return `<span class="fw-semibold text-blue" title="按当前最低淘宝价 ${esc(spotMoney(basePrice))} × ${esc(spotDiscountRateText(rate))} 折计算">${spotMoney(price)}</span>`;
+}
+
+function spotDiscountCellContent(item, status='') {
+  const rateText = spotDiscountRateText(item.minimum_discount_rate);
+  const statusMarkup = status === 'saving'
+    ? '<span class="text-secondary"><i class="ti ti-loader-2 me-1"></i>保存中</span>'
+    : status === 'saved'
+      ? '<span class="text-green"><i class="ti ti-check me-1"></i>已保存</span>'
+      : status
+        ? `<span class="text-red" title="${esc(status)}">${esc(status)}</span>`
+        : '';
+  if (!spotPricingAccess.editable) {
+    return `<div class="text-end">${rateText ? `<span class="badge bg-blue-lt">${esc(rateText)} 折</span>` : '<span class="text-secondary">未设置</span>'}
+      <div class="spot-discount-preview mt-1">${spotDiscountPreview(item)}</div></div>`;
+  }
+  return `<div class="spot-discount-editor">
+    <div class="input-group input-group-sm spot-discount-input-group" title="输入 0.1–10 折；金额按当前最低淘宝价实时计算">
+      <input class="form-control spot-discount-input" type="number" inputmode="decimal"
+        min="0.1" max="10" step="0.1" placeholder="如 7.5" autocomplete="off"
+        value="${esc(rateText)}" data-saved-rate="${esc(rateText)}"
+        data-product-discount-input data-erp-product-id="${esc(item.ptypeid || '')}"
+        aria-label="${esc(item.product_code || '商品')}最低折扣" ${status === 'saving' ? 'disabled' : ''}>
+      <span class="input-group-text">折</span>
+    </div>
+    <div class="spot-discount-preview" data-product-discount-preview>${spotDiscountPreview(item)}</div>
+    <div class="spot-discount-status" data-product-discount-status role="status" aria-live="polite">${statusMarkup}</div>
+  </div>`;
+}
+
+function spotDiscountCell(item, status='') {
+  return `<td class="qty-cell spot-discount-cell" data-product-pricing-cell="${esc(item.ptypeid || '')}">${spotDiscountCellContent(item, status)}</td>`;
+}
+
 const spotMatchRuleLabels = {
   manual_platform_sku_id: '人工匹配',
   fallback_exact_erp_sku_code: '自动·SKU编码',
@@ -1818,7 +1898,7 @@ function spotTableHeaders() {
 }
 
 function activeSpotColumns() {
-  const definitions = spotColumns[spotState.viewMode];
+  const definitions = availableSpotColumns();
   const selected = spotState.visibleColumns[spotState.viewMode] || [];
   const keys = [
     ...definitions.filter(column => column.required).map(column => column.key),
@@ -1857,6 +1937,7 @@ function spotColumnCell(item, key) {
     taobao_status: spotTaobaoStatusCell(item),
     match_method: spotMatchMethodCell(item),
     taobao_price: `<td class="qty-cell">${spotTaobaoPrices(item)}</td>`,
+    minimum_discount_price: spotDiscountCell(item),
     taobao_total_sold: `<td class="qty-cell">${spotMetric(item.taobao_total_sold, item.taobao_total_sold_item_count || 0, item.taobao_item_count || 0)}</td>`,
     taobao_sold_30d: `<td class="qty-cell">${spotMetric(item.taobao_sold_30d, item.taobao_sold_30d_item_count || 0, item.taobao_item_count || 0)}</td>`,
     category: `<td class="text-nowrap">${esc(item.subcategory_label || item.category_label || '-')}</td>`,
@@ -1887,8 +1968,9 @@ function spotTableRow(item) {
 }
 
 function applySpotColumnOrder() {
-  const definitions = spotColumns[spotState.viewMode];
-  const selected = spotColumnVisibilityDraft || spotState.visibleColumns[spotState.viewMode] || [];
+  const definitions = availableSpotColumns();
+  const selected = (spotColumnVisibilityDraft || spotState.visibleColumns[spotState.viewMode] || [])
+    .filter(key => definitions.some(column => column.key === key));
   const required = selected.filter(value =>
     definitions.find(column => column.key === value)?.required
   );
@@ -1903,8 +1985,9 @@ function applySpotColumnOrder() {
 }
 
 function renderSpotColumnPicker() {
-  const definitions = spotColumns[spotState.viewMode];
-  const selected = spotColumnVisibilityDraft || spotState.visibleColumns[spotState.viewMode] || [];
+  const definitions = availableSpotColumns();
+  const selected = (spotColumnVisibilityDraft || spotState.visibleColumns[spotState.viewMode] || [])
+    .filter(key => definitions.some(column => column.key === key));
   const optionalSelected = selected.filter(key =>
     !definitions.find(column => column.key === key)?.required
   );
@@ -1925,8 +2008,9 @@ function renderSpotColumnPicker() {
 }
 
 function renderSpotColumnOrderDialog() {
-  const definitions = spotColumns[spotState.viewMode];
-  const selected = spotColumnVisibilityDraft || spotState.visibleColumns[spotState.viewMode] || [];
+  const definitions = availableSpotColumns();
+  const selected = (spotColumnVisibilityDraft || spotState.visibleColumns[spotState.viewMode] || [])
+    .filter(key => definitions.some(column => column.key === key));
   const requiredCount = selected.filter(key =>
     definitions.find(column => column.key === key)?.required
   ).length;
@@ -1964,7 +2048,9 @@ const spotColumnPickerButton = document.getElementById('spot-column-picker');
 
 function openSpotColumnDialog(preserveDraft=false) {
   if (!preserveDraft || !spotColumnVisibilityDraft) {
-    spotColumnVisibilityDraft = [...(spotState.visibleColumns[spotState.viewMode] || [])];
+    const available = new Set(availableSpotColumns().map(column => column.key));
+    spotColumnVisibilityDraft = [...(spotState.visibleColumns[spotState.viewMode] || [])]
+      .filter(key => available.has(key));
   }
   renderSpotColumnPicker();
   spotColumnPickerButton.setAttribute('aria-expanded', 'true');
@@ -2125,6 +2211,142 @@ function spotResultDatasets() {
     if (entry?.data) datasets.add(entry.data);
   });
   return datasets;
+}
+
+function renderSpotProductPricingCells(erpProductId, status='') {
+  const key = String(erpProductId || '');
+  const item = spotVisibleItems.get(key);
+  if (!item) return;
+  document.querySelectorAll('[data-product-pricing-cell]').forEach(cell => {
+    if (cell.dataset.productPricingCell === key) {
+      cell.innerHTML = spotDiscountCellContent(item, status);
+    }
+  });
+}
+
+function patchSpotProductPricingLocally(erpProductId, pricing) {
+  const key = String(erpProductId || '');
+  const rate = spotDiscountRateValue(pricing.minimum_discount_rate);
+  spotResultDatasets().forEach(data => {
+    (data.data || []).forEach(item => {
+      if (String(item.ptypeid || '') !== key) return;
+      const basePrice = spotDiscountRateValue(
+        pricing.minimum_discount_base_price ?? item.minimum_discount_base_price ?? item.taobao_price
+      );
+      item.minimum_discount_rate = rate;
+      item.minimum_discount_base_price = basePrice;
+      item.minimum_discount_price = spotDiscountRateValue(pricing.minimum_discount_price)
+        ?? spotDiscountPriceValue(basePrice, rate);
+      item.minimum_discount_updated_at = pricing.updated_at ?? item.minimum_discount_updated_at ?? null;
+    });
+  });
+
+  // Editing in a sorted view must not move the row under the user's pointer.
+  // Drop sorted caches so the new order is applied on the next explicit query.
+  spotQueryCache.forEach((entry, queryKey) => {
+    if (new URLSearchParams(queryKey).get('sort_by') === 'minimum_discount_price') {
+      spotQueryCache.delete(queryKey);
+    }
+  });
+}
+
+function parsedSpotDiscountInput(input) {
+  const raw = input.value.trim();
+  input.setCustomValidity('');
+  if (!raw) return {valid:true, rate:null};
+  const rate = Number(raw);
+  if (!Number.isFinite(rate) || rate < 0.1 || rate > 10) {
+    input.setCustomValidity('请输入 0.1–10 之间的折扣');
+    return {valid:false, rate:null};
+  }
+  if (Math.abs(rate * 10 - Math.round(rate * 10)) > 0.000001) {
+    input.setCustomValidity('折扣最多输入 1 位小数');
+    return {valid:false, rate:null};
+  }
+  return {valid:true, rate:Math.round(rate * 10) / 10};
+}
+
+function updateSpotDiscountInputPreview(input) {
+  const item = spotVisibleItems.get(String(input.dataset.erpProductId || ''));
+  const preview = input.closest('[data-product-pricing-cell]')?.querySelector('[data-product-discount-preview]');
+  if (!item || !preview) return;
+  const parsed = parsedSpotDiscountInput(input);
+  if (!parsed.valid) {
+    preview.innerHTML = `<span class="text-red">${esc(input.validationMessage)}</span>`;
+    return;
+  }
+  preview.innerHTML = spotDiscountPreview({
+    ...item,
+    minimum_discount_rate: parsed.rate,
+    minimum_discount_price: spotDiscountPriceValue(
+      item.minimum_discount_base_price ?? item.taobao_price,
+      parsed.rate
+    )
+  });
+}
+
+function ensureSpotDiscountEditorVisible(input) {
+  const scroller = input.closest('.table-responsive');
+  const cell = input.closest('[data-product-pricing-cell]');
+  if (!scroller || !cell) return;
+  const scrollerRect = scroller.getBoundingClientRect();
+  const cellRect = cell.getBoundingClientRect();
+  const inset = 8;
+  if (cellRect.left >= scrollerRect.left + inset && cellRect.right <= scrollerRect.right - inset) return;
+  const centeredLeft = scroller.scrollLeft
+    + cellRect.left - scrollerRect.left
+    - Math.max(0, (scroller.clientWidth - cellRect.width) / 2);
+  scroller.scrollTo({left:Math.max(0, centeredLeft), behavior:'smooth'});
+}
+
+async function saveSpotProductDiscount(input) {
+  const erpProductId = String(input.dataset.erpProductId || '');
+  const item = spotVisibleItems.get(erpProductId);
+  const parsed = parsedSpotDiscountInput(input);
+  if (!item || !parsed.valid) {
+    input.reportValidity();
+    return;
+  }
+  const previousRate = spotDiscountRateValue(item.minimum_discount_rate);
+  if (previousRate === parsed.rate) return;
+  const previousPricing = {
+    minimum_discount_rate: previousRate,
+    minimum_discount_base_price: item.minimum_discount_base_price ?? item.taobao_price,
+    minimum_discount_price: item.minimum_discount_price,
+    updated_at: item.minimum_discount_updated_at
+  };
+  const sequence = (spotPricingSaveSequence.get(erpProductId) || 0) + 1;
+  spotPricingSaveSequence.set(erpProductId, sequence);
+  patchSpotProductPricingLocally(erpProductId, {
+    minimum_discount_rate: parsed.rate,
+    minimum_discount_base_price: item.minimum_discount_base_price ?? item.taobao_price,
+    minimum_discount_price: spotDiscountPriceValue(
+      item.minimum_discount_base_price ?? item.taobao_price,
+      parsed.rate
+    )
+  });
+  renderSpotProductPricingCells(erpProductId, 'saving');
+  try {
+    const response = await fetch(`/api/catalog/products/${encodeURIComponent(erpProductId)}/pricing`, {
+      method: 'PUT',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({minimum_discount_rate: parsed.rate})
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.detail || '最低折扣保存失败');
+    if (spotPricingSaveSequence.get(erpProductId) !== sequence) return;
+    patchSpotProductPricingLocally(erpProductId, payload.pricing || {minimum_discount_rate: parsed.rate});
+    renderSpotProductPricingCells(erpProductId, 'saved');
+    setTimeout(() => {
+      if (spotPricingSaveSequence.get(erpProductId) === sequence) {
+        renderSpotProductPricingCells(erpProductId);
+      }
+    }, 1400);
+  } catch (error) {
+    if (spotPricingSaveSequence.get(erpProductId) !== sequence) return;
+    patchSpotProductPricingLocally(erpProductId, previousPricing);
+    renderSpotProductPricingCells(erpProductId, error.message || '保存失败');
+  }
 }
 
 function renderSpotProductTagCells(erpProductId) {
@@ -2459,6 +2681,20 @@ function renderSpotStockResult(data, queryKey=spotCurrentQueryKey) {
   const meta = data.meta || {};
   const summary = meta.summary || {};
   const filterMeta = meta.filters || {};
+  const pricingMeta = meta.manual_pricing || {};
+  spotPricingAccess = {
+    readable: Boolean(pricingMeta.readable),
+    editable: Boolean(pricingMeta.editable)
+  };
+  const pricingSortOption = document.querySelector('#spot-sort-by option[value="minimum_discount_price"]');
+  if (pricingSortOption) {
+    pricingSortOption.hidden = !spotPricingAccess.readable;
+    pricingSortOption.disabled = !spotPricingAccess.readable;
+  }
+  if (!spotPricingAccess.readable && spotState.sortBy === 'minimum_discount_price') {
+    spotState.sortBy = 'priority';
+    document.getElementById('spot-sort-by').value = 'priority';
+  }
   spotCurrentResult = data;
   spotCurrentQueryKey = queryKey;
   spotTags = Array.isArray(filterMeta.product_tags) ? filterMeta.product_tags : spotTags;
@@ -2632,7 +2868,7 @@ function currentSpotPresetConfig() {
       ? [...spotState[key]] : spotState[key];
   });
   const config = {
-    version: 4,
+    version: 5,
     filters,
     sort: {by: spotState.sortBy, dir: spotState.sortDir},
     pagination: {limit: spotState.limit},
@@ -2693,6 +2929,11 @@ function applySpotPresetConfig(config) {
             const additions = ['taobao_status', 'match_method'].filter(key => !columns.includes(key));
             const anchor = Math.max(0, columns.indexOf('tags') + 1);
             columns.splice(anchor, 0, ...additions);
+          }
+          if (Number(config?.version || 0) < 5 && mode === 'product'
+              && !columns.includes('minimum_discount_price')) {
+            const anchor = Math.max(0, columns.indexOf('taobao_price') + 1);
+            columns.splice(anchor, 0, 'minimum_discount_price');
           }
           spotState.visibleColumns[mode] = normalizeSpotVisibleColumns(mode, columns);
         }
@@ -3091,6 +3332,36 @@ document.getElementById('spot-stock-app').addEventListener('dblclick', event => 
   delete spotState.columnWidths[spotState.viewMode][handle.dataset.resizeColumn];
   persistSpotInventoryPreferences();
   rerenderCurrentSpotStock();
+});
+
+document.getElementById('spot-stock-app').addEventListener('input', event => {
+  const input = event.target.closest('[data-product-discount-input]');
+  if (input) updateSpotDiscountInputPreview(input);
+});
+
+document.getElementById('spot-stock-app').addEventListener('focusin', event => {
+  const input = event.target.closest('[data-product-discount-input]');
+  if (input) ensureSpotDiscountEditorVisible(input);
+});
+
+document.getElementById('spot-stock-app').addEventListener('change', event => {
+  const input = event.target.closest('[data-product-discount-input]');
+  if (input) saveSpotProductDiscount(input);
+});
+
+document.getElementById('spot-stock-app').addEventListener('keydown', event => {
+  const input = event.target.closest('[data-product-discount-input]');
+  if (!input) return;
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    input.blur();
+  } else if (event.key === 'Escape') {
+    event.preventDefault();
+    input.value = input.dataset.savedRate || '';
+    input.setCustomValidity('');
+    updateSpotDiscountInputPreview(input);
+    input.blur();
+  }
 });
 
 document.getElementById('spot-stock-app').addEventListener('click', event => {
