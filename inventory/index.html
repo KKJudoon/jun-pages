@@ -843,10 +843,12 @@ let spotRequestKey = '';
 let spotRequestPromise = null;
 let spotRequestSequence = 0;
 let spotRefreshScheduleTimer = null;
+let spotNextPagePrefetchHandle = null;
 const spotQueryCache = new Map();
-const spotQueryCacheFreshMs = 30 * 1000;
+const spotPrefetchRequests = new Map();
+const spotQueryCacheFreshMs = 60 * 1000;
 const spotQueryCacheStaleMs = 5 * 60 * 1000;
-const spotQueryCacheLimit = 12;
+const spotQueryCacheLimit = 16;
 const spotTagPalette = [
   ['slate', '灰'], ['blue', '蓝'], ['azure', '天蓝'], ['indigo', '靛蓝'],
   ['purple', '紫'], ['pink', '粉'], ['red', '红'], ['orange', '橙'],
@@ -2371,6 +2373,79 @@ function cacheSpotQueryResult(queryKey, data) {
   }
 }
 
+function getSpotQueryCache(queryKey) {
+  const cached = spotQueryCache.get(queryKey);
+  if (!cached) return null;
+  if (Date.now() - cached.storedAt > spotQueryCacheStaleMs) {
+    spotQueryCache.delete(queryKey);
+    return null;
+  }
+  // Refresh insertion order so recently visited pages stay in the bounded LRU cache.
+  spotQueryCache.delete(queryKey);
+  spotQueryCache.set(queryKey, cached);
+  return cached;
+}
+
+async function fetchSpotQuery(queryKey, signal) {
+  const response = await fetch('/api/erp/v1/inventory/spot-candidates?' + queryKey, {signal});
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  return response.json();
+}
+
+function prefetchSpotQuery(queryKey) {
+  const cached = getSpotQueryCache(queryKey);
+  if (cached) return Promise.resolve(cached.data);
+  if (spotPrefetchRequests.has(queryKey)) return spotPrefetchRequests.get(queryKey);
+
+  const request = fetchSpotQuery(queryKey)
+    .then(data => {
+      cacheSpotQueryResult(queryKey, data);
+      return data;
+    })
+    .catch(error => {
+      // Prefetch is an optional acceleration. Foreground navigation will retry.
+      console.debug('库存下一页预取未完成', error);
+      return null;
+    })
+    .finally(() => spotPrefetchRequests.delete(queryKey));
+  spotPrefetchRequests.set(queryKey, request);
+  return request;
+}
+
+function cancelSpotNextPagePrefetchSchedule() {
+  if (!spotNextPagePrefetchHandle) return;
+  if (spotNextPagePrefetchHandle.type === 'idle') {
+    window.cancelIdleCallback(spotNextPagePrefetchHandle.id);
+  } else {
+    clearTimeout(spotNextPagePrefetchHandle.id);
+  }
+  spotNextPagePrefetchHandle = null;
+}
+
+function scheduleSpotNextPagePrefetch(data, queryKey) {
+  cancelSpotNextPagePrefetchSchedule();
+  if (!data?.meta?.has_more || !queryKey) return;
+
+  const params = new URLSearchParams(queryKey);
+  const limit = Math.max(1, Number(params.get('limit')) || spotState.limit);
+  const offset = Math.max(0, Number(params.get('offset')) || 0);
+  params.set('offset', String(offset + limit));
+  const nextQueryKey = params.toString();
+  const run = () => {
+    spotNextPagePrefetchHandle = null;
+    prefetchSpotQuery(nextQueryKey);
+  };
+
+  if ('requestIdleCallback' in window) {
+    spotNextPagePrefetchHandle = {
+      type: 'idle',
+      id: window.requestIdleCallback(run, {timeout: 500})
+    };
+  } else {
+    spotNextPagePrefetchHandle = {type: 'timer', id: setTimeout(run, 120)};
+  }
+}
+
 function setSpotStockUpdating(updating) {
   const target = document.getElementById('spot-stock-app');
   target.classList.toggle('spot-is-updating', updating);
@@ -2444,6 +2519,7 @@ function renderSpotStockResult(data, queryKey=spotCurrentQueryKey) {
   const scroller = target.querySelector('.table-responsive');
   if (scroller) scroller.scrollLeft = previousScrollLeft;
   setSpotStockUpdating(false);
+  scheduleSpotNextPagePrefetch(data, queryKey);
 }
 
 function rerenderCurrentSpotStock() {
@@ -2468,11 +2544,8 @@ async function loadSpotStock({force=false}={}) {
   spotRequestPromise = null;
   spotRequestKey = '';
 
-  let cached = force ? null : spotQueryCache.get(queryKey);
-  if (cached && Date.now() - cached.storedAt > spotQueryCacheStaleMs) {
-    spotQueryCache.delete(queryKey);
-    cached = null;
-  }
+  cancelSpotNextPagePrefetchSchedule();
+  const cached = force ? null : getSpotQueryCache(queryKey);
   if (cached) {
     // Stale-while-revalidate: show the known result immediately, then quietly
     // refresh it only after the short freshness window has elapsed.
@@ -2485,14 +2558,14 @@ async function loadSpotStock({force=false}={}) {
   const controller = new AbortController();
   spotRequestController = controller;
   spotRequestKey = queryKey;
-  setSpotStockUpdating(true);
+  const prefetchedRequest = force || cached ? null : spotPrefetchRequests.get(queryKey);
+  // Cached data remains interactive while it is silently revalidated. Only a
+  // genuinely uncached foreground navigation shows the progress indicator.
+  if (!cached) setSpotStockUpdating(true);
   const requestPromise = (async () => {
     try {
-      const response = await fetch('/api/erp/v1/inventory/spot-candidates?' + queryKey, {
-        signal: controller.signal
-      });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const data = await response.json();
+      let data = prefetchedRequest ? await prefetchedRequest : null;
+      if (!data) data = await fetchSpotQuery(queryKey, controller.signal);
       if (requestSequence !== spotRequestSequence || controller.signal.aborted) return data;
       cacheSpotQueryResult(queryKey, data);
       renderSpotStockResult(data, queryKey);
