@@ -251,6 +251,7 @@
   .spot-preset-heading .text-secondary { font-weight:400; }
   .spot-preset-tools { display:flex; align-items:end; gap:.5rem; flex:1 1 30rem; min-width:0; flex-wrap:wrap; }
   .spot-preset-select { flex:1 1 16rem; min-width:13rem; }
+  .spot-preset-order-button { display:inline-flex; align-items:center; justify-content:center; gap:.35rem; min-height:38px; white-space:nowrap; }
   .spot-column-order-list { display:grid; gap:.45rem; }
   .spot-column-order-row { display:flex; align-items:center; gap:.65rem; min-height:44px; padding:.4rem .5rem; border:1px solid #edf0f2; border-radius:4px; background:#f8fafc; }
   .spot-column-order-row .spot-column-label { flex:1 1 auto; min-width:0; white-space:normal; }
@@ -263,8 +264,8 @@
   .spot-dialog { width:min(92vw,420px); max-width:calc(100vw - 24px); padding:0; border:0; border-radius:6px; box-shadow:0 20px 60px rgba(17,24,39,.28); }
   .spot-dialog::backdrop { background:rgba(17,24,39,.55); }
   .spot-dialog-body { box-sizing:border-box; max-width:100%; padding:1rem; overflow-wrap:anywhere; }
-  .spot-column-dialog, .spot-column-order-dialog, .spot-filter-layout-dialog { width:min(92vw,520px); }
-  .spot-column-dialog-body, .spot-column-order-dialog-body, .spot-filter-layout-dialog-body { max-height:min(82vh,680px); overflow:auto; }
+  .spot-column-dialog, .spot-column-order-dialog, .spot-filter-layout-dialog, .spot-preset-order-dialog { width:min(92vw,520px); }
+  .spot-column-dialog-body, .spot-column-order-dialog-body, .spot-filter-layout-dialog-body, .spot-preset-order-dialog-body { max-height:min(82vh,680px); overflow:auto; }
   .spot-config-dialog-head { display:flex; align-items:flex-start; gap:.75rem; margin-bottom:.75rem; }
   .spot-config-dialog-copy { flex:1 1 auto; min-width:0; }
   .spot-config-dialog-actions { display:flex; align-items:center; gap:.35rem; flex:0 0 auto; }
@@ -509,6 +510,8 @@
           <select id="spot-preset-select" class="form-select"><option value="">当前条件</option></select>
         </div>
         <button id="spot-save-preset" class="btn btn-outline-secondary" type="button" title="保存当前查询预设"><i class="ti ti-device-floppy"></i><span class="ms-1">保存预设</span></button>
+        <button id="spot-preset-order" class="btn btn-outline-secondary spot-preset-order-button" type="button"
+          title="调整查询预设顺序" aria-haspopup="dialog" aria-controls="spot-preset-order-dialog" aria-expanded="false"><i class="ti ti-arrows-sort"></i><span>预设排序</span></button>
         <button id="spot-delete-preset" class="btn btn-icon btn-outline-secondary" type="button" title="删除当前预设" disabled><i class="ti ti-trash"></i></button>
       </div>
     </div>
@@ -658,6 +661,24 @@
     <div class="d-flex justify-content-end gap-2">
       <button class="btn btn-outline-secondary" value="cancel">取消</button>
       <button id="spot-preset-confirm" class="btn btn-primary" value="default">保存</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="spot-preset-order-dialog" class="spot-dialog spot-preset-order-dialog">
+  <form method="dialog" class="spot-dialog-body spot-preset-order-dialog-body">
+    <div class="d-flex align-items-start gap-2 mb-2">
+      <div class="flex-fill">
+        <h3 class="h3 mb-1">调整预设顺序</h3>
+        <p class="text-secondary small mb-0">点击上下箭头调整内置和自建预设的显示顺序，保存后会跟随账户同步。</p>
+      </div>
+      <button class="btn btn-icon btn-ghost-secondary" type="button" data-preset-order-close aria-label="关闭预设排序"><i class="ti ti-x"></i></button>
+    </div>
+    <div id="spot-preset-order-dialog-content" class="spot-column-order-dialog-content"></div>
+    <div id="spot-preset-order-error" class="text-danger small mt-2"></div>
+    <div class="d-flex justify-content-end gap-2 mt-3">
+      <button class="btn btn-outline-secondary" type="button" data-preset-order-close>取消</button>
+      <button class="btn btn-primary" type="button" data-preset-order-apply><i class="ti ti-device-floppy me-1"></i>保存顺序</button>
     </div>
   </form>
 </dialog>
@@ -2518,6 +2539,7 @@ function scheduleSpotStockRefresh(delay=180) {
 
 let spotPresets = [];
 let spotDefaultPresetId = '';
+let spotPresetOrderDraft = [];
 
 function currentSpotPresetConfig() {
   const keys = [
@@ -2674,8 +2696,94 @@ async function loadSpotPresets(autoApply=false) {
       applySpotPresetConfig(preset.config);
     }
   }
+  document.getElementById('spot-preset-order').disabled = spotPresets.length < 2;
   updatePresetDeleteButton();
 }
+
+function renderSpotPresetOrderDialog() {
+  const presetsById = new Map(spotPresets.map(item => [item.id, item]));
+  spotPresetOrderDraft = spotPresetOrderDraft.filter(id => presetsById.has(id));
+  for (const preset of spotPresets) {
+    if (!spotPresetOrderDraft.includes(preset.id)) spotPresetOrderDraft.push(preset.id);
+  }
+  document.getElementById('spot-preset-order-dialog-content').innerHTML = spotPresetOrderDraft.length ? `
+    <div class="spot-column-order-list">
+      ${spotPresetOrderDraft.map((id, position) => {
+        const preset = presetsById.get(id);
+        const suffix = [
+          preset?.builtin ? '内置' : '',
+          id === spotDefaultPresetId ? '默认' : ''
+        ].filter(Boolean).join(' · ');
+        return `<div class="spot-column-order-row">
+          <span class="spot-column-label"><strong>${position + 1}.</strong> ${esc(preset?.name || id)}${suffix ? `<span class="text-secondary small ms-1">· ${esc(suffix)}</span>` : ''}</span>
+          <div class="spot-column-order-buttons">
+            <button class="btn btn-sm btn-outline-secondary" type="button" data-preset-order-move="up" data-preset-order-id="${esc(id)}" ${position === 0 ? 'disabled' : ''} title="上移" aria-label="上移${esc(preset?.name || id)}"><i class="ti ti-chevron-up"></i></button>
+            <button class="btn btn-sm btn-outline-secondary" type="button" data-preset-order-move="down" data-preset-order-id="${esc(id)}" ${position === spotPresetOrderDraft.length - 1 ? 'disabled' : ''} title="下移" aria-label="下移${esc(preset?.name || id)}"><i class="ti ti-chevron-down"></i></button>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>` : '<div class="text-secondary py-3">暂无可以排序的查询预设。</div>';
+}
+
+function openSpotPresetOrderDialog() {
+  spotPresetOrderDraft = spotPresets.map(item => item.id);
+  document.getElementById('spot-preset-order-error').textContent = '';
+  renderSpotPresetOrderDialog();
+  document.getElementById('spot-preset-order').setAttribute('aria-expanded', 'true');
+  document.getElementById('spot-preset-order-dialog').showModal();
+}
+
+function closeSpotPresetOrderDialog() {
+  spotPresetOrderDraft = [];
+  document.getElementById('spot-preset-order').setAttribute('aria-expanded', 'false');
+  const dialog = document.getElementById('spot-preset-order-dialog');
+  if (dialog.open) dialog.close();
+}
+
+document.getElementById('spot-preset-order').addEventListener('click', openSpotPresetOrderDialog);
+document.getElementById('spot-preset-order-dialog').addEventListener('click', async event => {
+  if (event.target === event.currentTarget || event.target.closest('[data-preset-order-close]')) {
+    closeSpotPresetOrderDialog();
+    return;
+  }
+  const moveButton = event.target.closest('[data-preset-order-move]');
+  if (moveButton) {
+    const current = spotPresetOrderDraft.indexOf(moveButton.dataset.presetOrderId);
+    const direction = moveButton.dataset.presetOrderMove === 'up' ? -1 : 1;
+    const target = current + direction;
+    if (current >= 0 && target >= 0 && target < spotPresetOrderDraft.length) {
+      [spotPresetOrderDraft[current], spotPresetOrderDraft[target]] =
+        [spotPresetOrderDraft[target], spotPresetOrderDraft[current]];
+      renderSpotPresetOrderDialog();
+    }
+    return;
+  }
+  const saveButton = event.target.closest('[data-preset-order-apply]');
+  if (!saveButton) return;
+  saveButton.disabled = true;
+  document.getElementById('spot-preset-order-error').textContent = '';
+  try {
+    const response = await fetch('/api/erp/v1/inventory/query-presets/order', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ids: spotPresetOrderDraft})
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.detail || '保存顺序失败');
+    }
+    closeSpotPresetOrderDialog();
+    await loadSpotPresets();
+  } catch (error) {
+    document.getElementById('spot-preset-order-error').textContent = error.message || '保存顺序失败';
+  } finally {
+    saveButton.disabled = false;
+  }
+});
+document.getElementById('spot-preset-order-dialog').addEventListener('cancel', event => {
+  event.preventDefault();
+  closeSpotPresetOrderDialog();
+});
 
 function updatePresetDeleteButton() {
   const id = document.getElementById('spot-preset-select').value;
