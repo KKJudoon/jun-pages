@@ -204,13 +204,13 @@
     margin:0; padding:.35rem .45rem; white-space:nowrap; cursor:pointer;
   }
   .spot-filter-option:hover { background:#f3f6f9; }
-  .spot-advanced {
-    display:grid; grid-template-columns:repeat(4,minmax(10rem,1fr));
-    gap:.75rem; margin-top:.75rem; padding-top:.75rem; border-top:1px solid #edf0f2;
-  }
+  .spot-advanced { margin-top:.75rem; padding-top:.75rem; border-top:1px solid #edf0f2; }
+  .spot-advanced-head { display:flex; align-items:center; gap:.4rem; margin-bottom:.7rem; }
+  .spot-advanced-title { color:#344054; font-weight:600; }
+  .spot-advanced-items { display:grid; grid-template-columns:repeat(4,minmax(10rem,1fr)); gap:.75rem; }
   .spot-range { display:grid; grid-template-columns:1fr 1fr; gap:.35rem; }
   .spot-filter-actions { margin-left:auto; display:flex; gap:.5rem; }
-  .spot-filter-layout-button { white-space:nowrap; }
+  .spot-config-gear { flex:0 0 auto; width:30px; height:30px; padding:0; }
   .spot-column-picker { display:inline-flex; }
   .spot-column-picker-button {
     display:inline-flex !important; align-items:center; justify-content:center;
@@ -251,9 +251,8 @@
   .spot-preset-tools { display:flex; align-items:end; gap:.5rem; flex:1 1 30rem; min-width:0; flex-wrap:wrap; }
   .spot-preset-select { flex:1 1 16rem; min-width:13rem; }
   .spot-column-menu { width:340px; max-width:calc(100vw - 24px); }
-  .spot-column-picker-head { display:flex; align-items:flex-start; justify-content:space-between; gap:.5rem; padding:.15rem .25rem .45rem; }
-  .spot-column-picker-head .small { min-width:0; }
-  .spot-column-order-toggle { flex:0 0 auto; white-space:nowrap; }
+  .spot-column-picker-head { display:grid; gap:.25rem; padding:.15rem .25rem .45rem; }
+  .spot-column-picker-title { display:flex; align-items:center; gap:.4rem; color:#344054; font-weight:600; }
   .spot-column-order-list { display:grid; gap:.45rem; }
   .spot-column-order-row { display:flex; align-items:center; gap:.65rem; min-height:44px; padding:.4rem .5rem; border:1px solid #edf0f2; border-radius:4px; background:#f8fafc; }
   .spot-column-order-row .spot-column-label { flex:1 1 auto; min-width:0; white-space:normal; }
@@ -433,8 +432,9 @@
     .spot-filter-actions { flex-wrap:wrap; }
     .spot-filter-actions .btn,
     .spot-filter-actions > .spot-multiselect { flex:1 1 calc(50% - .375rem); min-width:0; }
+    .spot-filter-actions .spot-config-gear { flex:0 0 30px; width:30px; min-width:30px; }
     .spot-filter-actions > .spot-multiselect > summary { box-sizing:border-box; width:100%; white-space:nowrap; text-align:center; }
-    .spot-advanced { grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .spot-advanced-items { grid-template-columns:repeat(2,minmax(0,1fr)); }
     .spot-filter-menu {
       position:fixed; z-index:1090; left:12px; right:12px;
       top:auto; bottom:calc(70px + env(safe-area-inset-bottom, 0px));
@@ -500,7 +500,7 @@
       <div class="spot-preset-heading">
         <i class="ti ti-bookmark"></i>
         <span>查询预设</span>
-        <span class="text-secondary small">条件、显示列和排序一起保存</span>
+        <span class="text-secondary small">条件、列配置和排序一起保存</span>
       </div>
       <div class="spot-preset-tools">
         <div class="spot-preset-select">
@@ -565,16 +565,21 @@
       </div>
       </div>
       <div class="spot-filter-actions">
-        <button id="spot-advanced-toggle" class="btn btn-outline-secondary" type="button"><i class="ti ti-adjustments-horizontal me-1"></i>更多条件</button>
-        <button id="spot-filter-layout" class="btn btn-outline-secondary spot-filter-layout-button" type="button" title="设置筛选条件显示在外部或更多条件"><i class="ti ti-layout-distribute-horizontal me-1"></i>筛选布局</button>
+        <button id="spot-advanced-toggle" class="btn btn-outline-secondary" type="button" aria-expanded="false" aria-controls="spot-advanced"><i class="ti ti-filter me-1"></i>筛选条件</button>
         <details class="spot-multiselect spot-column-picker" id="spot-column-picker">
-          <summary class="btn btn-outline-secondary spot-column-picker-button"><span><i class="ti ti-columns-3 me-1"></i>显示列</span></summary>
+          <summary class="btn btn-outline-secondary spot-column-picker-button"><span><i class="ti ti-columns-3 me-1"></i>列配置</span></summary>
           <div class="spot-filter-menu spot-column-menu" id="spot-column-options"></div>
         </details>
-        <button id="spot-reset" class="btn btn-outline-secondary" type="button"><i class="ti ti-restore me-1"></i>恢复默认</button>
       </div>
     </div>
     <div id="spot-advanced" class="spot-advanced d-none">
+      <div class="spot-advanced-head">
+        <span class="spot-advanced-title">筛选条件</span>
+        <button id="spot-filter-layout" class="btn btn-sm btn-icon btn-ghost-secondary spot-config-gear" type="button"
+          title="配置筛选项位置" aria-label="配置筛选项位置"><i class="ti ti-settings"></i></button>
+        <span class="text-secondary small">按需要把常用项放到外部</span>
+      </div>
+      <div id="spot-advanced-items" class="spot-advanced-items">
       <div class="spot-filter-control" data-spot-filter-control="colors">
         <label class="form-label mb-1">颜色</label>
         <details class="spot-multiselect" data-spot-filter="colors">
@@ -601,6 +606,7 @@
       <div class="spot-filter-control" data-spot-filter-control="taobaoTotalSold"><label class="form-label mb-1" for="spot-taobao-total-sold-min">淘宝总销量</label><div class="spot-range"><input class="form-control" type="number" id="spot-taobao-total-sold-min" placeholder="最小"><input class="form-control" type="number" id="spot-taobao-total-sold-max" placeholder="最大"></div></div>
       <div class="spot-filter-control" data-spot-filter-control="taobaoSold30d"><label class="form-label mb-1" for="spot-taobao-sold-30d-min">淘宝近30天</label><div class="spot-range"><input class="form-control" type="number" id="spot-taobao-sold-30d-min" placeholder="最小"><input class="form-control" type="number" id="spot-taobao-sold-30d-max" placeholder="最大"></div></div>
       <div class="spot-filter-control" data-spot-filter-control="skuCount" data-spot-product-only><label class="form-label mb-1" for="spot-sku-count-min">可售 SKU 数</label><div class="spot-range"><input class="form-control" type="number" id="spot-sku-count-min" placeholder="最小"><input class="form-control" type="number" id="spot-sku-count-max" placeholder="最大"></div></div>
+      </div>
     </div>
     <div class="spot-filter-row mt-2">
       <div class="spot-filter-control"><label class="form-label mb-1" for="spot-sort-by">排序</label><select id="spot-sort-by" class="form-select"><option value="priority">库存优先级</option><option value="product_code">款号</option><option value="sku_code">SKU</option><option value="warehouse_name">仓库</option><option value="color">颜色</option><option value="size">尺码</option><option value="stock_qty">实际库存</option><option value="sellable_qty">可销售库存</option><option value="occupied_qty">占用</option><option value="remaining_size_count">可售尺码数</option><option value="sku_count">可售 SKU 数</option><option value="taobao_price">淘宝价</option><option value="taobao_total_sold">淘宝总销量</option><option value="taobao_sold_30d">淘宝近30天</option></select></div>
@@ -650,18 +656,15 @@
   <form method="dialog" class="spot-dialog-body spot-filter-layout-dialog-body">
     <div class="d-flex align-items-start gap-2 mb-2">
       <div class="flex-fill">
-        <h3 class="h3 mb-1">筛选布局</h3>
-        <p class="text-secondary small mb-0">选择每个筛选项显示在外部，还是收进“更多条件”。布局会保存在当前浏览器。</p>
+        <h3 class="h3 mb-1">筛选项配置</h3>
+        <p class="text-secondary small mb-0">选择常用筛选项直接显示，其他项目收进“筛选条件”。配置会跟随当前账户保存。</p>
       </div>
-      <button class="btn btn-icon btn-ghost-secondary" type="button" data-filter-layout-close aria-label="关闭筛选布局设置"><i class="ti ti-x"></i></button>
+      <button class="btn btn-icon btn-ghost-secondary" type="button" data-filter-layout-close aria-label="关闭筛选项配置"><i class="ti ti-x"></i></button>
     </div>
     <div id="spot-filter-layout-content" class="spot-filter-layout-list"></div>
-    <div class="d-flex justify-content-between gap-2 mt-3">
-      <button class="btn btn-outline-secondary" type="button" data-filter-layout-reset>恢复默认布局</button>
-      <div class="d-flex gap-2">
-        <button class="btn btn-outline-secondary" type="button" data-filter-layout-close>取消</button>
-        <button class="btn btn-primary" type="button" data-filter-layout-apply><i class="ti ti-check me-1"></i>应用布局</button>
-      </div>
+    <div class="d-flex justify-content-end gap-2 mt-3">
+      <button class="btn btn-outline-secondary" type="button" data-filter-layout-close>取消</button>
+      <button class="btn btn-primary" type="button" data-filter-layout-apply><i class="ti ti-check me-1"></i>应用配置</button>
     </div>
   </form>
 </dialog>
@@ -998,7 +1001,7 @@ if (localSpotInventoryPreferences) {
   applySpotInventoryPreferences(localSpotInventoryPreferences);
 }
 const spotFilterHelp = {
-  'spot-preset-select': ['查询预设', '保存并恢复一整套查询设置，包括商品或 SKU 模式、全部筛选条件、排序、每页数量、显示列及列顺序。设为默认后，下次打开页面会自动载入。'],
+  'spot-preset-select': ['查询预设', '保存并恢复一整套查询设置，包括商品或 SKU 模式、全部筛选条件、排序、每页数量、列配置及列顺序。设为默认后，下次打开页面会自动载入。'],
   'spot-search': ['搜索', '在当前模式中按款号、商品名称、SKU、颜色和尺码模糊查找。商品模式会搜索该商品已覆盖的全部颜色和尺码。'],
   tagFilters: ['商品标记', '筛选全部已标记商品或指定标签。同一标签会同时出现在商品模式和该商品的全部 SKU 行中。'],
   categories: ['分类', '按商品编码规则划分的大类筛选，例如服装、特卖、头饰、鞋等。商品模式覆盖 ERP 全量分类。'],
@@ -1067,20 +1070,22 @@ function esc(value) {
 function renderSpotFilterPlacement() {
   const primary = document.getElementById('spot-primary-filter-items');
   const advanced = document.getElementById('spot-advanced');
-  if (!primary || !advanced) return;
+  const advancedItems = document.getElementById('spot-advanced-items');
+  if (!primary || !advanced || !advancedItems) return;
   spotFilterDefinitions.forEach(definition => {
     const control = document.querySelector(definition.selector);
     if (!control) return;
-    const target = spotFilterPlacement[definition.key] === 'primary' ? primary : advanced;
+    const target = spotFilterPlacement[definition.key] === 'primary' ? primary : advancedItems;
     target.appendChild(control);
   });
-  const advancedCount = advanced.querySelectorAll(':scope > [data-spot-filter-control]').length;
+  const advancedCount = advancedItems.querySelectorAll(':scope > [data-spot-filter-control]').length;
   const toggle = document.getElementById('spot-advanced-toggle');
   if (toggle) {
     toggle.disabled = !advancedCount;
     if (!advancedCount) {
       advanced.classList.add('d-none');
-      toggle.innerHTML = '<i class="ti ti-adjustments-horizontal me-1"></i>更多条件';
+      toggle.setAttribute('aria-expanded', 'false');
+      toggle.innerHTML = '<i class="ti ti-filter me-1"></i>筛选条件';
     }
   }
 }
@@ -1091,8 +1096,8 @@ function renderSpotFilterLayoutDialog() {
     <div class="spot-filter-layout-row">
       <span class="spot-filter-layout-label">${esc(definition.label)}</span>
       <select class="form-select form-select-sm" data-filter-layout-key="${esc(definition.key)}" aria-label="${esc(definition.label)}显示位置">
-        <option value="primary" ${source[definition.key] === 'primary' ? 'selected' : ''}>外部显示</option>
-        <option value="advanced" ${source[definition.key] === 'advanced' ? 'selected' : ''}>更多条件</option>
+        <option value="primary" ${source[definition.key] === 'primary' ? 'selected' : ''}>直接显示</option>
+        <option value="advanced" ${source[definition.key] === 'advanced' ? 'selected' : ''}>筛选条件</option>
       </select>
     </div>`).join('');
 }
@@ -1113,11 +1118,6 @@ spotFilterLayoutDialog.addEventListener('click', event => {
   if (event.target === spotFilterLayoutDialog || event.target.closest('[data-filter-layout-close]')) {
     spotFilterPlacementDraft = null;
     spotFilterLayoutDialog.close();
-    return;
-  }
-  if (event.target.closest('[data-filter-layout-reset]')) {
-    spotFilterPlacementDraft = {...spotFilterPlacementDefaults};
-    renderSpotFilterLayoutDialog();
     return;
   }
   if (event.target.closest('[data-filter-layout-apply]')) {
@@ -1774,11 +1774,14 @@ function renderSpotColumnPicker() {
   ];
   document.getElementById('spot-column-options').innerHTML = `
     <div class="spot-column-picker-head">
-      <div class="small text-secondary">勾选列即可显示；图片和款号固定在最前。</div>
-      <button class="btn btn-sm btn-outline-secondary spot-column-order-toggle" type="button"
-          data-column-order-open ${optionalSelected.length ? '' : 'disabled'} title="单独设置列显示顺序">
-        <i class="ti ti-arrows-sort me-1"></i>调整顺序
-      </button>
+      <div class="spot-column-picker-title">
+        <span>列配置</span>
+        <button class="btn btn-sm btn-icon btn-ghost-secondary spot-config-gear" type="button"
+            data-column-order-open ${optionalSelected.length ? '' : 'disabled'} title="配置列顺序" aria-label="配置列顺序">
+          <i class="ti ti-settings"></i>
+        </button>
+      </div>
+      <div class="small text-secondary">勾选后立即显示；图片和款号固定在最前。</div>
     </div>
     ${ordered.map(column => {
       const checked = column.required || selected.includes(column.key);
@@ -1816,7 +1819,7 @@ function renderSpotColumnOrderDialog() {
           </div>
         </div>`;
       }).join('')}
-    </div>` : '<div class="text-secondary py-3">请先在显示列中勾选至少一列。</div>';
+    </div>` : '<div class="text-secondary py-3">请先在列配置中勾选至少一列。</div>';
 }
 
 function openSpotColumnOrderDialog() {
@@ -2676,10 +2679,11 @@ document.getElementById('spot-sort-dir').addEventListener('click', event => {
 });
 document.getElementById('spot-advanced-toggle').addEventListener('click', event => {
   const panel = document.getElementById('spot-advanced');
-  const open = panel.classList.toggle('d-none');
-  event.currentTarget.innerHTML = open
-    ? '<i class="ti ti-adjustments-horizontal me-1"></i>更多条件'
-    : '<i class="ti ti-chevron-up me-1"></i>收起条件';
+  const collapsed = panel.classList.toggle('d-none');
+  event.currentTarget.setAttribute('aria-expanded', String(!collapsed));
+  event.currentTarget.innerHTML = collapsed
+    ? '<i class="ti ti-filter me-1"></i>筛选条件'
+    : '<i class="ti ti-chevron-up me-1"></i>收起筛选';
 });
 
 const spotRangeInputs = {
@@ -2703,33 +2707,6 @@ for (const [id, key] of Object.entries(spotRangeInputs)) {
     spotRangeTimer = setTimeout(refreshSpotStock, 400);
   });
 }
-document.getElementById('spot-reset').addEventListener('click', () => {
-  Object.assign(spotState, {
-    productGroups: [], categories: ['apparel'],
-    subcategories: [], warehouses: ['主仓库', '走秀仓库'],
-    sizes: [], colors: [],
-    allocationStatuses: [], tagFilters: [], imageStatus: 'all',
-    skuCoverage: 'all',
-    productStockMin: '', productStockMax: '',
-    stockMin: '', stockMax: '', sellableMin: '', sellableMax: '',
-    occupiedMin: '', occupiedMax: '', sizesMin: '', sizesMax: '',
-    taobaoPriceMin: '', taobaoPriceMax: '',
-    taobaoTotalSoldMin: '', taobaoTotalSoldMax: '',
-    taobaoSold30dMin: '', taobaoSold30dMax: '',
-    skuCountMin: '', skuCountMax: '',
-    sortBy: 'priority', sortDir: 'asc', offset: 0, q: ''
-  });
-  document.getElementById('spot-search').value = '';
-  document.getElementById('spot-image-status').value = 'all';
-  document.getElementById('spot-sku-coverage').value = 'all';
-  document.getElementById('spot-sort-by').value = 'priority';
-  document.getElementById('spot-sort-dir').innerHTML = '<i class="ti ti-sort-ascending"></i><span class="ms-1">升序</span>';
-  Object.keys(spotRangeInputs).forEach(id => { document.getElementById(id).value = ''; });
-  document.querySelectorAll('.spot-multiselect[data-spot-filter] input').forEach(input => { input.checked = false; });
-  document.querySelectorAll('.spot-multiselect[data-spot-filter]').forEach(updateSpotFilterLabel);
-  refreshSpotStock();
-});
-
 function closeSpotLightbox() {
   const lightbox = document.getElementById('spot-lightbox');
   lightbox.classList.add('d-none');
