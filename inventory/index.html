@@ -528,6 +528,20 @@
           <div class="spot-filter-menu spot-tag-filter-menu" data-filter-options></div>
         </details>
       </div>
+      <div class="spot-filter-control" data-spot-filter-control="taobaoStatuses">
+        <label class="form-label mb-1">淘宝状态</label>
+        <details class="spot-multiselect" data-spot-filter="taobaoStatuses">
+          <summary><span data-filter-label>全部</span></summary>
+          <div class="spot-filter-menu">
+            <label class="spot-filter-option"><input class="form-check-input m-0" type="checkbox" value="on_sale">在售</label>
+            <label class="spot-filter-option"><input class="form-check-input m-0" type="checkbox" value="in_stock">仓库中</label>
+            <label class="spot-filter-option"><input class="form-check-input m-0" type="checkbox" value="no_match">无对应</label>
+            <label class="spot-filter-option"><input class="form-check-input m-0" type="checkbox" value="unknown">状态未知</label>
+            <div class="border-top my-1"></div>
+            <label class="spot-filter-option"><input class="form-check-input m-0" type="checkbox" value="sellable_without_active">有库存未在售</label>
+          </div>
+        </details>
+      </div>
       <div class="spot-filter-control" data-spot-filter-control="categories">
         <label class="form-label mb-1">分类</label>
         <details class="spot-multiselect" data-spot-filter="categories">
@@ -586,6 +600,18 @@
         <details class="spot-multiselect" data-spot-filter="colors">
           <summary><span data-filter-label>全部</span></summary>
           <div class="spot-filter-menu" data-filter-options></div>
+        </details>
+      </div>
+      <div class="spot-filter-control" data-spot-filter-control="matchingMethods">
+        <label class="form-label mb-1">匹配方式</label>
+        <details class="spot-multiselect" data-spot-filter="matchingMethods">
+          <summary><span data-filter-label>全部</span></summary>
+          <div class="spot-filter-menu">
+            <label class="spot-filter-option"><input class="form-check-input m-0" type="checkbox" value="manual">人工匹配</label>
+            <label class="spot-filter-option"><input class="form-check-input m-0" type="checkbox" value="fallback">自动匹配</label>
+            <label class="spot-filter-option"><input class="form-check-input m-0" type="checkbox" value="mixed">混合匹配</label>
+            <label class="spot-filter-option"><input class="form-check-input m-0" type="checkbox" value="unmatched">未匹配</label>
+          </div>
         </details>
       </div>
       <div class="spot-filter-control" data-spot-filter-control="allocationStatuses">
@@ -770,7 +796,8 @@ const spotState = {
   viewMode: 'product',
   productGroups: [], categories: ['apparel'], subcategories: [],
   warehouses: ['主仓库', '走秀仓库'], sizes: [],
-  colors: [], allocationStatuses: [], tagFilters: [], imageStatus: 'all',
+  colors: [], allocationStatuses: [], tagFilters: [],
+  taobaoStatuses: [], matchingMethods: [], imageStatus: 'all',
   skuCoverage: 'all',
   productStockMin: '', productStockMax: '',
   stockMin: '', stockMax: '', sellableMin: '', sellableMax: '',
@@ -811,6 +838,8 @@ const spotColumns = {
     {key:'image', label:'图片', required:true},
     {key:'product', label:'款号', required:true, sort:'product_code'},
     {key:'tags', label:'标记'},
+    {key:'taobao_status', label:'淘宝状态'},
+    {key:'match_method', label:'匹配方式'},
     {key:'taobao_price', label:'淘宝价', sort:'taobao_price', numeric:true},
     {key:'taobao_total_sold', label:'淘宝总销量', sort:'taobao_total_sold', numeric:true},
     {key:'taobao_sold_30d', label:'淘宝近30天', sort:'taobao_sold_30d', numeric:true},
@@ -829,6 +858,8 @@ const spotColumns = {
     {key:'image', label:'图片', required:true},
     {key:'product', label:'款号 / SKU', required:true, sort:'product_code'},
     {key:'tags', label:'标记'},
+    {key:'taobao_status', label:'淘宝状态'},
+    {key:'match_method', label:'匹配方式'},
     {key:'taobao_price', label:'淘宝价', sort:'taobao_price', numeric:true},
     {key:'taobao_total_sold', label:'淘宝总销量', sort:'taobao_total_sold', numeric:true},
     {key:'taobao_sold_30d', label:'淘宝近30天', sort:'taobao_sold_30d', numeric:true},
@@ -853,19 +884,21 @@ function normalizeSpotVisibleColumns(mode, values) {
     .filter((key, index, array) => array.indexOf(key) === index);
 }
 spotState.visibleColumns = {
-  product: ['image','product','tags','taobao_price','taobao_total_sold','taobao_sold_30d','sellable_qty','stock_qty','sizes'],
-  sku: ['image','product','tags','taobao_price','taobao_total_sold','taobao_sold_30d','size','sellable_qty','stock_qty','product_stock_qty']
+  product: ['image','product','tags','taobao_status','match_method','taobao_price','taobao_total_sold','taobao_sold_30d','sellable_qty','stock_qty','sizes'],
+  sku: ['image','product','tags','taobao_status','match_method','taobao_price','taobao_total_sold','taobao_sold_30d','size','sellable_qty','stock_qty','product_stock_qty']
 };
 spotState.columnWidths = {product: {}, sku: {}};
 const spotDefaultColumnWidths = {
   image:64, product:124, category:100, sellable_qty:96, stock_qty:88,
   product_stock_qty:104, sizes:190, sku_count:88, occupied_qty:84,
   warehouses:130, warehouse:110, colors:140, color:90, size:78,
-  sku_coverage:96, flags:160, tags:150, taobao_price:88,
+  sku_coverage:96, flags:160, tags:150, taobao_status:110,
+  match_method:150, taobao_price:88,
   taobao_total_sold:104, taobao_sold_30d:104
 };
 const spotFilterDefinitions = [
   {key:'tagFilters', label:'商品标记', placement:'primary', selector:'[data-spot-filter-control="tagFilters"]'},
+  {key:'taobaoStatuses', label:'淘宝状态', placement:'primary', selector:'[data-spot-filter-control="taobaoStatuses"]'},
   {key:'categories', label:'分类', placement:'primary', selector:'[data-spot-filter-control="categories"]'},
   {key:'warehouses', label:'仓库', placement:'primary', selector:'[data-spot-filter-control="warehouses"]'},
   {key:'sizes', label:'尺码', placement:'primary', selector:'[data-spot-filter-control="sizes"]'},
@@ -873,6 +906,7 @@ const spotFilterDefinitions = [
   {key:'productStock', label:'实际库存', placement:'primary', selector:'[data-spot-filter-control="productStock"]'},
   {key:'sellable', label:'可销售库存', placement:'primary', selector:'[data-spot-filter-control="sellable"]'},
   {key:'colors', label:'颜色', placement:'advanced', selector:'[data-spot-filter-control="colors"]'},
+  {key:'matchingMethods', label:'匹配方式', placement:'advanced', selector:'[data-spot-filter-control="matchingMethods"]'},
   {key:'allocationStatuses', label:'SKU 分配', placement:'advanced', selector:'[data-spot-filter-control="allocationStatuses"]'},
   {key:'imageStatus', label:'图片', placement:'advanced', selector:'[data-spot-filter-control="imageStatus"]'},
   {key:'skuCoverage', label:'SKU 明细', placement:'advanced', selector:'[data-spot-filter-control="skuCoverage"]'},
@@ -920,7 +954,7 @@ let spotInventoryPreferencesSaveTimer = null;
 
 function currentSpotInventoryPreferences() {
   return {
-    version: 2,
+    version: 3,
     visibleColumns: {
       product: [...spotState.visibleColumns.product],
       sku: [...spotState.visibleColumns.sku]
@@ -941,6 +975,11 @@ function applySpotInventoryPreferences(preferences) {
         const columns = [...preferences.visibleColumns[mode]];
         if (Number(preferences.version || 0) < 2 && !columns.includes('tags')) {
           columns.splice(Math.max(0, columns.indexOf('product') + 1), 0, 'tags');
+        }
+        if (Number(preferences.version || 0) < 3) {
+          const additions = ['taobao_status', 'match_method'].filter(key => !columns.includes(key));
+          const anchor = Math.max(0, columns.indexOf('tags') + 1);
+          columns.splice(anchor, 0, ...additions);
         }
         spotState.visibleColumns[mode] = normalizeSpotVisibleColumns(mode, columns);
       }
@@ -1029,6 +1068,8 @@ const spotFilterHelp = {
   'spot-preset-select': ['查询预设', '保存并恢复一整套查询设置，包括商品或 SKU 模式、全部筛选条件、排序、每页数量、列配置及列顺序。设为默认后，下次打开页面会自动载入。'],
   'spot-search': ['搜索', '在当前模式中按款号、商品名称、SKU、颜色和尺码模糊查找。商品模式会搜索该商品已覆盖的全部颜色和尺码。'],
   tagFilters: ['商品标记', '筛选全部已标记商品或指定标签。同一标签会同时出现在商品模式和该商品的全部 SKU 行中。'],
+  taobaoStatuses: ['淘宝状态', '“在售”表示千牛当前为出售中；“仓库中”表示已下架或暂未上架；“无对应”表示库存商品没有匹配到淘宝商品；“有库存未在售”会合并筛出后两类中可销售库存大于 0 的商品。'],
+  matchingMethods: ['匹配方式', '人工匹配来自管家婆网店对应；自动匹配使用唯一的 SKU 编码、款号与规格规则；混合匹配表示同一款包含多种来源。具体自动规则会显示在结果列中。'],
   categories: ['分类', '按商品编码规则划分的大类筛选，例如服装、特卖、头饰、鞋等。商品模式覆盖 ERP 全量分类。'],
   warehouses: ['仓库', '筛选在所选仓库中仍有正库存的商品或 SKU。商品模式显示的实际库存仍是该商品跨全部仓库的合计，不会因为选择一个仓库而改写实际库存。'],
   sizes: ['尺码', '筛选包含所选尺码的商品或具体 SKU。尺码依赖 SKU 明细；尚未采集 SKU 明细的商品不会被尺码条件命中。'],
@@ -1580,6 +1621,57 @@ function spotTaobaoPrices(item) {
   return prices.length ? prices.map(spotMoney).join('<br>') : '-';
 }
 
+const spotMatchRuleLabels = {
+  manual_platform_sku_id: '人工匹配',
+  fallback_exact_erp_sku_code: '自动·SKU编码',
+  fallback_reused_manual_code_pair: '自动·历史编码',
+  fallback_reused_manual_code_pair_property: '自动·历史编码+规格',
+  fallback_single_erp_sku: '自动·单SKU商品',
+  fallback_product_code_size: '自动·款号+尺码',
+  fallback_product_code_color_size: '自动·款号+颜色尺码',
+  mixed: '混合匹配',
+  unmatched: '未匹配'
+};
+
+function spotTaobaoSalesStatus(item) {
+  if (item.taobao_sales_status) return item.taobao_sales_status;
+  const rows = Array.isArray(item.taobao_items) ? item.taobao_items : [];
+  if (rows.some(row => row.taobao_status_tab === 'on_sale_skucenter' || row.taobao_item_status === '出售中')) return 'on_sale';
+  if (rows.some(row => row.taobao_status_tab === 'in_stock' || row.taobao_item_status === '仓库中')) return 'in_stock';
+  return rows.length ? 'unknown' : 'no_match';
+}
+
+function spotTaobaoStatusCell(item) {
+  const status = spotTaobaoSalesStatus(item);
+  const labels = {on_sale:'在售', in_stock:'仓库中', no_match:'无对应', unknown:'状态未知'};
+  const classes = {on_sale:'bg-green-lt', in_stock:'bg-yellow-lt', no_match:'bg-red-lt', unknown:'bg-secondary-lt'};
+  const warning = Number(item.sellable_qty || 0) > 0 && status !== 'on_sale'
+    ? '<div class="small text-red mt-1">有库存未在售</div>' : '';
+  return `<td class="text-nowrap"><span class="badge ${classes[status] || classes.unknown}">${esc(labels[status] || labels.unknown)}</span>${warning}</td>`;
+}
+
+function spotMatchSource(item) {
+  if (item.taobao_match_source) return item.taobao_match_source;
+  const sources = Object.entries(item.taobao_mapping_source_counts || {})
+    .filter(([, count]) => Number(count || 0) > 0)
+    .map(([source]) => source);
+  if (!sources.length) return 'unmatched';
+  return sources.length === 1 ? sources[0] : 'mixed';
+}
+
+function spotMatchMethodCell(item) {
+  const source = spotMatchSource(item);
+  const sourceLabels = {manual:'人工匹配', fallback:'自动匹配', mixed:'混合匹配', unmatched:'未匹配'};
+  const method = item.taobao_match_method || source;
+  const label = item.taobao_match_method_label || spotMatchRuleLabels[method] || sourceLabels[source] || '未匹配';
+  const counts = Object.entries(item.taobao_match_rule_counts || {});
+  const title = counts.length
+    ? counts.map(([rule, count]) => `${spotMatchRuleLabels[rule] || rule} ${count} 条`).join('；')
+    : sourceLabels[source] || label;
+  const classes = {manual:'bg-blue-lt', fallback:'bg-azure-lt', mixed:'bg-purple-lt', unmatched:'bg-secondary-lt'};
+  return `<td><span class="badge ${classes[source] || classes.unmatched}" title="${esc(title)}">${esc(label)}</span></td>`;
+}
+
 function spotTagColorClass(color) {
   const key = spotTagColorKeys.has(String(color)) ? String(color) : 'blue';
   return `spot-tag-${key}`;
@@ -1667,7 +1759,8 @@ function spotSortHeader(label, field, align='', columnKey='') {
 
 function spotFilterCount() {
   const arrayKeys = ['productGroups', 'categories', 'subcategories',
-    'warehouses', 'sizes', 'colors', 'allocationStatuses', 'tagFilters'];
+    'warehouses', 'sizes', 'colors', 'allocationStatuses', 'tagFilters',
+    'taobaoStatuses', 'matchingMethods'];
   const rangePairs = [
     ['productStockMin', 'productStockMax'], ['sellableMin', 'sellableMax'],
     ['occupiedMin', 'occupiedMax'], ['sizesMin', 'sizesMax'],
@@ -1738,6 +1831,8 @@ function spotColumnCell(item, key) {
       ? `<div class="small text-secondary">${esc(item.sku_code)}</div>` : ''}${item.product_name && item.product_name !== item.product_code
       ? `<div class="small text-secondary">${esc(item.product_name)}</div>` : ''}</td>`,
     tags: spotProductTagsCell(item),
+    taobao_status: spotTaobaoStatusCell(item),
+    match_method: spotMatchMethodCell(item),
     taobao_price: `<td class="qty-cell">${spotTaobaoPrices(item)}</td>`,
     taobao_total_sold: `<td class="qty-cell">${spotMetric(item.taobao_total_sold, item.taobao_total_sold_item_count || 0, item.taobao_item_count || 0)}</td>`,
     taobao_sold_30d: `<td class="qty-cell">${spotMetric(item.taobao_sold_30d, item.taobao_sold_30d_item_count || 0, item.taobao_item_count || 0)}</td>`,
@@ -2218,6 +2313,8 @@ function spotStockQueryParams() {
     colors: spotState.colors.join(','),
     categories: spotState.categories.join(','),
     subcategories: spotState.subcategories.join(','),
+    taobao_statuses: spotState.taobaoStatuses.join(','),
+    match_sources: spotState.matchingMethods.join(','),
     allocation_statuses: spotState.allocationStatuses.join(','),
     tag_ids: spotState.tagFilters.filter(value => value !== '__tagged__').join(','),
     tagged: spotState.tagFilters.includes('__tagged__') ? 'any' : 'all',
@@ -2426,6 +2523,7 @@ function currentSpotPresetConfig() {
   const keys = [
     'viewMode', 'productGroups', 'categories', 'tagFilters',
     'subcategories', 'warehouses', 'sizes', 'colors',
+    'taobaoStatuses', 'matchingMethods',
     'allocationStatuses', 'imageStatus', 'skuCoverage',
     'productStockMin', 'productStockMax', 'stockMin', 'stockMax',
     'sellableMin', 'sellableMax', 'occupiedMin', 'occupiedMax',
@@ -2439,7 +2537,7 @@ function currentSpotPresetConfig() {
       ? [...spotState[key]] : spotState[key];
   });
   const config = {
-    version: 3,
+    version: 4,
     filters,
     sort: {by: spotState.sortBy, dir: spotState.sortDir},
     pagination: {limit: spotState.limit},
@@ -2461,7 +2559,8 @@ function applySpotPresetConfig(config) {
     viewMode: 'product', productGroups: [],
     categories: ['apparel'], subcategories: [],
     warehouses: ['主仓库', '走秀仓库'], sizes: [], colors: [],
-    allocationStatuses: [], tagFilters: [], imageStatus: 'all',
+    allocationStatuses: [], tagFilters: [],
+    taobaoStatuses: [], matchingMethods: [], imageStatus: 'all',
     skuCoverage: 'all', productStockMin: '', productStockMax: '',
     stockMin: '', stockMax: '', sellableMin: '', sellableMax: '',
     occupiedMin: '', occupiedMax: '', sizesMin: '', sizesMax: '',
@@ -2494,6 +2593,11 @@ function applySpotPresetConfig(config) {
           const columns = [...value[mode]];
           if (Number(config?.version || 0) < 3 && !columns.includes('tags')) {
             columns.splice(Math.max(0, columns.indexOf('product') + 1), 0, 'tags');
+          }
+          if (Number(config?.version || 0) < 4) {
+            const additions = ['taobao_status', 'match_method'].filter(key => !columns.includes(key));
+            const anchor = Math.max(0, columns.indexOf('tags') + 1);
+            columns.splice(anchor, 0, ...additions);
           }
           spotState.visibleColumns[mode] = normalizeSpotVisibleColumns(mode, columns);
         }
