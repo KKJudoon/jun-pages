@@ -63,7 +63,7 @@
 
   <dialog class="admin-dialog" id="user-dialog">
     <form method="dialog" id="user-form">
-      <header><div><small id="user-dialog-eyebrow">新增账号</small><h3 id="user-dialog-title">新增用户</h3></div><button value="cancel" aria-label="关闭">×</button></header>
+      <header><div><small id="user-dialog-eyebrow">新增账号</small><h3 id="user-dialog-title">新增用户</h3></div><button type="button" data-dialog-close aria-label="关闭">×</button></header>
       <div class="dialog-body">
         <input type="hidden" name="id">
         <label>登录账号<input name="username" maxlength="32" pattern="[a-z][a-z0-9._-]{1,31}" placeholder="例如：ck" autocapitalize="none" required><small>2–32 位，以小写字母开头；创建后不可修改，登录时不需要输入 @ 后缀。</small></label>
@@ -73,13 +73,13 @@
         <div class="field-title">像素头像</div><div class="avatar-picker" id="user-avatar-picker"></div>
         <p class="dialog-message" role="alert"></p>
       </div>
-      <footer><button value="cancel" class="btn">取消</button><button type="submit" class="btn btn-primary">保存</button></footer>
+      <footer><button type="button" data-dialog-close class="btn">取消</button><button type="submit" class="btn btn-primary">保存</button></footer>
     </form>
   </dialog>
 
   <dialog class="admin-dialog" id="role-dialog">
     <form method="dialog" id="role-form">
-      <header><div><small id="role-dialog-eyebrow">新增角色</small><h3 id="role-dialog-title">新增角色</h3></div><button value="cancel" aria-label="关闭">×</button></header>
+      <header><div><small id="role-dialog-eyebrow">新增角色</small><h3 id="role-dialog-title">新增角色</h3></div><button type="button" data-dialog-close aria-label="关闭">×</button></header>
       <div class="dialog-body">
         <input type="hidden" name="role_key">
         <label>角色名称<input name="label" maxlength="30" placeholder="例如：企划" required><small>用户分配角色时看到的名称，不能与现有角色重名。</small></label>
@@ -88,24 +88,24 @@
         <p class="helper-copy" id="role-system-note" hidden>这是系统内置角色，可以修改名称、说明和权限，但不能删除。</p>
         <p class="dialog-message" role="alert"></p>
       </div>
-      <footer><button value="cancel" class="btn">取消</button><button type="submit" class="btn btn-primary">保存角色</button></footer>
+      <footer><button type="button" data-dialog-close class="btn">取消</button><button type="submit" class="btn btn-primary">保存角色</button></footer>
     </form>
   </dialog>
 
   <dialog class="admin-dialog wide" id="permission-dialog">
     <form method="dialog" id="permission-form">
-      <header><div><small>账号权限覆盖</small><h3 id="permission-title">个人权限</h3></div><button value="cancel" aria-label="关闭">×</button></header>
+      <header><div><small>账号权限覆盖</small><h3 id="permission-title">个人权限</h3></div><button type="button" data-dialog-close aria-label="关闭">×</button></header>
       <div class="dialog-body"><p class="helper-copy">“继承”使用角色默认值；明确允许或拒绝会覆盖角色设置。</p><input type="hidden" name="id"><div id="permission-groups"></div><p class="dialog-message" role="alert"></p></div>
-      <footer><button value="cancel" class="btn">取消</button><button type="submit" class="btn btn-primary">保存权限</button></footer>
+      <footer><button type="button" data-dialog-close class="btn">取消</button><button type="submit" class="btn btn-primary">保存权限</button></footer>
     </form>
   </dialog>
 
   <dialog class="admin-dialog" id="secret-dialog">
-    <form method="dialog"><header><div><small>仅显示一次</small><h3>临时登录信息</h3></div><button value="cancel" aria-label="关闭">×</button></header><div class="dialog-body"><p>请通过安全方式交给用户；首次登录会要求设置新密码。</p><label>登录账号<div class="copy-field"><code id="secret-username"></code><button type="button" data-copy="username"><i class="ti ti-copy"></i></button></div></label><label>临时密码<div class="copy-field"><code id="secret-password"></code><button type="button" data-copy="password"><i class="ti ti-copy"></i></button></div></label></div><footer><button value="cancel" class="btn btn-primary">我已保存</button></footer></form>
+    <form method="dialog"><header><div><small>仅显示一次</small><h3>临时登录信息</h3></div><button type="button" data-dialog-close aria-label="关闭">×</button></header><div class="dialog-body"><p>请通过安全方式交给用户；首次登录会要求设置新密码。</p><label>登录账号<div class="copy-field"><code id="secret-username"></code><button type="button" data-copy="username"><i class="ti ti-copy"></i></button></div></label><label>临时密码<div class="copy-field"><code id="secret-password"></code><button type="button" data-copy="password"><i class="ti ti-copy"></i></button></div></label></div><footer><button type="button" data-dialog-close class="btn btn-primary">我已保存</button></footer></form>
   </dialog>
 
   <dialog class="admin-dialog" id="delete-dialog">
-    <form method="dialog" id="delete-form"><header><div><small>不可撤销</small><h3>永久删除用户</h3></div><button value="cancel" aria-label="关闭">×</button></header><div class="dialog-body"><p>优先使用“停用”。永久删除会移除登录账号、资料、个人权限和设备记录。</p><input type="hidden" name="id"><label>输入账号 <strong id="delete-username-label"></strong> 以确认<input name="confirmation" autocomplete="off" required></label><p class="dialog-message" role="alert"></p></div><footer><button value="cancel" class="btn">取消</button><button type="submit" class="btn btn-danger">永久删除</button></footer></form>
+    <form method="dialog" id="delete-form"><header><div><small>不可撤销</small><h3>永久删除用户</h3></div><button type="button" data-dialog-close aria-label="关闭">×</button></header><div class="dialog-body"><p>优先使用“停用”。永久删除会移除登录账号、资料、个人权限和设备记录。</p><input type="hidden" name="id"><label>输入账号 <strong id="delete-username-label"></strong> 以确认<input name="confirmation" autocomplete="off" required></label><p class="dialog-message" role="alert"></p></div><footer><button type="button" data-dialog-close class="btn">取消</button><button type="submit" class="btn btn-danger">永久删除</button></footer></form>
   </dialog>
 
   <script src="/jun-pages/admin-users.js"></script>

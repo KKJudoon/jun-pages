@@ -205,6 +205,10 @@
   document.querySelector('.admin-tabs').addEventListener('click', function (event) { const tab = event.target.closest('[data-tab]')?.dataset.tab; if (tab) switchTab(tab); });
   document.getElementById('create-user').addEventListener('click', function () { openUserDialog(null); });
   document.getElementById('create-role').addEventListener('click', function () { openRoleDialog(null); });
+  document.addEventListener('click', function (event) {
+    const closeButton = event.target.closest('[data-dialog-close]');
+    if (closeButton) closeButton.closest('dialog')?.close('cancel');
+  });
   document.getElementById('user-search').addEventListener('input', renderUsers);
   document.getElementById('approval-filter').addEventListener('change', loadApprovals);
   document.getElementById('refresh-audit').addEventListener('click', loadAudit);
