@@ -46,7 +46,7 @@
     </section>
 
     <section class="admin-panel" data-panel="roles">
-      <div class="panel-toolbar"><div><h2>默认角色权限</h2><p>管理员始终拥有全部权限；其他角色可以在这里调整默认授权。</p></div></div>
+      <div class="panel-toolbar"><div><h2>角色与权限</h2><p>创建岗位角色、设置默认首页并配置角色权限；管理员始终拥有全部权限。</p></div><button class="btn btn-primary" id="create-role"><i class="ti ti-shield-plus"></i>新增角色</button></div>
       <div class="role-grid" id="role-grid"></div>
     </section>
 
@@ -74,6 +74,21 @@
         <p class="dialog-message" role="alert"></p>
       </div>
       <footer><button value="cancel" class="btn">取消</button><button type="submit" class="btn btn-primary">保存</button></footer>
+    </form>
+  </dialog>
+
+  <dialog class="admin-dialog" id="role-dialog">
+    <form method="dialog" id="role-form">
+      <header><div><small id="role-dialog-eyebrow">新增角色</small><h3 id="role-dialog-title">新增角色</h3></div><button value="cancel" aria-label="关闭">×</button></header>
+      <div class="dialog-body">
+        <input type="hidden" name="role_key">
+        <label>角色名称<input name="label" maxlength="30" placeholder="例如：企划" required><small>用户分配角色时看到的名称，不能与现有角色重名。</small></label>
+        <label>角色说明<textarea name="description" maxlength="240" rows="3" placeholder="说明这个角色负责的工作范围"></textarea></label>
+        <label>登录后默认页面<select name="home_path" required><option value="/inventory/">库存明细</option><option value="/erp/">订单审核</option><option value="/erp/products/">商品档案</option><option value="/sycm/">运营数据</option><option value="/marketing-safety/">营销安全</option><option value="/">工作台</option></select></label>
+        <p class="helper-copy" id="role-system-note" hidden>这是系统内置角色，可以修改名称、说明和权限，但不能删除。</p>
+        <p class="dialog-message" role="alert"></p>
+      </div>
+      <footer><button value="cancel" class="btn">取消</button><button type="submit" class="btn btn-primary">保存角色</button></footer>
     </form>
   </dialog>
 

@@ -48,13 +48,18 @@ body { min-height: 100vh; margin: 0; background: var(--admin-bg); color: var(--a
 .role-card header { display: flex; justify-content: space-between; gap: 12px; padding: 15px 16px; background: #f8fafc; }
 .role-card h3 { margin: 0; font-size: 17px; }
 .role-card p { margin: 5px 0 0; color: var(--admin-muted); font-size: 12px; }
+.role-card header small { display: block; margin-top: 7px; color: var(--admin-muted); font-size: 11px; }
+.role-title-line { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.role-kind { padding: 2px 6px; border-radius: 999px; background: #eef1f5; color: #697586; font-size: 10px; font-weight: 700; }
 .role-card .permission-list { max-height: 440px; overflow: auto; padding: 8px 16px; }
 .permission-module { margin: 12px 0 5px; color: #206bc4; font-size: 11px; font-weight: 800; text-transform: uppercase; }
 .permission-row { display: flex; align-items: flex-start; gap: 10px; padding: 8px 0; }
 .permission-row input { margin-top: 3px; }
 .permission-row span { display: grid; }
 .permission-row small { color: var(--admin-muted); }
-.role-card footer { display: flex; justify-content: flex-end; padding: 12px 16px; border-top: 1px solid #edf0f5; }
+.role-card footer { display: flex; justify-content: space-between; gap: 10px; padding: 12px 16px; border-top: 1px solid #edf0f5; }
+.role-card-actions { display: flex; flex-wrap: wrap; gap: 7px; }
+.role-card-actions .btn, .role-card footer > .btn { min-height: 36px; }
 .approval-list, .audit-list { padding: 18px 20px; }
 .approval-card { display: grid; grid-template-columns: auto 1fr auto; gap: 13px; align-items: center; padding: 15px 0; border-bottom: 1px solid #edf0f5; }
 .approval-card .approval-copy { display: grid; gap: 3px; }
@@ -77,7 +82,8 @@ body { min-height: 100vh; margin: 0; background: var(--admin-bg); color: var(--a
 .dialog-body { padding: 18px 20px; overflow: auto; }
 .dialog-body > label { display: grid; gap: 6px; margin-bottom: 14px; font-weight: 700; }
 .dialog-body label small, .helper-copy { color: var(--admin-muted); font-size: 12px; font-weight: 400; }
-.dialog-body input, .dialog-body select { min-height: 42px; padding: 8px 10px; border: 1px solid #cfd7e3; border-radius: 7px; }
+.dialog-body input, .dialog-body select, .dialog-body textarea { min-height: 42px; padding: 8px 10px; border: 1px solid #cfd7e3; border-radius: 7px; }
+.dialog-body textarea { resize: vertical; }
 .admin-dialog form > footer { display: flex; justify-content: flex-end; gap: 9px; padding: 14px 20px; border-top: 1px solid #e7ebf0; }
 .switch-row { grid-template-columns: 1fr auto; align-items: center; padding: 12px; border: 1px solid #e4e9f0; border-radius: 8px; }
 .switch-row span { display: grid; }
@@ -125,4 +131,6 @@ body { min-height: 100vh; margin: 0; background: var(--admin-bg); color: var(--a
   .audit-item { grid-template-columns: 34px 1fr; }
   .audit-item time { grid-column: 2; }
   .permission-override-row { grid-template-columns: 1fr; gap: 6px; }
+  .role-card footer { align-items: stretch; flex-direction: column; }
+  .role-card footer > .btn { width: 100%; }
 }

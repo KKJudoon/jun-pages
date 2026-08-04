@@ -4,6 +4,8 @@
   const state = {users: [], roles: [], permissions: [], mappings: [], devices: [], context: null};
   const userDialog = document.getElementById('user-dialog');
   const userForm = document.getElementById('user-form');
+  const roleDialog = document.getElementById('role-dialog');
+  const roleForm = document.getElementById('role-form');
   const permissionDialog = document.getElementById('permission-dialog');
   const permissionForm = document.getElementById('permission-form');
   const secretDialog = document.getElementById('secret-dialog');
@@ -40,6 +42,9 @@
   function roleByKey(key) { return state.roles.find(function (role) { return role.role_key === key; }) || {label: key}; }
   function userById(id) { return state.users.find(function (user) { return user.id === id; }); }
   function mappingSet(role) { return new Set(state.mappings.filter(function (row) { return row.role === role && row.allowed; }).map(function (row) { return row.permission_key; })); }
+  function roleHomeLabel(path) {
+    return {'/inventory/': '库存明细', '/erp/': '订单审核', '/erp/products/': '商品档案', '/sycm/': '运营数据', '/marketing-safety/': '营销安全', '/': '工作台'}[path] || path;
+  }
 
   function renderSummary() {
     const active = state.users.filter(function (user) { return !user.disabled; }).length;
@@ -111,6 +116,19 @@
     secretDialog.showModal();
   }
 
+  function openRoleDialog(role) {
+    roleForm.reset();
+    roleForm.querySelector('.dialog-message').textContent = '';
+    roleForm.elements.role_key.value = role?.role_key || '';
+    roleForm.elements.label.value = role?.label || '';
+    roleForm.elements.description.value = role?.description || '';
+    roleForm.elements.home_path.value = role?.home_path || '/inventory/';
+    document.getElementById('role-dialog-eyebrow').textContent = role ? '编辑角色' : '新增角色';
+    document.getElementById('role-dialog-title').textContent = role?.label || '新增角色';
+    document.getElementById('role-system-note').hidden = !role?.system_role;
+    roleDialog.showModal();
+  }
+
   function openPermissions(user) {
     permissionForm.elements.id.value = user.id;
     document.getElementById('permission-title').textContent = `${user.display_name || user.username} · 个人权限`;
@@ -132,7 +150,7 @@
     document.getElementById('role-grid').innerHTML = state.roles.map(function (role) {
       const allowed = mappingSet(role.role_key);
       const admin = role.role_key === 'admin';
-      return `<article class="role-card" data-role-card="${role.role_key}"><header><div><h3>${escapeHtml(role.label)}</h3><p>${escapeHtml(role.description || '')}</p></div><span class="role-badge">${admin ? '固定全权限' : `${allowed.size} 项权限`}</span></header><div class="permission-list">${Object.entries(modules).map(function (entry) { return `<div class="permission-module">${escapeHtml(entry[0])}</div>${entry[1].map(function (permission) { const checked = admin || allowed.has(permission.permission_key); return `<label class="permission-row"><input type="checkbox" data-role-permission="${permission.permission_key}" ${checked ? 'checked' : ''} ${admin ? 'disabled' : ''}><span><strong>${escapeHtml(permission.label)}</strong><small>${escapeHtml(permission.description || '')}</small></span></label>`; }).join('')}`; }).join('')}</div>${admin ? '' : `<footer><button type="button" class="btn btn-primary" data-save-role="${role.role_key}">保存默认权限</button></footer>`}</article>`;
+      return `<article class="role-card" data-role-card="${role.role_key}"><header><div><div class="role-title-line"><h3>${escapeHtml(role.label)}</h3><span class="role-kind">${role.system_role ? '系统角色' : '自定义'}</span></div><p>${escapeHtml(role.description || '暂无角色说明')}</p><small>${Number(role.user_count || 0)} 个用户 · 默认进入${escapeHtml(roleHomeLabel(role.home_path))}</small></div><span class="role-badge">${admin ? '固定全权限' : `${allowed.size} 项权限`}</span></header><div class="permission-list">${Object.entries(modules).map(function (entry) { return `<div class="permission-module">${escapeHtml(entry[0])}</div>${entry[1].map(function (permission) { const checked = admin || allowed.has(permission.permission_key); return `<label class="permission-row"><input type="checkbox" data-role-permission="${permission.permission_key}" ${checked ? 'checked' : ''} ${admin ? 'disabled' : ''}><span><strong>${escapeHtml(permission.label)}</strong><small>${escapeHtml(permission.description || '')}</small></span></label>`; }).join('')}`; }).join('')}</div><footer><div class="role-card-actions"><button type="button" class="btn btn-outline-secondary" data-edit-role="${role.role_key}"><i class="ti ti-edit"></i>编辑</button>${role.system_role ? '' : `<button type="button" class="btn btn-outline-danger" data-delete-role="${role.role_key}"><i class="ti ti-trash"></i>删除</button>`}</div>${admin ? '' : `<button type="button" class="btn btn-primary" data-save-role="${role.role_key}">保存权限</button>`}</footer></article>`;
     }).join('');
   }
 
@@ -159,6 +177,9 @@
     'user.password_reset': ['ti-key', '重置用户密码'],
     'user.password_changed': ['ti-lock-check', '用户修改密码'],
     'user.permissions_updated': ['ti-shield-cog', '更新个人权限'],
+    'role.created': ['ti-shield-plus', '创建角色'],
+    'role.updated': ['ti-shield-cog', '更新角色资料'],
+    'role.deleted': ['ti-shield-x', '删除角色'],
     'role.permissions_updated': ['ti-shield-lock', '更新角色权限'],
     'profile.updated': ['ti-id', '更新个人资料']
   };
@@ -183,6 +204,7 @@
 
   document.querySelector('.admin-tabs').addEventListener('click', function (event) { const tab = event.target.closest('[data-tab]')?.dataset.tab; if (tab) switchTab(tab); });
   document.getElementById('create-user').addEventListener('click', function () { openUserDialog(null); });
+  document.getElementById('create-role').addEventListener('click', function () { openRoleDialog(null); });
   document.getElementById('user-search').addEventListener('input', renderUsers);
   document.getElementById('approval-filter').addEventListener('change', loadApprovals);
   document.getElementById('refresh-audit').addEventListener('click', loadAudit);
@@ -200,6 +222,29 @@
       await loadBase();
       if (result.temporary_password) showSecret(payload.username || userById(id)?.username, result.temporary_password);
     } catch (error) { userForm.querySelector('.dialog-message').textContent = error.message; }
+  });
+
+  roleForm.addEventListener('submit', async function (event) {
+    event.preventDefault();
+    const roleKey = roleForm.elements.role_key.value;
+    const payload = {
+      label: roleForm.elements.label.value.trim(),
+      description: roleForm.elements.description.value.trim(),
+      home_path: roleForm.elements.home_path.value
+    };
+    try {
+      await api(roleKey ? `/api/admin/roles/${roleKey}` : '/api/admin/roles', {
+        method: roleKey ? 'PATCH' : 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+      });
+      roleDialog.close();
+      await loadBase();
+      const card = roleKey ? document.querySelector(`[data-role-card="${roleKey}"]`) : document.querySelector('[data-role-card]:last-child');
+      card?.scrollIntoView({block: 'nearest', behavior: 'smooth'});
+    } catch (error) {
+      roleForm.querySelector('.dialog-message').textContent = error.message;
+    }
   });
 
   document.getElementById('user-table-body').addEventListener('click', handleUserAction);
@@ -232,11 +277,31 @@
   });
 
   document.getElementById('role-grid').addEventListener('click', async function (event) {
-    const button = event.target.closest('[data-save-role]'); if (!button) return;
-    const card = button.closest('[data-role-card]');
+    const edit = event.target.closest('[data-edit-role]');
+    const remove = event.target.closest('[data-delete-role]');
+    const save = event.target.closest('[data-save-role]');
+    if (edit) {
+      const role = roleByKey(edit.dataset.editRole);
+      if (role.role_key) openRoleDialog(role);
+      return;
+    }
+    if (remove) {
+      const role = roleByKey(remove.dataset.deleteRole);
+      if (!role.role_key) return;
+      if (Number(role.user_count || 0) > 0) {
+        alert(`“${role.label}”仍分配给 ${role.user_count} 个用户，请先调整用户角色。`);
+        return;
+      }
+      if (!confirm(`删除自定义角色“${role.label}”吗？该角色的默认权限也会删除。`)) return;
+      remove.disabled = true;
+      try { await api(`/api/admin/roles/${role.role_key}`, {method: 'DELETE'}); await loadBase(); } catch (error) { alert(error.message); } finally { remove.disabled = false; }
+      return;
+    }
+    if (!save) return;
+    const card = save.closest('[data-role-card]');
     const permissions = [...card.querySelectorAll('[data-role-permission]:checked')].map(function (checkbox) { return checkbox.dataset.rolePermission; });
-    button.disabled = true;
-    try { await api(`/api/admin/roles/${button.dataset.saveRole}/permissions`, {method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({permissions})}); await loadBase(); } catch (error) { alert(error.message); } finally { button.disabled = false; }
+    save.disabled = true;
+    try { await api(`/api/admin/roles/${save.dataset.saveRole}/permissions`, {method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({permissions})}); await loadBase(); } catch (error) { alert(error.message); } finally { save.disabled = false; }
   });
 
   document.getElementById('approval-list').addEventListener('click', async function (event) {
