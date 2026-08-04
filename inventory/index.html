@@ -2821,6 +2821,13 @@ async function loadSpotStock({force=false}={}) {
       renderSpotStockResult(data, queryKey);
       return data;
     } catch (error) {
+      // A newer filter/page request intentionally aborts the older one. Safari
+      // and some mobile WebViews may report that cancellation as TypeError
+      // (for example "Load failed") instead of AbortError, so request identity
+      // and AbortSignal are the reliable source of truth.
+      if (requestSequence !== spotRequestSequence || controller.signal.aborted) {
+        return cached ? cached.data : null;
+      }
       if (error.name === 'AbortError') return null;
       if (cached) {
         console.warn('库存后台刷新失败，继续显示缓存结果', error);
