@@ -97,6 +97,9 @@ body { min-height: 100vh; margin: 0; background: var(--admin-bg); color: var(--a
 .copy-field { display: grid; grid-template-columns: 1fr 42px; overflow: hidden; border: 1px solid #cfd7e3; border-radius: 7px; }
 .copy-field code { padding: 11px 12px; overflow-x: auto; background: #f8fafc; color: #182433; }
 .copy-field button { border: 0; border-left: 1px solid #cfd7e3; background: white; }
+.secret-copy-all { display: flex; align-items: center; gap: 10px; margin: 0 0 16px; }
+.secret-copy-all button { white-space: nowrap; }
+.secret-copy-all span { color: var(--admin-muted); font-size: 12px; }
 .permission-override-group { margin-top: 15px; }
 .permission-override-group h4 { margin: 0 0 7px; color: #206bc4; font-size: 13px; }
 .permission-override-row { display: grid; grid-template-columns: 1fr 150px; gap: 15px; align-items: center; padding: 9px 0; border-bottom: 1px solid #edf0f5; }
@@ -131,6 +134,7 @@ body { min-height: 100vh; margin: 0; background: var(--admin-bg); color: var(--a
   .audit-item { grid-template-columns: 34px 1fr; }
   .audit-item time { grid-column: 2; }
   .permission-override-row { grid-template-columns: 1fr; gap: 6px; }
+  .secret-copy-all { align-items: flex-start; flex-direction: column; }
   .role-card footer { align-items: stretch; flex-direction: column; }
   .role-card footer > .btn { width: 100%; }
 }

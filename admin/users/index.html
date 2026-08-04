@@ -101,7 +101,7 @@
   </dialog>
 
   <dialog class="admin-dialog" id="secret-dialog">
-    <form method="dialog"><header><div><small>仅显示一次</small><h3>临时登录信息</h3></div><button type="button" data-dialog-close aria-label="关闭">×</button></header><div class="dialog-body"><p>请通过安全方式交给用户；首次登录会要求设置新密码。</p><label>登录账号<div class="copy-field"><code id="secret-username"></code><button type="button" data-copy="username"><i class="ti ti-copy"></i></button></div></label><label>临时密码<div class="copy-field"><code id="secret-password"></code><button type="button" data-copy="password"><i class="ti ti-copy"></i></button></div></label></div><footer><button type="button" data-dialog-close class="btn btn-primary">我已保存</button></footer></form>
+    <form method="dialog"><header><div><small>仅显示一次</small><h3>临时登录信息</h3></div><button type="button" data-dialog-close aria-label="关闭">×</button></header><div class="dialog-body"><p>请通过安全方式交给用户；首次登录会要求设置新密码。</p><div class="secret-copy-all"><button type="button" class="btn btn-primary" data-copy-all="true"><i class="ti ti-copy"></i>复制全部登录信息</button><span id="secret-copy-status" role="status"></span></div><label>登录网址<div class="copy-field"><code id="secret-url"></code><button type="button" data-copy="url"><i class="ti ti-copy"></i></button></div></label><label>登录账号<div class="copy-field"><code id="secret-username"></code><button type="button" data-copy="username"><i class="ti ti-copy"></i></button></div></label><label>临时密码<div class="copy-field"><code id="secret-password"></code><button type="button" data-copy="password"><i class="ti ti-copy"></i></button></div></label></div><footer><button type="button" data-dialog-close class="btn btn-primary">我已保存</button></footer></form>
   </dialog>
 
   <dialog class="admin-dialog" id="delete-dialog">

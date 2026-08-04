@@ -110,9 +110,30 @@
     userDialog.showModal();
   }
 
+  function loginUrl() {
+    const basePath = String(window.JUN_CONFIG?.pagesBasePath || '/jun-pages').replace(/\/+$/, '');
+    return `${window.location.origin}${basePath}/login.html`;
+  }
+
+  function secretBundle() {
+    return [
+      '生意中台登录信息',
+      `登录网址：${document.getElementById('secret-url').textContent}`,
+      `登录账号：${document.getElementById('secret-username').textContent}`,
+      `临时密码：${document.getElementById('secret-password').textContent}`,
+      '首次登录后请按提示修改密码。'
+    ].join('\n');
+  }
+
   function showSecret(username, password) {
+    document.getElementById('secret-url').textContent = loginUrl();
     document.getElementById('secret-username').textContent = username;
     document.getElementById('secret-password').textContent = password;
+    document.getElementById('secret-copy-status').textContent = '';
+    document.querySelectorAll('#secret-dialog [data-copy], #secret-dialog [data-copy-all]').forEach(function (button) {
+      button.innerHTML = button.dataset.copyAll ? '<i class="ti ti-copy"></i>复制全部登录信息' : '<i class="ti ti-copy"></i>';
+      button.disabled = false;
+    });
     secretDialog.showModal();
   }
 
@@ -318,11 +339,46 @@
     } catch (error) { alert(error.message); }
   });
 
+  async function copyText(value) {
+    if (navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(value);
+        return;
+      } catch (error) {
+        // Fall through to the legacy textarea path when clipboard permission is unavailable.
+      }
+    }
+    const input = document.createElement('textarea');
+    input.value = value;
+    input.setAttribute('readonly', '');
+    input.style.position = 'fixed';
+    input.style.opacity = '0';
+    document.body.appendChild(input);
+    input.select();
+    const copied = document.execCommand('copy');
+    input.remove();
+    if (!copied) throw new Error('clipboard_unavailable');
+  }
+
+  function markCopied(button) {
+    button.innerHTML = button.dataset.copyAll ? '<i class="ti ti-check"></i>已复制' : '<i class="ti ti-check"></i>';
+    window.setTimeout(function () {
+      if (button.isConnected) button.innerHTML = button.dataset.copyAll ? '<i class="ti ti-copy"></i>复制全部登录信息' : '<i class="ti ti-copy"></i>';
+    }, 1800);
+  }
+
   secretDialog.addEventListener('click', async function (event) {
-    const button = event.target.closest('[data-copy]'); if (!button) return;
-    const value = document.getElementById(`secret-${button.dataset.copy}`).textContent;
-    await navigator.clipboard.writeText(value);
-    button.innerHTML = '<i class="ti ti-check"></i>';
+    const allButton = event.target.closest('[data-copy-all]');
+    const button = event.target.closest('[data-copy]');
+    if (!allButton && !button) return;
+    const status = document.getElementById('secret-copy-status');
+    try {
+      await copyText(allButton ? secretBundle() : document.getElementById(`secret-${button.dataset.copy}`).textContent);
+      markCopied(allButton || button);
+      status.textContent = allButton ? '登录网址、账号和临时密码已复制，可直接粘贴发送。' : '已复制';
+    } catch (error) {
+      status.textContent = '复制失败，请手动选择内容复制。';
+    }
   });
 
   async function loadBase() {
