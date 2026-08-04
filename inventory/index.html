@@ -326,6 +326,10 @@
     text-decoration:none;
   }
   .spot-taobao-badge:hover, .spot-taobao-badge:focus-visible { background:#dbeafe; color:#1d4ed8; }
+  .spot-taobao-badge.is-fallback { border-color:#facc15; background:#fef3c7; color:#a16207; }
+  .spot-taobao-badge.is-fallback:hover, .spot-taobao-badge.is-fallback:focus-visible { background:#fde68a; color:#854d0e; }
+  .spot-taobao-badge.is-mixed { border-color:#d8b4fe; background:#f3e8ff; color:#7e22ce; }
+  .spot-taobao-badge.is-mixed:hover, .spot-taobao-badge.is-mixed:focus-visible { background:#e9d5ff; color:#6b21a8; }
   .spot-tags-cell { min-width:8.5rem; white-space:normal; }
   .spot-tag-list { display:flex; align-items:center; justify-content:center; gap:.3rem; flex-wrap:wrap; }
   .spot-tag-chip {
@@ -1663,8 +1667,11 @@ function spotTaobaoBadge(item) {
   const row = rows.find(candidate => candidate.taobao_link);
   if (!row) return '';
   const count = rows.length;
-  const title = count > 1 ? `打开淘宝商品（共 ${count} 个）` : '打开淘宝商品';
-  return `<a class="spot-taobao-badge" href="${esc(row.taobao_link)}" target="_blank" rel="noreferrer"
+  const source = spotMatchSource(item);
+  const strategy = {manual:'人工匹配', fallback:'回退匹配', mixed:'人工 + 回退'}[source] || '淘宝匹配';
+  const title = `${strategy} · ${count > 1 ? `打开淘宝商品（共 ${count} 个）` : '打开淘宝商品'}`;
+  const sourceClass = source === 'fallback' ? ' is-fallback' : (source === 'mixed' ? ' is-mixed' : '');
+  return `<a class="spot-taobao-badge${sourceClass}" href="${esc(row.taobao_link)}" target="_blank" rel="noreferrer"
       title="${esc(title)}" aria-label="${esc(title)}"><i class="ti ti-external-link"></i>${count > 1 ? qty(count) : ''}</a>`;
 }
 
@@ -1746,6 +1753,9 @@ const spotMatchRuleLabels = {
   fallback_single_erp_sku: '自动·单SKU商品',
   fallback_product_code_size: '自动·款号+尺码',
   fallback_product_code_color_size: '自动·款号+颜色尺码',
+  fallback_unique_order_sku_link: '自动·历史出库SKU',
+  fallback_product_metadata_token: '自动·淘宝款号证据',
+  fallback_base_style_code: '回退·同主款号',
   mixed: '混合匹配',
   unmatched: '未匹配'
 };
@@ -1778,7 +1788,7 @@ function spotMatchSource(item) {
 
 function spotMatchMethodCell(item) {
   const source = spotMatchSource(item);
-  const sourceLabels = {manual:'人工匹配', fallback:'自动匹配', mixed:'混合匹配', unmatched:'未匹配'};
+  const sourceLabels = {manual:'人工匹配', fallback:'回退匹配', mixed:'人工 + 回退', unmatched:'未匹配'};
   const method = item.taobao_match_method || source;
   const label = item.taobao_match_method_label || spotMatchRuleLabels[method] || sourceLabels[source] || '未匹配';
   const counts = Object.entries(item.taobao_match_rule_counts || {});
