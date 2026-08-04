@@ -290,6 +290,12 @@
       redirectToLogin(context.error === 'account_disabled' ? 'disabled' : 'access');
       return null;
     }
+    const preferredHome = allowedHome(context);
+    const atBaseHome = window.location.pathname === basePath || window.location.pathname === `${basePath}/`;
+    if (atBaseHome && preferredHome !== window.location.pathname) {
+      window.location.replace(preferredHome);
+      return null;
+    }
     const required = pagePermission(window.location.pathname);
     if (required && !(context.permissions || []).includes(required)) {
       const target = allowedHome(context);

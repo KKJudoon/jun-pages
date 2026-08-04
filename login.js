@@ -21,7 +21,8 @@
 
   function safeReturnPath(context) {
     const requested = query.get('return');
-    if (requested && (requested === basePath || requested.startsWith(`${basePath}/`))) return requested;
+    const isBaseHome = requested === basePath || requested === `${basePath}/`;
+    if (requested && !isBaseHome && requested.startsWith(`${basePath}/`)) return requested;
     const home = String(context?.role?.home_path || '/inventory/');
     const destination = `${basePath}${home === '/' ? '/' : home}`;
     return destination === basePath || destination.startsWith(`${basePath}/`)
