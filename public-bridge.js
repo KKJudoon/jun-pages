@@ -105,9 +105,6 @@
     if (!permissions.has('inventory.preferences.manage')) {
       hiddenSelectors.push('#spot-column-picker', '#spot-filter-layout', '[data-resize-column]');
     }
-    if (!permissions.has('inventory.presets.manage')) {
-      hiddenSelectors.push('#spot-save-preset', '#spot-delete-preset', '#spot-preset-order');
-    }
     if (!permissions.has('products.tags.manage')) {
       hiddenSelectors.push('[data-product-tags-manage]', '[data-product-tag-edit]');
     }

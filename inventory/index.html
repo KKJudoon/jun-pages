@@ -258,6 +258,19 @@
   .spot-preset-tools { display:flex; align-items:end; gap:.5rem; flex:1 1 30rem; min-width:0; flex-wrap:wrap; }
   .spot-preset-select { flex:1 1 16rem; min-width:13rem; }
   .spot-preset-order-button { display:inline-flex; align-items:center; justify-content:center; gap:.35rem; min-height:38px; white-space:nowrap; }
+  .spot-scope-badge {
+    display:inline-flex; align-items:center; gap:.2rem; min-height:20px; padding:.08rem .38rem;
+    border:1px solid #d8e2ee; border-radius:999px; color:#526176; background:#fff;
+    font-size:.68rem; font-weight:600; line-height:1; white-space:nowrap;
+  }
+  .spot-scope-badge.is-personal { border-color:#bfdbfe; color:#1d4ed8; background:#eff6ff; }
+  .spot-scope-badge.is-team { border-color:#d8b4fe; color:#7e22ce; background:#faf5ff; }
+  .spot-scope-choice { display:grid; grid-template-columns:1fr 1fr; gap:.5rem; }
+  .spot-scope-choice label {
+    display:flex; align-items:center; gap:.45rem; min-height:40px; margin:0; padding:.45rem .6rem;
+    border:1px solid #d9dce1; border-radius:5px; background:#fff; cursor:pointer;
+  }
+  .spot-scope-choice label:has(input:checked) { border-color:#206bc4; background:#eff6ff; box-shadow:0 0 0 .12rem rgba(32,107,196,.1); }
   .spot-column-order-list { display:grid; gap:.45rem; }
   .spot-column-order-row { display:flex; align-items:center; gap:.65rem; min-height:44px; padding:.4rem .5rem; border:1px solid #edf0f2; border-radius:4px; background:#f8fafc; }
   .spot-column-order-row .spot-column-label { flex:1 1 auto; min-width:0; white-space:normal; }
@@ -333,7 +346,7 @@
   .spot-tags-cell { min-width:8.5rem; white-space:normal; }
   .spot-tag-list { display:flex; align-items:center; justify-content:center; gap:.3rem; flex-wrap:wrap; }
   .spot-tag-chip {
-    display:inline-flex; align-items:center; max-width:10rem; min-height:22px;
+    display:inline-flex; align-items:center; gap:.2rem; max-width:10rem; min-height:22px;
     padding:.16rem .48rem; border:1px solid var(--spot-tag-border,#bfdbfe);
     border-radius:999px; background:var(--spot-tag-bg,#eff6ff);
     color:var(--spot-tag-text,#1d4ed8); font-size:.72rem; font-weight:600;
@@ -371,6 +384,10 @@
   }
   .spot-tag-dialog-option:hover { background:#f8fafc; }
   .spot-tag-dialog-option .spot-tag-chip { margin-right:auto; }
+  .spot-tag-group-title {
+    display:flex; align-items:center; gap:.35rem; padding:.35rem .15rem .1rem;
+    color:#667085; font-size:.72rem; font-weight:700;
+  }
   .spot-tag-manager-list { display:grid; gap:.5rem; max-height:min(38vh,300px); overflow:auto; }
   .spot-tag-manager-row {
     display:flex; align-items:center; gap:.55rem; min-height:44px; padding:.45rem .55rem;
@@ -663,6 +680,14 @@
     <h3 class="h3 mb-3">保存查询预设</h3>
     <label class="form-label" for="spot-preset-name">预设名称</label>
     <input id="spot-preset-name" class="form-control mb-3" maxlength="60" placeholder="例如：100码主仓盘点">
+    <div id="spot-preset-scope-field" class="mb-3 d-none">
+      <div class="form-label mb-1">保存到</div>
+      <div class="spot-scope-choice">
+        <label><input class="form-check-input m-0" type="radio" name="spot-preset-scope" value="personal" checked><i class="ti ti-user"></i><span>个人预设</span></label>
+        <label><input class="form-check-input m-0" type="radio" name="spot-preset-scope" value="team"><i class="ti ti-users"></i><span>团队预设</span></label>
+      </div>
+      <div class="text-secondary small mt-1">团队预设所有成员可见，仅管理员可以维护。</div>
+    </div>
     <label class="form-check mb-3">
       <input id="spot-preset-default" class="form-check-input" type="checkbox">
       <span class="form-check-label">设为默认，下次自动载入</span>
@@ -680,7 +705,7 @@
     <div class="d-flex align-items-start gap-2 mb-2">
       <div class="flex-fill">
         <h3 class="h3 mb-1">调整预设顺序</h3>
-        <p class="text-secondary small mb-0">点击上下箭头调整内置和自建预设的显示顺序，保存后会跟随账户同步。</p>
+        <p class="text-secondary small mb-0">默认个人预设在前、团队预设在后；手动调整后按你的账户顺序显示。</p>
       </div>
       <button class="btn btn-icon btn-ghost-secondary" type="button" data-preset-order-close aria-label="关闭预设排序"><i class="ti ti-x"></i></button>
     </div>
@@ -776,13 +801,20 @@
     <div class="d-flex align-items-start gap-2 mb-3">
       <div class="flex-fill">
         <h3 class="h3 mb-1">商品标签管理</h3>
-        <p class="text-secondary small mb-0">标签是全平台通用的固定选项，库存和后续运营页面会共用。</p>
+        <p class="text-secondary small mb-0">个人标签仅自己可见；团队标签全员共用且仅管理员维护。</p>
       </div>
       <button class="btn btn-icon btn-ghost-secondary" value="cancel" aria-label="关闭标签管理"><i class="ti ti-x"></i></button>
     </div>
     <div class="spot-tag-editor mb-3">
       <label class="form-label" for="spot-tag-name">标签名称</label>
       <input id="spot-tag-name" class="form-control" maxlength="30" placeholder="例如：重点关注">
+      <div id="spot-tag-scope-field" class="mt-2 d-none">
+        <div class="form-label mb-1">保存到</div>
+        <div class="spot-scope-choice">
+          <label><input class="form-check-input m-0" type="radio" name="spot-tag-scope" value="personal" checked><i class="ti ti-user"></i><span>个人标签</span></label>
+          <label><input class="form-check-input m-0" type="radio" name="spot-tag-scope" value="team"><i class="ti ti-users"></i><span>团队标签</span></label>
+        </div>
+      </div>
       <div class="form-label mt-2 mb-1">颜色</div>
       <div id="spot-tag-color-grid" class="spot-tag-color-grid"></div>
       <div id="spot-tag-manager-error" class="text-danger small mt-2" aria-live="polite"></div>
@@ -846,6 +878,8 @@ let spotVisibleItems = new Map();
 let spotTagEditorProduct = null;
 let spotTagEditingId = null;
 let spotTagSelectedColor = 'blue';
+let spotTagSelectedScope = 'personal';
+let spotCanManageTeamTags = false;
 let spotCurrentResult = null;
 let spotCurrentQueryKey = '';
 let spotRequestController = null;
@@ -1804,8 +1838,18 @@ function spotTagColorClass(color) {
   return `spot-tag-${key}`;
 }
 
+function spotScopeLabel(scope, noun='') {
+  return `${scope === 'personal' ? '个人' : '团队'}${noun}`;
+}
+
+function spotScopeBadge(scope, noun='') {
+  const personal = scope === 'personal';
+  return `<span class="spot-scope-badge ${personal ? 'is-personal' : 'is-team'}"><i class="ti ti-${personal ? 'user' : 'users'}"></i>${esc(spotScopeLabel(scope, noun))}</span>`;
+}
+
 function spotTagChip(tag) {
-  return `<span class="spot-tag-chip ${spotTagColorClass(tag.color)}" title="${esc(tag.name)}">${esc(tag.name)}</span>`;
+  const personal = tag.scope === 'personal';
+  return `<span class="spot-tag-chip ${spotTagColorClass(tag.color)}" title="${esc(spotScopeLabel(tag.scope, '标签'))}：${esc(tag.name)}"><i class="ti ti-${personal ? 'user' : 'users'}"></i>${esc(tag.name)}</span>`;
 }
 
 function spotProductTagsCell(item) {
@@ -1858,13 +1902,18 @@ function renderSpotTagFilterOptions() {
       <i class="ti ti-tags text-secondary"></i><span>全部已标记</span>
     </label>
     ${spotTags.length ? '<div class="border-top my-1"></div>' : ''}
-    ${spotTags.map(tag => `<label class="spot-filter-option">
-      <input class="form-check-input m-0" type="checkbox" value="${esc(String(tag.id))}" ${selected.has(String(tag.id)) ? 'checked' : ''}>
-      <span class="spot-tag-option-dot ${spotTagColorClass(tag.color)}"></span><span>${esc(tag.name)}</span>
-    </label>`).join('')}
+    ${['personal', 'team'].map(scope => {
+      const tags = spotTags.filter(tag => tag.scope === scope);
+      if (!tags.length) return '';
+      return `<div class="spot-tag-group-title"><i class="ti ti-${scope === 'personal' ? 'user' : 'users'}"></i>${esc(spotScopeLabel(scope, '标签'))}</div>
+        ${tags.map(tag => `<label class="spot-filter-option">
+          <input class="form-check-input m-0" type="checkbox" value="${esc(String(tag.id))}" ${selected.has(String(tag.id)) ? 'checked' : ''}>
+          <span class="spot-tag-option-dot ${spotTagColorClass(tag.color)}"></span><span>${esc(tag.name)}</span>
+        </label>`).join('')}`;
+    }).join('')}
     <div class="border-top mt-1 pt-1" data-product-tags-manage>
       <button class="btn btn-sm btn-ghost-secondary w-100" type="button" data-product-tags-manage>
-        <i class="ti ti-settings me-1"></i>管理固定标签
+        <i class="ti ti-settings me-1"></i>管理标签
       </button>
     </div>`;
   updateSpotFilterLabel(details);
@@ -2176,23 +2225,40 @@ function renderSpotTagColorGrid() {
 
 function renderSpotTagManagerList() {
   const target = document.getElementById('spot-tag-manager-list');
-  target.innerHTML = spotTags.length ? spotTags.map(tag => `
-    <div class="spot-tag-manager-row">
-      ${spotTagChip(tag)}
-      <span class="spot-tag-manager-count">${qty(tag.assignment_count || 0)} 个商品</span>
-      <button class="btn btn-sm btn-icon btn-outline-secondary" type="button" data-tag-edit-id="${esc(String(tag.id))}" title="编辑${esc(tag.name)}" aria-label="编辑${esc(tag.name)}"><i class="ti ti-edit"></i></button>
-      <button class="btn btn-sm btn-icon btn-outline-danger" type="button" data-tag-archive-id="${esc(String(tag.id))}" title="停用${esc(tag.name)}" aria-label="停用${esc(tag.name)}"><i class="ti ti-trash"></i></button>
-    </div>`).join('') : '<div class="text-secondary text-center py-3">还没有固定标签，请先新增一个。</div>';
+  target.innerHTML = spotTags.length ? ['personal', 'team'].map(scope => {
+    const tags = spotTags.filter(tag => tag.scope === scope);
+    if (!tags.length) return '';
+    return `<div class="spot-tag-group-title">${spotScopeBadge(scope, '标签')}</div>${tags.map(tag => {
+      const editable = tag.scope === 'personal' || spotCanManageTeamTags;
+      return `<div class="spot-tag-manager-row">
+        ${spotTagChip(tag)}
+        <span class="spot-tag-manager-count">${qty(tag.assignment_count || 0)} 个商品</span>
+        ${editable ? `<button class="btn btn-sm btn-icon btn-outline-secondary" type="button" data-tag-edit-id="${esc(String(tag.id))}" title="编辑${esc(tag.name)}" aria-label="编辑${esc(tag.name)}"><i class="ti ti-edit"></i></button>
+        <button class="btn btn-sm btn-icon btn-outline-danger" type="button" data-tag-archive-id="${esc(String(tag.id))}" title="停用${esc(tag.name)}" aria-label="停用${esc(tag.name)}"><i class="ti ti-trash"></i></button>` : ''}
+      </div>`;
+    }).join('')}`;
+  }).join('') : '<div class="text-secondary text-center py-3">还没有标签，请先新增一个。</div>';
+}
+
+function renderSpotTagScopeControl() {
+  const field = document.getElementById('spot-tag-scope-field');
+  field.classList.toggle('d-none', !spotCanManageTeamTags);
+  field.querySelectorAll('input').forEach(input => {
+    input.checked = input.value === spotTagSelectedScope;
+    input.disabled = Boolean(spotTagEditingId);
+  });
 }
 
 function resetSpotTagEditor() {
   spotTagEditingId = null;
   spotTagSelectedColor = 'blue';
+  spotTagSelectedScope = 'personal';
   document.getElementById('spot-tag-name').value = '';
   document.getElementById('spot-tag-manager-error').textContent = '';
   document.getElementById('spot-tag-edit-cancel').classList.add('d-none');
   document.getElementById('spot-tag-save').innerHTML = '<i class="ti ti-plus me-1"></i>新增标签';
   renderSpotTagColorGrid();
+  renderSpotTagScopeControl();
 }
 
 function renderSpotProductTagOptions() {
@@ -2202,12 +2268,16 @@ function renderSpotProductTagOptions() {
     return;
   }
   const selected = new Set((spotTagEditorProduct.product_tags || []).map(tag => String(tag.id)));
-  target.innerHTML = spotTags.length ? spotTags.map(tag => `
-    <label class="spot-tag-dialog-option">
-      <input class="form-check-input m-0" type="checkbox" value="${esc(String(tag.id))}" ${selected.has(String(tag.id)) ? 'checked' : ''}>
-      ${spotTagChip(tag)}
-      <span class="text-secondary small">${selected.has(String(tag.id)) ? '已标记' : ''}</span>
-    </label>`).join('') : '<div class="text-secondary text-center py-4">还没有固定标签，请先进入“管理标签”新增。</div>';
+  target.innerHTML = spotTags.length ? ['personal', 'team'].map(scope => {
+    const tags = spotTags.filter(tag => tag.scope === scope);
+    if (!tags.length) return '';
+    return `<div class="spot-tag-group-title">${spotScopeBadge(scope, '标签')}</div>${tags.map(tag => `
+      <label class="spot-tag-dialog-option">
+        <input class="form-check-input m-0" type="checkbox" value="${esc(String(tag.id))}" ${selected.has(String(tag.id)) ? 'checked' : ''}>
+        ${spotTagChip(tag)}
+        <span class="text-secondary small">${selected.has(String(tag.id)) ? '已标记' : ''}</span>
+      </label>`).join('')}`;
+  }).join('') : '<div class="text-secondary text-center py-4">还没有标签，请先进入“管理标签”新增。</div>';
 }
 
 function openSpotProductTagDialog(item) {
@@ -2395,7 +2465,7 @@ function reconcileSpotTagDefinitions() {
       item.product_tags = (item.product_tags || [])
         .map(tag => definitions.get(String(tag.id)))
         .filter(Boolean)
-        .map(tag => ({id: tag.id, name: tag.name, color: tag.color}));
+        .map(tag => ({id: tag.id, name: tag.name, color: tag.color, scope: tag.scope, owner_user_id: tag.owner_user_id}));
     });
     if (data.meta?.filters) data.meta.filters.product_tags = spotTags;
   });
@@ -2421,7 +2491,7 @@ function patchSpotProductTagsLocally(erpProductId, previousTags, nextTags) {
     (data.data || []).forEach(item => {
       if (String(item.ptypeid || '') !== key) return;
       if (previousHadTags === null) previousHadTags = (item.product_tags || []).length > 0;
-      item.product_tags = after.map(tag => ({id: tag.id, name: tag.name, color: tag.color}));
+      item.product_tags = after.map(tag => ({id: tag.id, name: tag.name, color: tag.color, scope: tag.scope, owner_user_id: tag.owner_user_id}));
       changed = true;
     });
     if (changed && previousHadTags !== (after.length > 0) && data.meta?.summary) {
@@ -2450,7 +2520,8 @@ async function loadSpotTagDefinitions() {
   const response = await fetch('/api/catalog/tags');
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(payload.detail || `HTTP ${response.status}`);
-  spotTags = Array.isArray(payload.tags) ? payload.tags : [];
+  spotTags = Array.isArray(payload.tags) ? payload.tags.map(tag => ({...tag, scope:tag.scope === 'personal' ? 'personal' : 'team'})) : [];
+  spotCanManageTeamTags = payload.can_manage_team === true;
   reconcileSpotTagDefinitions();
   renderSpotTagFilterOptions();
   renderSpotTagManagerList();
@@ -2472,6 +2543,12 @@ document.getElementById('spot-tag-color-grid').addEventListener('click', event =
   renderSpotTagColorGrid();
 });
 
+document.getElementById('spot-tag-scope-field').addEventListener('change', event => {
+  if (!event.target.matches('input[name="spot-tag-scope"]') || spotTagEditingId) return;
+  spotTagSelectedScope = event.target.value === 'team' ? 'team' : 'personal';
+  renderSpotTagScopeControl();
+});
+
 document.getElementById('spot-tag-edit-cancel').addEventListener('click', resetSpotTagEditor);
 
 document.getElementById('spot-tag-save').addEventListener('click', async event => {
@@ -2488,7 +2565,7 @@ document.getElementById('spot-tag-save').addEventListener('click', async event =
     const response = await fetch(spotTagEditingId ? `/api/catalog/tags/${spotTagEditingId}` : '/api/catalog/tags', {
       method: spotTagEditingId ? 'PATCH' : 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({name, color: spotTagSelectedColor})
+      body: JSON.stringify({name, color: spotTagSelectedColor, scope: spotTagSelectedScope})
     });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(payload.detail || '标签保存失败');
@@ -2508,11 +2585,13 @@ document.getElementById('spot-tag-manager-list').addEventListener('click', async
     if (!tag) return;
     spotTagEditingId = tag.id;
     spotTagSelectedColor = spotTagColorKeys.has(tag.color) ? tag.color : 'blue';
+    spotTagSelectedScope = tag.scope === 'team' ? 'team' : 'personal';
     document.getElementById('spot-tag-name').value = tag.name;
     document.getElementById('spot-tag-manager-error').textContent = '';
     document.getElementById('spot-tag-edit-cancel').classList.remove('d-none');
     document.getElementById('spot-tag-save').innerHTML = '<i class="ti ti-check me-1"></i>保存修改';
     renderSpotTagColorGrid();
+    renderSpotTagScopeControl();
     document.getElementById('spot-tag-name').focus();
     return;
   }
@@ -2539,9 +2618,9 @@ document.getElementById('spot-product-tags-save').addEventListener('click', asyn
   const button = event.currentTarget;
   const selected = [...document.querySelectorAll('#spot-product-tags-options input:checked')].map(input => Number(input.value));
   const product = spotTagEditorProduct;
-  const previousTags = (product.product_tags || []).map(tag => ({id: tag.id, name: tag.name, color: tag.color}));
+  const previousTags = (product.product_tags || []).map(tag => ({id: tag.id, name: tag.name, color: tag.color, scope: tag.scope, owner_user_id: tag.owner_user_id}));
   const nextTags = selected.map(id => spotTags.find(tag => Number(tag.id) === id)).filter(Boolean)
-    .map(tag => ({id: tag.id, name: tag.name, color: tag.color}));
+    .map(tag => ({id: tag.id, name: tag.name, color: tag.color, scope: tag.scope, owner_user_id: tag.owner_user_id}));
   const errorTarget = document.getElementById('spot-product-tags-error');
   button.disabled = true;
   errorTarget.textContent = '';
@@ -2880,6 +2959,8 @@ function scheduleSpotStockRefresh(delay=180) {
 let spotPresets = [];
 let spotDefaultPresetId = '';
 let spotPresetOrderDraft = [];
+let spotCanManageTeamPresets = false;
+let spotPresetOrderCustomized = false;
 
 function currentSpotPresetConfig() {
   const keys = [
@@ -3038,10 +3119,12 @@ async function loadSpotPresets(autoApply=false) {
   const payload = (await response.json()).data || {};
   spotPresets = payload.items || [];
   spotDefaultPresetId = payload.default_id || '';
+  spotCanManageTeamPresets = payload.can_manage_team === true;
+  spotPresetOrderCustomized = payload.order_customized === true;
   const select = document.getElementById('spot-preset-select');
   const selected = select.value;
   select.innerHTML = '<option value="">当前条件</option>' + spotPresets.map(item =>
-    `<option value="${esc(item.id)}">${esc(item.name)}${item.id === spotDefaultPresetId ? ' · 默认' : ''}</option>`
+    `<option value="${esc(item.id)}">【${item.scope === 'personal' ? '个人' : '团队'}】${esc(item.name)}${item.id === spotDefaultPresetId ? ' · 默认' : ''}</option>`
   ).join('');
   if (selected && spotPresets.some(item => item.id === selected)) select.value = selected;
   if (autoApply && spotDefaultPresetId) {
@@ -3052,6 +3135,7 @@ async function loadSpotPresets(autoApply=false) {
     }
   }
   document.getElementById('spot-preset-order').disabled = spotPresets.length < 2;
+  document.getElementById('spot-preset-scope-field').classList.toggle('d-none', !spotCanManageTeamPresets);
   updatePresetDeleteButton();
 }
 
@@ -3070,7 +3154,7 @@ function renderSpotPresetOrderDialog() {
           id === spotDefaultPresetId ? '默认' : ''
         ].filter(Boolean).join(' · ');
         return `<div class="spot-column-order-row">
-          <span class="spot-column-label"><strong>${position + 1}.</strong> ${esc(preset?.name || id)}${suffix ? `<span class="text-secondary small ms-1">· ${esc(suffix)}</span>` : ''}</span>
+          <span class="spot-column-label"><strong>${position + 1}.</strong> ${spotScopeBadge(preset?.scope, '预设')} <span class="ms-1">${esc(preset?.name || id)}</span>${suffix ? `<span class="text-secondary small ms-1">· ${esc(suffix)}</span>` : ''}</span>
           <div class="spot-column-order-buttons">
             <button class="btn btn-sm btn-outline-secondary" type="button" data-preset-order-move="up" data-preset-order-id="${esc(id)}" ${position === 0 ? 'disabled' : ''} title="上移" aria-label="上移${esc(preset?.name || id)}"><i class="ti ti-chevron-up"></i></button>
             <button class="btn btn-sm btn-outline-secondary" type="button" data-preset-order-move="down" data-preset-order-id="${esc(id)}" ${position === spotPresetOrderDraft.length - 1 ? 'disabled' : ''} title="下移" aria-label="下移${esc(preset?.name || id)}"><i class="ti ti-chevron-down"></i></button>
@@ -3143,7 +3227,10 @@ document.getElementById('spot-preset-order-dialog').addEventListener('cancel', e
 function updatePresetDeleteButton() {
   const id = document.getElementById('spot-preset-select').value;
   const preset = spotPresets.find(item => item.id === id);
-  document.getElementById('spot-delete-preset').disabled = !preset || preset.builtin;
+  const button = document.getElementById('spot-delete-preset');
+  button.disabled = !preset || preset.builtin || (preset.scope === 'team' && !spotCanManageTeamPresets);
+  button.title = preset?.scope === 'team' && !spotCanManageTeamPresets
+    ? '团队预设仅管理员可以删除' : '删除当前预设';
 }
 
 document.getElementById('spot-preset-select').addEventListener('change', event => {
@@ -3156,6 +3243,9 @@ document.getElementById('spot-preset-select').addEventListener('change', event =
 document.getElementById('spot-save-preset').addEventListener('click', () => {
   document.getElementById('spot-preset-name').value = '';
   document.getElementById('spot-preset-default').checked = false;
+  document.querySelectorAll('input[name="spot-preset-scope"]').forEach(input => {
+    input.checked = input.value === 'personal';
+  });
   document.getElementById('spot-preset-error').textContent = '';
   document.getElementById('spot-preset-dialog').showModal();
   document.getElementById('spot-preset-name').focus();
@@ -3173,6 +3263,9 @@ document.getElementById('spot-preset-confirm').addEventListener('click', async e
     body: JSON.stringify({
       name,
       config: currentSpotPresetConfig(),
+      scope: spotCanManageTeamPresets
+        ? (document.querySelector('input[name="spot-preset-scope"]:checked')?.value || 'personal')
+        : 'personal',
       set_default: document.getElementById('spot-preset-default').checked
     })
   });
@@ -3191,7 +3284,8 @@ document.getElementById('spot-preset-confirm').addEventListener('click', async e
 document.getElementById('spot-delete-preset').addEventListener('click', async () => {
   const select = document.getElementById('spot-preset-select');
   const preset = spotPresets.find(item => item.id === select.value);
-  if (!preset || preset.builtin || !confirm(`删除预设“${preset.name}”？`)) return;
+  if (!preset || preset.builtin || (preset.scope === 'team' && !spotCanManageTeamPresets)
+    || !confirm(`删除${spotScopeLabel(preset.scope, '预设')}“${preset.name}”？`)) return;
   const response = await fetch(`/api/erp/v1/inventory/query-presets/${encodeURIComponent(preset.id)}`, {
     method: 'DELETE'
   });
