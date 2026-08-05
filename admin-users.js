@@ -30,10 +30,33 @@
 
   async function api(path, options) {
     const response = await window.fetch(path, options);
-    const payload = await response.json().catch(function () { return {}; });
+    const responseText = await response.text();
+    let payload = {};
+    if (responseText) {
+      try { payload = JSON.parse(responseText); }
+      catch (_) { payload = {detail: responseText}; }
+    }
     if (!response.ok) {
-      const error = new Error(payload.detail || payload.error || '请求失败');
+      const errorMessages = {
+        invalid_username: '账号格式不正确，请输入 2–32 位小写账号',
+        invalid_role: '所选角色不存在，请刷新后重试',
+        username_exists: '该登录账号已经存在',
+        user_create_failed: '账号创建失败，请稍后重试',
+        profile_create_failed: '账号已创建，但用户资料保存失败',
+        authentication_temporarily_unavailable: '登录验证服务暂时不可用，请稍后重试',
+        cloud_api_failure: '云端服务暂时异常，请稍后重试'
+      };
+      const rawDetail = payload.detail;
+      const detail = typeof rawDetail === 'string'
+        ? rawDetail.trim()
+        : rawDetail && typeof rawDetail === 'object'
+        ? JSON.stringify(rawDetail)
+        : '';
+      const readableDetail = detail && detail !== '{}' ? detail : '';
+      const message = readableDetail || errorMessages[payload.error] || `请求失败（${response.status}）`;
+      const error = new Error(message);
       error.payload = payload;
+      error.status = response.status;
       throw error;
     }
     return payload;
