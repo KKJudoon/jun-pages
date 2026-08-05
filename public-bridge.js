@@ -32,22 +32,69 @@
 
   async function currentSession() {
     const result = await client.auth.getSession();
-    return result.error ? null : result.data.session;
+    if (result.error) throw result.error;
+    return result.data.session;
+  }
+
+  async function refreshSession() {
+    const result = await client.auth.refreshSession();
+    return {session: result.data.session, error: result.error};
+  }
+
+  function authUnavailableResponse() {
+    return new Response(JSON.stringify({error: 'authentication_temporarily_unavailable'}), {
+      status: 503,
+      headers: {'Content-Type': 'application/json'}
+    });
   }
 
   async function edgeFetch(path, options, suppliedSession) {
-    const session = suppliedSession || await currentSession();
-    if (!session) return new Response(JSON.stringify({error: 'authentication_required'}), {status: 401, headers: {'Content-Type': 'application/json'}});
+    let initialSession;
+    try {
+      initialSession = suppliedSession || await currentSession();
+    } catch (error) {
+      console.warn('Unable to refresh the persisted login session', error);
+      return authUnavailableResponse();
+    }
+    if (!initialSession) return new Response(JSON.stringify({error: 'authentication_required'}), {status: 401, headers: {'Content-Type': 'application/json'}});
     const url = new URL(`${config.edgeFunctionBaseUrl}${path}`);
-    const requestOptions = {...(options || {})};
-    const headers = new Headers(requestOptions.headers || {});
-    headers.set('Authorization', `Bearer ${session.access_token}`);
-    headers.set('apikey', config.supabasePublishableKey);
-    headers.set('Accept', headers.get('Accept') || 'application/json');
-    Object.entries(window.JUN_DEVICE.headers()).forEach(function (entry) { headers.set(entry[0], entry[1]); });
-    requestOptions.headers = headers;
-    requestOptions.cache = 'no-store';
-    return nativeFetch(url.toString(), requestOptions);
+    const baseOptions = {...(options || {})};
+
+    async function send(session) {
+      const requestOptions = {...baseOptions};
+      const headers = new Headers(baseOptions.headers || {});
+      headers.set('Authorization', `Bearer ${session.access_token}`);
+      headers.set('apikey', config.supabasePublishableKey);
+      headers.set('Accept', headers.get('Accept') || 'application/json');
+      Object.entries(window.JUN_DEVICE.headers()).forEach(function (entry) { headers.set(entry[0], entry[1]); });
+      requestOptions.headers = headers;
+      requestOptions.cache = 'no-store';
+      return nativeFetch(url.toString(), requestOptions);
+    }
+
+    let response = await send(initialSession);
+    if (response.status !== 401) return response;
+
+    let retrySession;
+    try {
+      retrySession = await currentSession();
+    } catch (error) {
+      console.warn('Unable to read the refreshed login session', error);
+      return authUnavailableResponse();
+    }
+    if (!retrySession || retrySession.access_token === initialSession.access_token) {
+      const refreshed = await refreshSession();
+      if (refreshed.error) {
+        const status = Number(refreshed.error.status || 0);
+        if (!status || status >= 500 || refreshed.error.name === 'AuthRetryableFetchError') return authUnavailableResponse();
+        return response;
+      }
+      retrySession = refreshed.session;
+    }
+    if (!retrySession || retrySession.access_token === initialSession.access_token) return response;
+    response.body?.cancel().catch(function () {});
+    response = await send(retrySession);
+    return response;
   }
 
   function pagePermission(pathname) {
@@ -305,7 +352,7 @@
     renderAccount(context);
     document.documentElement.classList.remove('jun-auth-pending');
     document.documentElement.classList.add('jun-auth-ready');
-    return {session, context};
+    return {context};
   })().catch(function (error) {
     console.error('JUN auth gate failed', error);
     redirectToLogin('session');
@@ -325,7 +372,7 @@
     if (!apiUrl) return nativeFetch(input, init);
     const ready = await authReady;
     if (!ready) return new Response(JSON.stringify({error: 'authentication_required'}), {status: 401, headers: {'Content-Type': 'application/json'}});
-    const response = await edgeFetch(`${apiUrl.pathname}${apiUrl.search}`, init, ready.session);
+    const response = await edgeFetch(`${apiUrl.pathname}${apiUrl.search}`, init);
     if (response.status === 401) { await client.auth.signOut(); redirectToLogin('expired'); }
     if (response.status === 423) redirectToLogin('device');
     if (response.status === 428) redirectToLogin('password');
