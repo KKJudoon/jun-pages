@@ -38,7 +38,7 @@
   async function edgeFetch(path, options, suppliedSession) {
     const session = suppliedSession || await currentSession();
     if (!session) return new Response(JSON.stringify({error: 'authentication_required'}), {status: 401, headers: {'Content-Type': 'application/json'}});
-    const url = new URL(`${config.supabaseUrl}/functions/v1/${config.edgeFunctionName}${path}`);
+    const url = new URL(`${config.edgeFunctionBaseUrl}${path}`);
     const requestOptions = {...(options || {})};
     const headers = new Headers(requestOptions.headers || {});
     headers.set('Authorization', `Bearer ${session.access_token}`);

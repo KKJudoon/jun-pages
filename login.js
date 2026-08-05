@@ -51,7 +51,7 @@
       'Accept': 'application/json'
     });
     Object.entries(window.JUN_DEVICE.headers()).forEach(function (entry) { headers.set(entry[0], entry[1]); });
-    const response = await fetch(`${config.supabaseUrl}/functions/v1/${config.edgeFunctionName}/api/auth/bootstrap`, {headers, cache: 'no-store'});
+    const response = await fetch(`${config.edgeFunctionBaseUrl}/api/auth/bootstrap`, {headers, cache: 'no-store'});
     return {response, payload: await response.json().catch(function () { return {}; })};
   }
 
@@ -155,7 +155,7 @@
     if (!session) { showLogin('登录已过期，请使用新密码重新登录。'); return; }
     const headers = new Headers({'Authorization': `Bearer ${session.access_token}`, 'apikey': config.supabasePublishableKey});
     Object.entries(window.JUN_DEVICE.headers()).forEach(function (entry) { headers.set(entry[0], entry[1]); });
-    const acknowledgement = await fetch(`${config.supabaseUrl}/functions/v1/${config.edgeFunctionName}/api/account/password-changed`, {method: 'POST', headers});
+    const acknowledgement = await fetch(`${config.edgeFunctionBaseUrl}/api/account/password-changed`, {method: 'POST', headers});
     if (!acknowledgement.ok) { message.textContent = '密码已更新，但账户状态确认失败，请重新登录。'; passwordSubmit.disabled = false; return; }
     window.location.replace(passwordSubmit.dataset.returnPath || `${basePath}/`);
   });
