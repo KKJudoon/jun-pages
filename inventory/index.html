@@ -733,6 +733,7 @@
     </div>
     <div id="spot-column-options" class="spot-column-list"></div>
     <div class="d-flex justify-content-end gap-2 mt-3">
+      <span id="spot-preferences-save-status" class="text-secondary small me-auto" aria-live="polite"></span>
       <button class="btn btn-outline-secondary" type="button" data-column-dialog-close>取消</button>
       <button class="btn btn-primary" type="button" data-column-dialog-apply><i class="ti ti-check me-1"></i>应用配置</button>
     </div>
@@ -1035,6 +1036,9 @@ let spotFilterPlacement = loadSpotFilterPlacement();
 let spotFilterPlacementDraft = null;
 let spotInventoryPreferencesReady = false;
 let spotInventoryPreferencesSaveTimer = null;
+let spotInventoryPreferencesSavePromise = Promise.resolve();
+let spotInventoryPreferencesDirty = false;
+let spotInventoryPreferencesChangeVersion = 0;
 
 function currentSpotInventoryPreferences() {
   return {
@@ -1113,27 +1117,69 @@ function saveLocalSpotInventoryPreferences() {
   }
 }
 
-async function writeSpotInventoryPreferences() {
+function setSpotInventorySaveStatus(state, detail='') {
+  const target = document.getElementById('spot-preferences-save-status');
+  if (!target) return;
+  if (state === 'saving') {
+    target.className = 'text-secondary small me-auto';
+    target.textContent = '正在保存到云端…';
+  } else if (state === 'saved') {
+    target.className = 'text-success small me-auto';
+    target.textContent = detail || '已保存到云端';
+  } else if (state === 'error') {
+    target.className = 'text-danger small me-auto';
+    target.textContent = detail || '云端保存失败，已保留本地缓存';
+  } else {
+    target.className = 'text-secondary small me-auto';
+    target.textContent = detail;
+  }
+}
+
+async function writeSpotInventoryPreferences(preferences=currentSpotInventoryPreferences()) {
   const response = await fetch('/api/erp/v1/inventory/preferences', {
     method: 'PUT',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify(currentSpotInventoryPreferences())
+    body: JSON.stringify(preferences),
+    keepalive: true
   });
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   const payload = await response.json();
   return payload.data || {};
 }
 
-function persistSpotInventoryPreferences() {
+function enqueueSpotInventoryPreferencesSave() {
+  const snapshot = currentSpotInventoryPreferences();
+  const version = spotInventoryPreferencesChangeVersion;
+  setSpotInventorySaveStatus('saving');
+  spotInventoryPreferencesSavePromise = spotInventoryPreferencesSavePromise
+    .catch(() => {})
+    .then(() => writeSpotInventoryPreferences(snapshot))
+    .then(() => {
+      if (version === spotInventoryPreferencesChangeVersion) {
+        spotInventoryPreferencesDirty = false;
+        setSpotInventorySaveStatus('saved', '已保存到云端');
+      }
+    })
+    .catch(error => {
+      console.warn('库存界面配置保存失败，已保留本地缓存', error);
+      setSpotInventorySaveStatus('error');
+    });
+  return spotInventoryPreferencesSavePromise;
+}
+
+function persistSpotInventoryPreferences({immediate=false}={}) {
   saveSpotFilterPlacement();
   saveLocalSpotInventoryPreferences();
-  if (!spotInventoryPreferencesReady) return;
+  spotInventoryPreferencesDirty = true;
+  spotInventoryPreferencesChangeVersion += 1;
   clearTimeout(spotInventoryPreferencesSaveTimer);
+  if (!spotInventoryPreferencesReady) return Promise.resolve();
+  if (immediate) return enqueueSpotInventoryPreferencesSave();
   spotInventoryPreferencesSaveTimer = setTimeout(() => {
-    writeSpotInventoryPreferences().catch(error => {
-      console.warn('库存界面配置保存失败，已保留本地缓存', error);
-    });
+    spotInventoryPreferencesSaveTimer = null;
+    enqueueSpotInventoryPreferencesSave();
   }, 180);
+  return spotInventoryPreferencesSavePromise;
 }
 
 async function loadSpotInventoryPreferences() {
@@ -1144,13 +1190,15 @@ async function loadSpotInventoryPreferences() {
   const hasServerPreferences = [
     'visibleColumns', 'columnWidths', 'filterPlacement', 'version'
   ].some(key => Object.prototype.hasOwnProperty.call(serverPreferences, key));
-  if (hasServerPreferences) {
+  if (hasServerPreferences && !spotInventoryPreferencesDirty) {
     applySpotInventoryPreferences(serverPreferences);
-  } else {
-    await writeSpotInventoryPreferences();
+    setSpotInventorySaveStatus('saved', '已从云端载入');
   }
   spotInventoryPreferencesReady = true;
   saveLocalSpotInventoryPreferences();
+  if (!hasServerPreferences || spotInventoryPreferencesDirty) {
+    await enqueueSpotInventoryPreferencesSave();
+  }
 }
 
 const localSpotInventoryPreferences = loadLocalSpotInventoryPreferences();
@@ -2143,7 +2191,7 @@ function applySpotColumnDialog() {
     spotColumnVisibilityDraft
   );
   spotColumnVisibilityDraft = null;
-  persistSpotInventoryPreferences();
+  persistSpotInventoryPreferences({immediate:true});
   rerenderCurrentSpotStock();
   closeSpotColumnDialog(false);
 }
