@@ -428,6 +428,22 @@
   .spot-query-table thead .spot-sticky-product {
     z-index:7;
   }
+  .spot-query-table.has-bulk-select .spot-selection-cell {
+    position:sticky; left:0; z-index:8; width:44px; min-width:44px;
+    background:#fff !important; background-clip:padding-box;
+  }
+  .spot-query-table.has-bulk-select .spot-sticky-image {
+    left:var(--spot-selection-width, 44px);
+  }
+  .spot-query-table.has-bulk-select .spot-sticky-product {
+    left:calc(var(--spot-selection-width, 44px) + var(--spot-sticky-image-width, 64px));
+  }
+  .spot-bulk-toolbar {
+    display:flex; align-items:center; flex-wrap:wrap; gap:.5rem; width:100%; padding:.55rem .65rem;
+    border:1px solid #bfdbfe; border-radius:5px; background:#eff6ff;
+  }
+  .spot-bulk-toolbar .form-select { flex:1 1 11rem; width:min(15rem,100%); }
+  .spot-bulk-status { min-height:1rem; }
   .spot-query-table .qty-cell { min-width:0; text-align:center !important; }
   .spot-query-table .spot-sku, .spot-query-table .spot-sizes {
     min-width:0; max-width:none; overflow-wrap:anywhere;
@@ -881,6 +897,9 @@ let spotTagEditingId = null;
 let spotTagSelectedColor = 'blue';
 let spotTagSelectedScope = 'personal';
 let spotCanManageTeamTags = false;
+let spotSelectionScopeKey = '';
+const spotSelectedProductIds = new Set();
+const spotSelectedProducts = new Map();
 let spotCurrentResult = null;
 let spotCurrentQueryKey = '';
 let spotRequestController = null;
@@ -2003,8 +2022,74 @@ function spotFilterCount() {
   return count;
 }
 
+function spotCanBulkManageTags() {
+  return new Set(window.JUN_CONTEXT?.permissions || []).has('products.tags.manage');
+}
+
+function spotSelectionKey(queryKey) {
+  const params = new URLSearchParams(queryKey || '');
+  ['offset', 'limit', 'sort_by', 'sort_dir'].forEach(key => params.delete(key));
+  return params.toString();
+}
+
+function clearSpotSelection({rerender=false}={}) {
+  spotSelectedProductIds.clear();
+  spotSelectedProducts.clear();
+  if (rerender) rerenderCurrentSpotStock();
+}
+
+function setSpotProductSelected(item, selected) {
+  const id = String(item?.ptypeid || '');
+  if (!id) return;
+  if (selected) {
+    spotSelectedProductIds.add(id);
+    spotSelectedProducts.set(id, {
+      ptypeid:id,
+      product_code:item.product_code || '',
+      product_name:item.product_name || '',
+      product_tags:(item.product_tags || []).map(tag => ({...tag}))
+    });
+  } else {
+    spotSelectedProductIds.delete(id);
+    spotSelectedProducts.delete(id);
+  }
+}
+
+function spotPageProducts() {
+  const unique = new Map();
+  (spotCurrentResult?.data || []).forEach(item => {
+    const id = String(item.ptypeid || '');
+    if (id && !unique.has(id)) unique.set(id, item);
+  });
+  return [...unique.values()];
+}
+
+function spotBulkTagOptions() {
+  return ['personal', 'team'].map(scope => {
+    const tags = spotTags.filter(tag => tag.scope === scope);
+    if (!tags.length) return '';
+    return `<optgroup label="${esc(spotScopeLabel(scope, '标签'))}">${tags.map(tag =>
+      `<option value="${esc(String(tag.id))}">${esc(tag.name)}</option>`
+    ).join('')}</optgroup>`;
+  }).join('');
+}
+
+function spotBulkToolbar() {
+  if (!spotCanBulkManageTags() || !spotSelectedProductIds.size) return '';
+  return `<div class="spot-bulk-toolbar">
+    <strong class="text-blue text-nowrap">已选择 ${qty(spotSelectedProductIds.size)} 个商品</strong>
+    <select class="form-select form-select-sm" data-spot-bulk-tag aria-label="选择批量标签">
+      <option value="">选择标签</option>${spotBulkTagOptions()}
+    </select>
+    <button class="btn btn-sm btn-primary text-nowrap" type="button" data-spot-bulk-action="add"><i class="ti ti-tag-plus me-1"></i>添加标签</button>
+    <button class="btn btn-sm btn-outline-danger text-nowrap" type="button" data-spot-bulk-action="remove"><i class="ti ti-tag-off me-1"></i>移除标签</button>
+    <button class="btn btn-sm btn-ghost-secondary text-nowrap" type="button" data-spot-selection-clear>取消选择</button>
+    <span class="spot-bulk-status text-secondary small ms-auto" data-spot-bulk-status role="status" aria-live="polite"></span>
+  </div>`;
+}
+
 function spotTableHeaders() {
-  return activeSpotColumns().map(column => {
+  const columns = activeSpotColumns().map(column => {
     if (column.key === 'image') {
       return `<th class="spot-image-cell spot-sticky-image" data-column-key="image">图片${spotResizeHandle('image')}</th>`;
     }
@@ -2016,6 +2101,11 @@ function spotTableHeaders() {
     }
     return `<th class="${column.numeric ? 'text-end' : ''}" data-column-key="${esc(column.key)}">${esc(column.label)}${spotResizeHandle(column.key)}</th>`;
   }).join('');
+  if (!spotCanBulkManageTags()) return columns;
+  const pageProducts = spotPageProducts();
+  const selectedCount = pageProducts.filter(item => spotSelectedProductIds.has(String(item.ptypeid || ''))).length;
+  const checked = pageProducts.length && selectedCount === pageProducts.length;
+  return `<th class="spot-selection-cell"><input class="form-check-input m-0" type="checkbox" data-spot-select-page ${checked ? 'checked' : ''} aria-label="选择本页商品"></th>${columns}`;
 }
 
 function activeSpotColumns() {
@@ -2037,13 +2127,13 @@ function spotColumnWidth(key) {
 }
 
 function spotTableWidth() {
-  return activeSpotColumns().reduce(
+  return (spotCanBulkManageTags() ? 44 : 0) + activeSpotColumns().reduce(
     (sum, column) => sum + spotColumnWidth(column.key), 0
   );
 }
 
 function spotColgroup() {
-  return `<colgroup>${activeSpotColumns().map(column =>
+  return `<colgroup>${spotCanBulkManageTags() ? '<col class="spot-selection-cell" style="width:44px">' : ''}${activeSpotColumns().map(column =>
     `<col data-column-key="${esc(column.key)}" style="width:${spotColumnWidth(column.key)}px">`
   ).join('')}</colgroup>`;
 }
@@ -2083,7 +2173,11 @@ function spotColumnCell(item, key) {
 }
 
 function spotTableRow(item) {
-  return `<tr>${activeSpotColumns().map(column =>
+  const id = String(item.ptypeid || '');
+  const selection = spotCanBulkManageTags()
+    ? `<td class="spot-selection-cell"><input class="form-check-input m-0" type="checkbox" data-spot-select-product="${esc(id)}" ${spotSelectedProductIds.has(id) ? 'checked' : ''} aria-label="选择${esc(item.product_code || '商品')}"></td>`
+    : '';
+  return `<tr>${selection}${activeSpotColumns().map(column =>
     spotColumnCell(item, column.key)
   ).join('')}</tr>`;
 }
@@ -2564,6 +2658,90 @@ function patchSpotProductTagsLocally(erpProductId, previousTags, nextTags) {
   renderSpotTagManagerList();
 }
 
+function patchSpotProductTagsBulkLocally(productIds, tag, action, changedCount) {
+  const ids = new Set(productIds.map(String));
+  const tagId = String(tag.id);
+  tag.assignment_count = Math.max(
+    0,
+    Number(tag.assignment_count || 0) + (action === 'add' ? Number(changedCount || 0) : -Number(changedCount || 0))
+  );
+
+  spotResultDatasets().forEach(data => {
+    const transitions = new Map();
+    (data.data || []).forEach(item => {
+      const id = String(item.ptypeid || '');
+      if (!ids.has(id)) return;
+      const before = Array.isArray(item.product_tags) ? item.product_tags : [];
+      if (!transitions.has(id)) transitions.set(id, before.length > 0);
+      if (action === 'add') {
+        item.product_tags = before.some(existing => String(existing.id) === tagId)
+          ? before
+          : [...before, {id:tag.id, name:tag.name, color:tag.color, scope:tag.scope, owner_user_id:tag.owner_user_id}];
+      } else {
+        item.product_tags = before.filter(existing => String(existing.id) !== tagId);
+      }
+    });
+    if (data.meta?.summary) {
+      let delta = 0;
+      transitions.forEach((beforeHadTags, id) => {
+        const current = (data.data || []).find(item => String(item.ptypeid || '') === id);
+        const afterHasTags = Boolean(current?.product_tags?.length);
+        if (beforeHadTags !== afterHasTags) delta += afterHasTags ? 1 : -1;
+      });
+      data.meta.summary.tagged_products = Math.max(0, Number(data.meta.summary.tagged_products || 0) + delta);
+    }
+    if (data.meta?.filters) data.meta.filters.product_tags = spotTags;
+  });
+
+  spotSelectedProducts.forEach((product, id) => {
+    if (!ids.has(id)) return;
+    const before = Array.isArray(product.product_tags) ? product.product_tags : [];
+    product.product_tags = action === 'add'
+      ? (before.some(existing => String(existing.id) === tagId) ? before : [...before, {...tag}])
+      : before.filter(existing => String(existing.id) !== tagId);
+  });
+
+  spotQueryCache.forEach((entry, queryKey) => {
+    const params = new URLSearchParams(queryKey);
+    if (params.get('tag_ids') || params.get('tagged') !== 'all') spotQueryCache.delete(queryKey);
+  });
+  [...spotVisibleItems.keys()].forEach(renderSpotProductTagCells);
+  renderSpotTagFilterOptions();
+  renderSpotTagManagerList();
+}
+
+async function applySpotBulkProductTag(action, button) {
+  const toolbar = button.closest('.spot-bulk-toolbar');
+  const status = toolbar?.querySelector('[data-spot-bulk-status]');
+  const tagId = toolbar?.querySelector('[data-spot-bulk-tag]')?.value || '';
+  const tag = spotTags.find(item => String(item.id) === tagId);
+  const productIds = [...spotSelectedProductIds];
+  if (!tag) {
+    if (status) status.textContent = '请先选择标签';
+    return;
+  }
+  if (!productIds.length) return;
+  if (action === 'remove' && !confirm(`从已选 ${productIds.length} 个商品中移除“${tag.name}”？其他标签不会受影响。`)) return;
+
+  toolbar.querySelectorAll('button, select').forEach(control => { control.disabled = true; });
+  if (status) status.textContent = action === 'add' ? '正在批量添加…' : '正在批量移除…';
+  try {
+    const response = await fetch('/api/catalog/products/tags/bulk', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({erp_product_ids:productIds, tag_id:Number(tag.id), action})
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.detail || '批量标记失败');
+    patchSpotProductTagsBulkLocally(productIds, tag, action, payload.changed_count);
+    clearSpotSelection();
+    rerenderCurrentSpotStock();
+  } catch (error) {
+    if (status) status.textContent = error.message || '批量标记失败';
+    toolbar.querySelectorAll('button, select').forEach(control => { control.disabled = false; });
+  }
+}
+
 async function loadSpotTagDefinitions() {
   const response = await fetch('/api/catalog/tags');
   const payload = await response.json().catch(() => ({}));
@@ -2828,6 +3006,11 @@ function setSpotStockUpdating(updating) {
 function renderSpotStockResult(data, queryKey=spotCurrentQueryKey) {
   const target = document.getElementById('spot-stock-app');
   const previousScrollLeft = target.querySelector('.table-responsive')?.scrollLeft || 0;
+  const nextSelectionScopeKey = spotSelectionKey(queryKey);
+  if (spotSelectionScopeKey && spotSelectionScopeKey !== nextSelectionScopeKey) {
+    clearSpotSelection();
+  }
+  spotSelectionScopeKey = nextSelectionScopeKey;
   const items = data.data || [];
   const meta = data.meta || {};
   const summary = meta.summary || {};
@@ -2885,14 +3068,15 @@ function renderSpotStockResult(data, queryKey=spotCurrentQueryKey) {
             ${renderInventoryStatus(latestInventoryStatus)}
           </div>
         </div>
+        ${spotBulkToolbar()}
       </div>
       <div class="table-responsive">
-        <table class="table table-vcenter table-hover table-sm inventory-table spot-query-table mb-0" style="--spot-sticky-image-width:${spotColumnWidth('image')}px;width:${spotTableWidth()}px">
+        <table class="table table-vcenter table-hover table-sm inventory-table spot-query-table ${spotCanBulkManageTags() ? 'has-bulk-select' : ''} mb-0" style="--spot-selection-width:44px;--spot-sticky-image-width:${spotColumnWidth('image')}px;width:${spotTableWidth()}px">
           ${spotColgroup()}
           <thead><tr>
             ${spotTableHeaders()}
           </tr></thead>
-          <tbody>${items.map(spotTableRow).join('') || `<tr><td colspan="${activeSpotColumns().length}" class="text-secondary p-3">没有匹配的${spotState.viewMode === 'product' ? '商品' : 'SKU'}</td></tr>`}</tbody>
+          <tbody>${items.map(spotTableRow).join('') || `<tr><td colspan="${activeSpotColumns().length + (spotCanBulkManageTags() ? 1 : 0)}" class="text-secondary p-3">没有匹配的${spotState.viewMode === 'product' ? '商品' : 'SKU'}</td></tr>`}</tbody>
         </table>
       </div>
       <div class="card-footer d-flex align-items-center gap-2 flex-wrap">
@@ -2903,6 +3087,12 @@ function renderSpotStockResult(data, queryKey=spotCurrentQueryKey) {
         </div>
       </div>
     </div>`;
+  const selectPage = target.querySelector('[data-spot-select-page]');
+  if (selectPage) {
+    const pageProducts = spotPageProducts();
+    const selectedCount = pageProducts.filter(item => spotSelectedProductIds.has(String(item.ptypeid || ''))).length;
+    selectPage.indeterminate = selectedCount > 0 && selectedCount < pageProducts.length;
+  }
   const scroller = target.querySelector('.table-responsive');
   if (scroller) scroller.scrollLeft = previousScrollLeft;
   setSpotStockUpdating(false);
@@ -3528,6 +3718,20 @@ document.getElementById('spot-stock-app').addEventListener('focusin', event => {
 });
 
 document.getElementById('spot-stock-app').addEventListener('change', event => {
+  const selectPage = event.target.closest('[data-spot-select-page]');
+  if (selectPage) {
+    spotPageProducts().forEach(item => setSpotProductSelected(item, selectPage.checked));
+    rerenderCurrentSpotStock();
+    return;
+  }
+  const selectProduct = event.target.closest('[data-spot-select-product]');
+  if (selectProduct) {
+    const id = String(selectProduct.dataset.spotSelectProduct || '');
+    const item = (spotCurrentResult?.data || []).find(candidate => String(candidate.ptypeid || '') === id);
+    if (item) setSpotProductSelected(item, selectProduct.checked);
+    rerenderCurrentSpotStock();
+    return;
+  }
   const input = event.target.closest('[data-product-discount-input]');
   if (input) saveSpotProductDiscount(input);
 });
@@ -3548,6 +3752,16 @@ document.getElementById('spot-stock-app').addEventListener('keydown', event => {
 });
 
 document.getElementById('spot-stock-app').addEventListener('click', event => {
+  const clearSelection = event.target.closest('[data-spot-selection-clear]');
+  if (clearSelection) {
+    clearSpotSelection({rerender:true});
+    return;
+  }
+  const bulkAction = event.target.closest('[data-spot-bulk-action]');
+  if (bulkAction) {
+    applySpotBulkProductTag(bulkAction.dataset.spotBulkAction, bulkAction);
+    return;
+  }
   const tagButton = event.target.closest('[data-product-tag-edit]');
   if (tagButton) {
     const item = spotVisibleItems.get(String(tagButton.dataset.erpProductId || ''));
