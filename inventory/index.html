@@ -271,6 +271,7 @@
     border:1px solid #d9dce1; border-radius:5px; background:#fff; cursor:pointer;
   }
   .spot-scope-choice label:has(input:checked) { border-color:#206bc4; background:#eff6ff; box-shadow:0 0 0 .12rem rgba(32,107,196,.1); }
+  .spot-scope-choice label.is-disabled { cursor:not-allowed; opacity:.58; background:#f8fafc; }
   .spot-column-order-list { display:grid; gap:.45rem; }
   .spot-column-order-row { display:flex; align-items:center; gap:.65rem; min-height:44px; padding:.4rem .5rem; border:1px solid #edf0f2; border-radius:4px; background:#f8fafc; }
   .spot-column-order-row .spot-column-label { flex:1 1 auto; min-width:0; white-space:normal; }
@@ -802,7 +803,7 @@
       <button class="btn btn-icon btn-ghost-secondary" value="cancel" aria-label="关闭商品标记"><i class="ti ti-x"></i></button>
     </div>
     <div id="spot-product-tags-options" class="spot-tag-dialog-list"></div>
-    <div id="spot-product-tags-error" class="text-danger small mt-2" aria-live="polite"></div>
+    <div id="spot-product-tags-error" class="small mt-2" aria-live="polite"></div>
     <div class="d-flex justify-content-between gap-2 mt-3">
       <button class="btn btn-outline-secondary" type="button" data-product-tags-manage><i class="ti ti-tags me-1"></i>管理标签</button>
       <div class="d-flex gap-2">
@@ -825,16 +826,17 @@
     <div class="spot-tag-editor mb-3">
       <label class="form-label" for="spot-tag-name">标签名称</label>
       <input id="spot-tag-name" class="form-control" maxlength="30" placeholder="例如：重点关注">
-      <div id="spot-tag-scope-field" class="mt-2 d-none">
+      <div id="spot-tag-scope-field" class="mt-2">
         <div class="form-label mb-1">保存到</div>
         <div class="spot-scope-choice">
           <label><input class="form-check-input m-0" type="radio" name="spot-tag-scope" value="personal" checked><i class="ti ti-user"></i><span>个人标签</span></label>
           <label><input class="form-check-input m-0" type="radio" name="spot-tag-scope" value="team"><i class="ti ti-users"></i><span>团队标签</span></label>
         </div>
+        <div id="spot-tag-scope-hint" class="text-secondary small mt-1"></div>
       </div>
       <div class="form-label mt-2 mb-1">颜色</div>
       <div id="spot-tag-color-grid" class="spot-tag-color-grid"></div>
-      <div id="spot-tag-manager-error" class="text-danger small mt-2" aria-live="polite"></div>
+      <div id="spot-tag-manager-error" class="small mt-2" aria-live="polite"></div>
       <div class="d-flex justify-content-end gap-2 mt-2">
         <button id="spot-tag-edit-cancel" class="btn btn-sm btn-outline-secondary d-none" type="button">取消编辑</button>
         <button id="spot-tag-save" class="btn btn-sm btn-primary" type="button"><i class="ti ti-plus me-1"></i>新增标签</button>
@@ -897,6 +899,7 @@ let spotTagEditingId = null;
 let spotTagSelectedColor = 'blue';
 let spotTagSelectedScope = 'personal';
 let spotCanManageTeamTags = false;
+let spotTagLoadSequence = 0;
 let spotSelectionScopeKey = '';
 const spotSelectedProductIds = new Set();
 const spotSelectedProducts = new Map();
@@ -2382,13 +2385,50 @@ function renderSpotTagManagerList() {
   }).join('') : '<div class="text-secondary text-center py-3">还没有标签，请先新增一个。</div>';
 }
 
+function setSpotTagManagerStatus(message='', tone='danger') {
+  const target = document.getElementById('spot-tag-manager-error');
+  target.className = `small mt-2 ${message ? `text-${tone}` : ''}`;
+  target.textContent = message;
+}
+
+function setSpotProductTagStatus(message='', tone='danger') {
+  const target = document.getElementById('spot-product-tags-error');
+  target.className = `small mt-2 ${message ? `text-${tone}` : ''}`;
+  target.textContent = message;
+}
+
+function mergeSpotTagDefinition(rawTag) {
+  if (!rawTag || !Number.isSafeInteger(Number(rawTag.id))) return null;
+  const tag = {...rawTag, id:Number(rawTag.id), scope:rawTag.scope === 'personal' ? 'personal' : 'team'};
+  const existing = spotTags.findIndex(item => String(item.id) === String(tag.id));
+  if (existing >= 0) spotTags[existing] = tag;
+  else spotTags.push(tag);
+  spotTags.sort((left, right) => {
+    const scopeOrder = Number(left.scope === 'team') - Number(right.scope === 'team');
+    return scopeOrder
+      || Number(left.sort_order || 0) - Number(right.sort_order || 0)
+      || String(left.name || '').localeCompare(String(right.name || ''), 'zh-CN')
+      || Number(left.id) - Number(right.id);
+  });
+  reconcileSpotTagDefinitions();
+  renderSpotTagFilterOptions();
+  renderSpotTagManagerList();
+  if (spotTagEditorProduct) renderSpotProductTagOptions();
+  return tag;
+}
+
 function renderSpotTagScopeControl() {
   const field = document.getElementById('spot-tag-scope-field');
-  field.classList.toggle('d-none', !spotCanManageTeamTags);
+  field.classList.remove('d-none');
+  if (!spotCanManageTeamTags && spotTagSelectedScope === 'team') spotTagSelectedScope = 'personal';
   field.querySelectorAll('input').forEach(input => {
     input.checked = input.value === spotTagSelectedScope;
-    input.disabled = Boolean(spotTagEditingId);
+    input.disabled = Boolean(spotTagEditingId) || (input.value === 'team' && !spotCanManageTeamTags);
+    input.closest('label')?.classList.toggle('is-disabled', input.disabled);
   });
+  document.getElementById('spot-tag-scope-hint').textContent = spotCanManageTeamTags
+    ? '团队标签会立即对所有账号显示；个人标签只对自己显示。'
+    : '团队标签对所有账号可见，但只有管理员能新建或修改；你可以新建个人标签。';
 }
 
 function resetSpotTagEditor() {
@@ -2396,7 +2436,7 @@ function resetSpotTagEditor() {
   spotTagSelectedColor = 'blue';
   spotTagSelectedScope = 'personal';
   document.getElementById('spot-tag-name').value = '';
-  document.getElementById('spot-tag-manager-error').textContent = '';
+  setSpotTagManagerStatus();
   document.getElementById('spot-tag-edit-cancel').classList.add('d-none');
   document.getElementById('spot-tag-save').innerHTML = '<i class="ti ti-plus me-1"></i>新增标签';
   renderSpotTagColorGrid();
@@ -2425,9 +2465,12 @@ function renderSpotProductTagOptions() {
 function openSpotProductTagDialog(item) {
   spotTagEditorProduct = item;
   document.getElementById('spot-product-tags-title').textContent = `${item.product_code || '未命名商品'}${item.product_name && item.product_name !== item.product_code ? ` · ${item.product_name}` : ''}`;
-  document.getElementById('spot-product-tags-error').textContent = '';
+  setSpotProductTagStatus('正在同步最新标签…', 'secondary');
   renderSpotProductTagOptions();
   document.getElementById('spot-product-tags-dialog').showModal();
+  loadSpotTagDefinitions()
+    .then(() => setSpotProductTagStatus())
+    .catch(error => setSpotProductTagStatus(`标签列表同步失败，暂时显示上一次结果：${error.message}`, 'warning'));
 }
 
 function openSpotTagManager() {
@@ -2437,7 +2480,16 @@ function openSpotTagManager() {
   resetSpotTagEditor();
   renderSpotTagManagerList();
   document.getElementById('spot-tag-manager-dialog').showModal();
-  setTimeout(() => document.getElementById('spot-tag-name').focus(), 0);
+  const saveButton = document.getElementById('spot-tag-save');
+  saveButton.disabled = true;
+  setSpotTagManagerStatus('正在同步最新标签…', 'secondary');
+  loadSpotTagDefinitions()
+    .then(() => {
+      setSpotTagManagerStatus();
+      document.getElementById('spot-tag-name').focus();
+    })
+    .catch(error => setSpotTagManagerStatus(`同步失败，暂时显示上一次结果：${error.message}`, 'warning'))
+    .finally(() => { saveButton.disabled = false; });
 }
 
 function spotResultDatasets() {
@@ -2743,15 +2795,19 @@ async function applySpotBulkProductTag(action, button) {
 }
 
 async function loadSpotTagDefinitions() {
+  const sequence = ++spotTagLoadSequence;
   const response = await fetch('/api/catalog/tags');
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(payload.detail || `HTTP ${response.status}`);
+  if (sequence !== spotTagLoadSequence) return false;
   spotTags = Array.isArray(payload.tags) ? payload.tags.map(tag => ({...tag, scope:tag.scope === 'personal' ? 'personal' : 'team'})) : [];
   spotCanManageTeamTags = payload.can_manage_team === true;
   reconcileSpotTagDefinitions();
   renderSpotTagFilterOptions();
   renderSpotTagManagerList();
   if (spotTagEditorProduct) renderSpotProductTagOptions();
+  renderSpotTagScopeControl();
+  return true;
 }
 
 document.addEventListener('click', event => {
@@ -2780,13 +2836,13 @@ document.getElementById('spot-tag-edit-cancel').addEventListener('click', resetS
 document.getElementById('spot-tag-save').addEventListener('click', async event => {
   const button = event.currentTarget;
   const name = document.getElementById('spot-tag-name').value.trim();
-  const errorTarget = document.getElementById('spot-tag-manager-error');
   if (!name) {
-    errorTarget.textContent = '请输入标签名称';
+    setSpotTagManagerStatus('请输入标签名称');
     return;
   }
   button.disabled = true;
-  errorTarget.textContent = '';
+  setSpotTagManagerStatus('正在保存到云端…', 'secondary');
+  const requestedScope = spotTagEditingId ? spotTagSelectedScope : (spotTagSelectedScope === 'team' ? 'team' : 'personal');
   try {
     const response = await fetch(spotTagEditingId ? `/api/catalog/tags/${spotTagEditingId}` : '/api/catalog/tags', {
       method: spotTagEditingId ? 'PATCH' : 'POST',
@@ -2795,10 +2851,30 @@ document.getElementById('spot-tag-save').addEventListener('click', async event =
     });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(payload.detail || '标签保存失败');
-    await loadSpotTagDefinitions();
+    mergeSpotTagDefinition(payload.tag);
     resetSpotTagEditor();
+    setSpotTagManagerStatus('已保存到云端', 'success');
+    loadSpotTagDefinitions().catch(error => {
+      setSpotTagManagerStatus(`已保存到云端，列表同步稍后重试：${error.message}`, 'warning');
+    });
   } catch (error) {
-    errorTarget.textContent = error.message;
+    // POST may have reached the database even if its response was interrupted.
+    // Re-read once before reporting failure so retrying cannot create confusion.
+    let recovered = false;
+    if (!spotTagEditingId) {
+      try {
+        await loadSpotTagDefinitions();
+        recovered = spotTags.some(tag => tag.scope === requestedScope && String(tag.name).trim().toLocaleLowerCase() === name.toLocaleLowerCase());
+      } catch (_) {
+        // Keep the original error when the verification read also fails.
+      }
+    }
+    if (recovered) {
+      resetSpotTagEditor();
+      setSpotTagManagerStatus('标签已写入云端，已重新同步', 'success');
+    } else {
+      setSpotTagManagerStatus(error.message || '标签保存失败');
+    }
   } finally {
     button.disabled = false;
   }
@@ -2813,7 +2889,7 @@ document.getElementById('spot-tag-manager-list').addEventListener('click', async
     spotTagSelectedColor = spotTagColorKeys.has(tag.color) ? tag.color : 'blue';
     spotTagSelectedScope = tag.scope === 'team' ? 'team' : 'personal';
     document.getElementById('spot-tag-name').value = tag.name;
-    document.getElementById('spot-tag-manager-error').textContent = '';
+    setSpotTagManagerStatus();
     document.getElementById('spot-tag-edit-cancel').classList.remove('d-none');
     document.getElementById('spot-tag-save').innerHTML = '<i class="ti ti-check me-1"></i>保存修改';
     renderSpotTagColorGrid();
@@ -2829,7 +2905,7 @@ document.getElementById('spot-tag-manager-list').addEventListener('click', async
   const response = await fetch(`/api/catalog/tags/${tag.id}`, {method: 'DELETE'});
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
-    document.getElementById('spot-tag-manager-error').textContent = payload.detail || '标签停用失败';
+    setSpotTagManagerStatus(payload.detail || '标签停用失败');
     archiveButton.disabled = false;
     return;
   }
@@ -2839,39 +2915,77 @@ document.getElementById('spot-tag-manager-list').addEventListener('click', async
   await refreshSpotStock();
 });
 
+async function saveSpotProductTagDelta(product, addTagIds, removeTagIds) {
+  let lastError = null;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15 * 1000);
+    try {
+      const response = await fetch(`/api/catalog/products/${encodeURIComponent(product.ptypeid)}/tags`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({add_tag_ids:addTagIds, remove_tag_ids:removeTagIds}),
+        signal: controller.signal
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        const error = new Error(payload.detail || `保存失败（HTTP ${response.status}）`);
+        error.retryable = [502, 503, 504].includes(response.status);
+        throw error;
+      }
+      if (!Array.isArray(payload.tags)) {
+        const error = new Error('服务器没有返回已保存的标签，请重试');
+        error.retryable = true;
+        throw error;
+      }
+      const returnedIds = new Set(payload.tags.map(tag => Number(tag.id)));
+      if (addTagIds.some(id => !returnedIds.has(id)) || removeTagIds.some(id => returnedIds.has(id))) {
+        const error = new Error('服务器未确认全部标签变更，请重试');
+        error.retryable = true;
+        throw error;
+      }
+      return payload;
+    } catch (error) {
+      lastError = error;
+      if (attempt > 0 || error.retryable === false) throw error;
+      await new Promise(resolve => setTimeout(resolve, 300));
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+  throw lastError || new Error('商品标记保存失败');
+}
+
 document.getElementById('spot-product-tags-save').addEventListener('click', async event => {
   if (!spotTagEditorProduct) return;
   const button = event.currentTarget;
   const selected = [...document.querySelectorAll('#spot-product-tags-options input:checked')].map(input => Number(input.value));
   const product = spotTagEditorProduct;
   const previousTags = (product.product_tags || []).map(tag => ({id: tag.id, name: tag.name, color: tag.color, scope: tag.scope, owner_user_id: tag.owner_user_id}));
-  const nextTags = selected.map(id => spotTags.find(tag => Number(tag.id) === id)).filter(Boolean)
-    .map(tag => ({id: tag.id, name: tag.name, color: tag.color, scope: tag.scope, owner_user_id: tag.owner_user_id}));
-  const errorTarget = document.getElementById('spot-product-tags-error');
+  const previousIds = new Set(previousTags.map(tag => Number(tag.id)));
+  const selectedIds = new Set(selected);
+  const addTagIds = selected.filter(id => !previousIds.has(id));
+  const removeTagIds = [...previousIds].filter(id => !selectedIds.has(id));
+  if (!addTagIds.length && !removeTagIds.length) {
+    document.getElementById('spot-product-tags-dialog').close();
+    spotTagEditorProduct = null;
+    return;
+  }
   button.disabled = true;
-  errorTarget.textContent = '';
-  patchSpotProductTagsLocally(product.ptypeid, previousTags, nextTags);
-  document.getElementById('spot-product-tags-dialog').close();
-  spotTagEditorProduct = null;
+  const originalButtonHtml = button.innerHTML;
+  button.innerHTML = '<span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>正在保存';
+  setSpotProductTagStatus('正在写入云端并确认…', 'secondary');
   try {
-    const response = await fetch(`/api/catalog/products/${encodeURIComponent(product.ptypeid)}/tags`, {
-      method: 'PUT',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({tag_ids: selected})
-    });
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(payload.detail || '商品标记保存失败');
-    if (Array.isArray(payload.tags)) {
-      patchSpotProductTagsLocally(product.ptypeid, nextTags, payload.tags);
-    }
+    const payload = await saveSpotProductTagDelta(product, addTagIds, removeTagIds);
+    patchSpotProductTagsLocally(product.ptypeid, previousTags, payload.tags);
+    document.getElementById('spot-product-tags-dialog').close();
+    spotTagEditorProduct = null;
+    loadSpotTagDefinitions().catch(() => {});
   } catch (error) {
-    patchSpotProductTagsLocally(product.ptypeid, nextTags, previousTags);
-    spotTagEditorProduct = product;
-    product.product_tags = previousTags;
-    openSpotProductTagDialog(product);
-    errorTarget.textContent = error.message;
+    setSpotProductTagStatus(`${error.message || '保存失败'}；页面未作假更新，请重试。`);
   } finally {
     button.disabled = false;
+    button.innerHTML = originalButtonHtml;
   }
 });
 
@@ -3838,6 +3952,9 @@ async function initializeSpotInventoryPage() {
     }),
     loadSpotPresets(true).catch(error => {
       console.warn('库存查询预设读取失败，继续使用当前配置', error);
+    }),
+    loadSpotTagDefinitions().catch(error => {
+      console.warn('商品标签定义读取失败，打开标签窗口时会再次同步', error);
     })
   ]);
   await refreshSpotStock();
