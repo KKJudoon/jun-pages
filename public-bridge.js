@@ -99,6 +99,7 @@
 
   function pagePermission(pathname) {
     if (pathname.startsWith(`${basePath}/admin/users`)) return 'users.manage';
+    if (pathname.startsWith(`${basePath}/production`)) return 'production.read';
     if (pathname.startsWith(`${basePath}/inventory`)) return 'inventory.read';
     if (pathname.startsWith(`${basePath}/erp/products`)) return 'products.read';
     if (pathname.startsWith(`${basePath}/erp`)) return 'orders.read';
@@ -126,6 +127,7 @@
   }
 
   function navPermission(pathname) {
+    if (pathname.startsWith(`${basePath}/production`)) return 'production.read';
     if (pathname.startsWith(`${basePath}/inventory`)) return 'inventory.read';
     if (pathname.startsWith(`${basePath}/erp/products`)) return 'products.read';
     if (pathname.startsWith(`${basePath}/erp`)) return 'orders.read';

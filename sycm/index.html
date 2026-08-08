@@ -48,9 +48,9 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <script src="/jun-pages/vendor/supabase.js"></script>
-  <script src="/jun-pages/config.js?v=20260805-3"></script>
+  <script src="/jun-pages/config.js?v=20260808-1"></script>
   <script src="/jun-pages/device.js"></script>
-  <script src="/jun-pages/public-bridge.js?v=20260805-3"></script>
+  <script src="/jun-pages/public-bridge.js?v=20260808-1"></script>
 </head>
 <body class="layout-fluid">
   <div class="page">
@@ -86,6 +86,14 @@
               <a class="nav-link " href="/jun-pages/inventory/">
                 <span class="nav-link-icon"><i class="ti ti-building-warehouse"></i></span>
                 <span class="nav-link-title">库存明细</span>
+              </a>
+            </li>
+
+            <li class="nav-section-label">生意中台 · 生产</li>
+            <li class="nav-item">
+              <a class="nav-link" href="/jun-pages/production/">
+                <span class="nav-link-icon"><i class="ti ti-building-factory-2"></i></span>
+                <span class="nav-link-title">生产记工</span>
               </a>
             </li>
 
@@ -609,6 +617,10 @@ loadMonths().then(() => loadProducts());
       <a href="/jun-pages/inventory/" class="tab-item ">
         <i class="ti ti-building-warehouse"></i>
         <span>库存</span>
+      </a>
+      <a href="/jun-pages/production/" class="tab-item">
+        <i class="ti ti-building-factory-2"></i>
+        <span>生产</span>
       </a>
     </div>
   </nav>
