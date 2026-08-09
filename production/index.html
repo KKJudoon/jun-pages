@@ -23,6 +23,12 @@
     .production-search { flex:1 1 15rem; min-width:12rem; }
     .production-filter { flex:0 1 10rem; min-width:8rem; }
     .production-actions { display:flex; gap:.45rem; margin-left:auto; flex-wrap:wrap; }
+    .production-data-tools { display:flex; width:100%; align-items:end; gap:.6rem; flex-wrap:wrap; padding:.7rem; border:1px solid var(--production-border); border-radius:6px; background:#f7f8fa; }
+    .production-data-tools .production-search { flex:1 1 14rem; }
+    .production-data-tools .production-filter { flex:1 1 9rem; max-width:12rem; }
+    .production-data-tools-actions { display:flex; align-items:end; gap:.45rem; margin-left:auto; }
+    .production-sort-direction { width:40px; height:40px; padding:0; }
+    .production-filter-summary { width:100%; color:var(--production-muted); font-size:.72rem; }
     .production-view-switch { display:inline-grid; grid-template-columns:repeat(6,auto); padding:3px; border:1px solid var(--production-border); border-radius:5px; background:#f4f6f8; }
     .production-view-switch .btn { min-width:5.8rem; border:0; }
     .production-view-switch .btn.active { color:#fff; background:#206bc4; }
@@ -62,12 +68,16 @@
     .production-formula { display:block; margin-top:.12rem; color:var(--production-muted); font-size:.7rem; line-height:1.35; }
     .production-profit { font-size:1.4rem; font-weight:700; font-variant-numeric:tabular-nums; }
     .production-finance-kpis { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.75rem; margin-bottom:1rem; }
-    .production-finance-kpi { min-width:0; padding:.8rem .9rem; border:1px solid var(--production-border); border-radius:6px; background:#fff; }
+    .production-finance-kpi { min-width:0; padding:.8rem .9rem; border:1px solid var(--production-border); border-radius:6px; color:inherit; background:#fff; }
+    button.production-finance-kpi:hover { border-color:#8fb5df; background:#f8fbff; }
     .production-finance-kpi span { display:block; color:var(--production-muted); font-size:.72rem; }
     .production-finance-kpi strong { display:block; margin-top:.18rem; overflow-wrap:anywhere; font-size:1.18rem; font-variant-numeric:tabular-nums; }
     .production-ledger { margin:0; padding:0; list-style:none; }
     .production-ledger li { display:grid; grid-template-columns:minmax(8rem,1fr) auto; gap:.25rem .75rem; align-items:center; padding:.62rem .9rem; border-bottom:1px solid var(--production-border); }
     .production-ledger li:last-child { border-bottom:0; }
+    .production-ledger-button { display:grid; width:100%; grid-template-columns:minmax(8rem,1fr) auto; gap:.25rem .75rem; align-items:center; padding:0; border:0; color:inherit; background:transparent; text-align:left; }
+    .production-ledger-button:hover strong { color:#206bc4; text-decoration:underline; text-underline-offset:3px; }
+    .production-ledger-button .production-ledger-formula { grid-column:1 / -1; }
     .production-ledger .production-ledger-formula { grid-column:1 / -1; color:var(--production-muted); font-size:.7rem; line-height:1.35; }
     .production-ledger-total { font-weight:700; background:#f7f8fa; }
     .production-claim-list { border:1px solid var(--production-border); border-radius:6px; background:#fff; }
@@ -117,6 +127,18 @@
     .production-diff th, .production-diff td { padding:.5rem .55rem; border-bottom:1px solid var(--production-border); text-align:left; vertical-align:top; }
     .production-diff th { width:9rem; color:var(--production-muted); font-size:.72rem; }
     .production-diff td { overflow-wrap:anywhere; }
+    .production-column-list { display:grid; gap:.45rem; }
+    .production-column-row { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:.75rem; padding:.55rem .65rem; border:1px solid var(--production-border); border-radius:5px; background:#fff; }
+    .production-column-row .form-check { margin:0; }
+    .production-column-moves { display:flex; gap:.25rem; }
+    .production-trace-formula { padding:.7rem .8rem; border:1px solid #dce6f5; border-radius:5px; color:#344054; background:#f5f8fc; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.76rem; }
+    .production-trace-components { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.55rem; margin-top:.8rem; }
+    .production-trace-component { padding:.55rem .65rem; border:1px solid var(--production-border); border-radius:5px; background:#fff; }
+    .production-trace-component span { display:block; color:var(--production-muted); font-size:.68rem; }
+    .production-trace-component strong { display:block; margin-top:.12rem; font-variant-numeric:tabular-nums; }
+    .production-trace-table { width:100%; margin-top:.9rem; border-collapse:collapse; }
+    .production-trace-table th, .production-trace-table td { padding:.45rem .5rem; border-bottom:1px solid var(--production-border); vertical-align:top; }
+    .production-trace-table th { color:var(--production-muted); background:#f7f8fa; font-size:.7rem; text-align:left; }
     .production-alert { min-height:22px; margin:.5rem 0 0; }
     .bottom-tab-bar { display:none; position:fixed; right:0; bottom:0; left:0; z-index:1050; padding:4px 0 env(safe-area-inset-bottom,4px); border-top:1px solid #e6e8eb; background:#fff; }
     .bottom-tab-bar .tab-items { display:flex; align-items:center; justify-content:space-around; }
@@ -151,6 +173,9 @@
       .production-filter { flex:1 1 calc(50% - .4rem); }
       .production-actions { width:100%; margin-left:0; }
       .production-actions .btn { flex:1 1 auto; }
+      .production-data-tools .production-filter { max-width:none; flex-basis:calc(50% - .4rem); }
+      .production-data-tools-actions { width:100%; margin-left:0; }
+      .production-data-tools-actions .btn:not(.production-sort-direction) { flex:1 1 auto; }
       .production-stat-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
       .production-request { grid-template-columns:1fr; gap:.6rem; }
       .production-request > :nth-child(2) { grid-column:auto; }
@@ -165,6 +190,7 @@
       .production-counterparty { grid-template-columns:1fr; }
       .production-counterparty > :nth-child(3) { grid-column:auto; }
       .production-attachment-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .production-trace-components { grid-template-columns:1fr; }
     }
   </style>
   <link rel="stylesheet" href="/jun-pages/auth-gate.css">
@@ -221,19 +247,34 @@
             <div class="production-view-switch" role="tablist" aria-label="生产记工视图">
               <button class="btn btn-sm active" type="button" data-production-view="lines"><i class="ti ti-list-details me-1"></i>记工</button>
               <button class="btn btn-sm" type="button" data-production-view="requests"><i class="ti ti-checklist me-1"></i>审批</button>
-              <button class="btn btn-sm" type="button" data-production-view="wages"><i class="ti ti-users me-1"></i>工资</button>
               <button class="btn btn-sm" type="button" data-production-view="outsourcing"><i class="ti ti-truck-delivery me-1"></i>外发结算</button>
               <button class="btn btn-sm" type="button" data-production-view="processing"><i class="ti ti-arrows-exchange me-1"></i>外加工</button>
+              <button class="btn btn-sm" type="button" data-production-view="wages"><i class="ti ti-users me-1"></i>工资</button>
               <button class="btn btn-sm" type="button" data-production-view="finance"><i class="ti ti-calculator me-1"></i>收支</button>
             </div>
-            <label class="production-search" data-production-line-filter><span class="form-label">搜索</span><div class="input-icon"><span class="input-icon-addon"><i class="ti ti-search"></i></span><input id="production-search" class="form-control" type="search" placeholder="款号、往来单位、申请编号"/></div></label>
-            <label class="production-filter" data-production-lines-only><span class="form-label">往来单位</span><select id="production-worker" class="form-select"><option value="">全部</option></select></label>
+            <div id="production-data-tools" class="production-data-tools" hidden>
+              <label class="production-search"><span class="form-label">搜索</span><div class="input-icon"><span class="input-icon-addon"><i class="ti ti-search"></i></span><input id="production-search" class="form-control" type="search" placeholder="搜索当前表格"/></div></label>
+              <label class="production-filter" data-production-filter="counterparty"><span class="form-label">往来单位</span><select id="production-worker" class="form-select"><option value="">全部</option></select></label>
+              <label class="production-filter" data-production-filter="type"><span class="form-label">类型</span><select id="production-type-filter" class="form-select"><option value="">全部</option></select></label>
+              <label class="production-filter" data-production-filter="attribution"><span class="form-label">产值归属</span><select id="production-attribution-filter" class="form-select"><option value="">全部</option></select></label>
+              <label class="production-filter" data-production-filter="change"><span class="form-label">变更</span><select id="production-change-filter" class="form-select"><option value="">全部</option><option value="pending">待审批</option><option value="approved">已变更</option><option value="original">原始记录</option></select></label>
+              <label class="production-filter" data-production-filter="calculation"><span class="form-label">计算状态</span><select id="production-calculation-filter" class="form-select"><option value="">全部</option><option value="included">计入</option><option value="excluded">不计入</option></select></label>
+              <label class="production-filter"><span class="form-label">排序</span><select id="production-sort-by" class="form-select"></select></label>
+              <div class="production-data-tools-actions">
+                <button id="production-sort-direction" class="btn btn-outline-secondary production-sort-direction" type="button" title="切换升降序" aria-label="切换升降序"><i class="ti ti-sort-ascending"></i></button>
+                <button id="production-columns" class="btn btn-outline-secondary" type="button"><i class="ti ti-columns-3 me-1"></i>列配置</button>
+                <button id="production-filter-reset" class="btn btn-outline-secondary" type="button"><i class="ti ti-filter-off me-1"></i>重置</button>
+              </div>
+              <div id="production-filter-summary" class="production-filter-summary"></div>
+            </div>
+            <label class="production-search" data-production-request-filter hidden><span class="form-label">搜索</span><div class="input-icon"><span class="input-icon-addon"><i class="ti ti-search"></i></span><input id="production-request-search" class="form-control" type="search" placeholder="申请编号、申请人、内容"/></div></label>
             <label class="production-filter" data-production-request-filter hidden><span class="form-label">申请状态</span><select id="production-request-filter" class="form-select"><option value="">全部</option><option value="pending">待审批</option><option value="approved">已批准</option><option value="rejected">已驳回</option><option value="cancelled">已撤回</option></select></label>
             <label class="production-filter" data-production-request-filter hidden><span class="form-label">时间顺序</span><select id="production-request-order" class="form-select"><option value="desc">最新在前</option><option value="asc">最早在前</option></select></label>
             <div class="production-actions">
               <button id="production-export" class="btn btn-outline-secondary" type="button"><i class="ti ti-download me-1"></i>导出</button>
               <button id="production-counterparties" class="btn btn-outline-secondary" type="button" hidden><i class="ti ti-adjustments-horizontal me-1"></i>核算范围</button>
               <button id="production-expense-add" class="btn btn-primary" type="button" hidden><i class="ti ti-receipt-2 me-1"></i>费用申报</button>
+              <button id="production-wage-add" class="btn btn-primary" type="button" hidden><i class="ti ti-plus me-1"></i>新增工资审批</button>
               <button id="production-auxiliary-add" class="btn btn-primary" type="button" hidden><i class="ti ti-plus me-1"></i><span>新增申请</span></button>
               <button id="production-finance-edit" class="btn btn-outline-primary" type="button" hidden><i class="ti ti-adjustments me-1"></i>核算参数</button>
               <button id="production-add" class="btn btn-primary" type="button" hidden><i class="ti ti-plus me-1"></i>新增计工申请</button>
@@ -436,11 +477,33 @@
     </div>
   </dialog>
 
+  <dialog id="production-column-dialog" class="production-dialog production-dialog-sm">
+    <div class="production-dialog-shell">
+      <div class="production-dialog-head"><div><h3 class="m-0 fs-3">列配置</h3><div class="text-secondary small">选择显示列并调整顺序，设置仅保存在当前设备</div></div><button class="btn-close" type="button" data-production-close="production-column-dialog" aria-label="关闭"></button></div>
+      <div class="production-dialog-body"><div id="production-column-options" class="production-column-list"></div></div>
+      <div class="production-dialog-actions"><button id="production-column-reset" class="btn btn-outline-secondary" type="button">恢复默认</button><button id="production-column-apply" class="btn btn-primary" type="button">应用</button></div>
+    </div>
+  </dialog>
+
+  <dialog id="production-wage-picker" class="production-dialog production-dialog-sm">
+    <div class="production-dialog-shell">
+      <div class="production-dialog-head"><div><h3 class="m-0 fs-3">新增工资审批</h3><div class="text-secondary small">选择员工后填写计件工资以外的调整项</div></div><button class="btn-close" type="button" data-production-close="production-wage-picker" aria-label="关闭"></button></div>
+      <div id="production-wage-picker-list" class="production-dialog-body"></div>
+    </div>
+  </dialog>
+
+  <dialog id="production-trace-dialog" class="production-dialog">
+    <div class="production-dialog-shell">
+      <div class="production-dialog-head"><div><h3 id="production-trace-title" class="m-0 fs-3">计算核验</h3><div id="production-trace-result" class="text-secondary small"></div></div><button class="btn-close" type="button" data-production-close="production-trace-dialog" aria-label="关闭"></button></div>
+      <div id="production-trace-body" class="production-dialog-body"></div>
+    </div>
+  </dialog>
+
   <nav class="bottom-tab-bar"><div class="tab-items"><a href="/jun-pages/" class="tab-item"><i class="ti ti-dashboard"></i><span>运营</span></a><a href="/jun-pages/erp/" class="tab-item"><i class="ti ti-clipboard-check"></i><span>审核</span></a><a href="/jun-pages/erp/products/" class="tab-item"><i class="ti ti-shirt"></i><span>档案</span></a><a href="/jun-pages/inventory/" class="tab-item"><i class="ti ti-building-warehouse"></i><span>库存</span></a><a href="/jun-pages/production/" class="tab-item active"><i class="ti ti-building-factory-2"></i><span>生产</span></a></div></nav>
 
   <script src="/jun-pages/vendor/tabler.min.js"></script>
   <script>
-  const productionState={months:[],data:null,view:'lines',search:'',worker:'',requestStatus:'pending',requestOrder:'desc',showExcluded:localStorage.getItem('production.showExcluded')==='true',editingLine:null,detailRequest:null,detailExpense:null,editingWage:null,detailWage:null,editingAuxiliary:null,detailAuxiliary:null,pendingImages:[]};
+  const productionState={months:[],data:null,view:'lines',search:'',worker:'',type:'',attribution:'',change:'',calculation:'',sortBy:'date',sortDirection:'asc',requestStatus:'pending',requestOrder:'desc',showExcluded:localStorage.getItem('production.showExcluded')==='true',editingLine:null,detailRequest:null,detailExpense:null,editingWage:null,detailWage:null,editingAuxiliary:null,detailAuxiliary:null,pendingImages:[],columnDraft:null};
   const productionStatusLabels={open:['编辑中','bg-blue-lt'],finalized:['已定稿','bg-orange-lt'],verified:['已核验','bg-green-lt']};
   const productionRequestLabels={pending:['待审批','bg-yellow-lt'],approved:['已批准','bg-green-lt'],rejected:['已驳回','bg-red-lt'],cancelled:['已撤回','bg-secondary-lt'],not_required:['原始记录','bg-secondary-lt']};
   const productionReasonConfig={
@@ -458,6 +521,16 @@
   const productionWageFields=['output_bonus','meal_allowance','seniority_benefit','quality_bonus','paid_leave_benefit','other_amount'];
   const productionAuxiliaryLabels={outsourcing:'外发结算',external_processing:'外加工'};
   const productionAuxiliaryFieldLabels={contractor_name:'姓名',goods_value:'货值',paid_amount:'实付金额',own_cutting_goods_value:'自己裁剪的货值',goods_value_ratio:'货值比',product_code:'商品编号',quantity:'数量',unit_price:'单价',revenue:'加工收入',cutting_unit_price:'裁剪单价',cutting_amount:'裁剪金额',packaging_unit_price:'包装定扣单价',packaging_amount:'包装定扣金额',external_cost:'附加成本合计',note:'业务备注'};
+  const productionSortOptions={
+    lines:[['date','日期'],['amount','金额'],['unit_price','单价'],['quantity','数量']],
+    processing:[['date','日期'],['amount','金额'],['unit_price','单价'],['quantity','数量']],
+    outsourcing:[['date','日期'],['amount','货值'],['paid_amount','实付金额'],['ratio','货值比']]
+  };
+  const productionColumns={
+    lines:[['row','行',false],['date','日期'],['product','商品',false],['quantity','数量'],['unit_price','单价'],['supplement','补价'],['amount','金额'],['counterparty','往来单位'],['type','类型'],['attribution','产值归属'],['change','变更'],['calculation','计算状态'],['action','操作',false]],
+    outsourcing:[['contractor','姓名',false],['goods_value','货值'],['paid_amount','实付金额'],['own_cutting','自己裁剪的货值'],['ratio','货值比'],['note','备注'],['action','操作',false]],
+    processing:[['product_code','商品编号',false],['quantity','数量'],['unit_price','单价'],['revenue','加工收入'],['cutting_unit_price','裁剪单价'],['cutting_amount','裁剪金额'],['packaging_unit_price','包装定扣单价'],['packaging_amount','包装定扣金额'],['external_cost','成本合计'],['note','备注'],['action','操作',false]]
+  };
   const productionErrorLabels={production_month_locked:'月份已锁定',production_conflict:'数据已变化，请刷新后重新提交',production_placeholder_prices:'仍有待确认工价',production_pending_requests:'仍有待审批记工申请',production_pending_expense_claims:'仍有待审批费用申报',production_pending_wage_requests:'仍有待审批工资调整',production_pending_auxiliary_requests:'仍有待审批外发或外加工申请',production_request_pending_exists:'该记录已有待审批申请',production_attachment_limit:'每份审批最多上传 3 张图片',production_attachment_size_invalid:'图片压缩后仍超过 1MB',production_attachment_type_invalid:'仅支持 JPG、PNG 和 WebP 图片',production_attachment_upload_incomplete:'图片上传未完成，请重试',production_attachment_expired:'该图片上传已失效，请重新选择'};
 
   function productionEscape(value){return String(value??'').replace(/[&<>'"]/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[ch]));}
@@ -469,6 +542,38 @@
   function productionBadge(status){const item=productionRequestLabels[status]||[status||'未知','bg-secondary-lt'];return `<span class="badge ${item[1]}">${item[0]}</span>`;}
   function productionReason(code){return productionReasonConfig[code]?.label||code||'未分类';}
   function productionSortByTime(items){const direction=productionState.requestOrder==='asc'?1:-1;return [...items].sort((a,b)=>direction*(new Date(a.submitted_at||0)-new Date(b.submitted_at||0)));}
+  function productionColumnStorageKey(view){return `production.columns.${view}.v1`;}
+  function productionVisibleColumns(view){
+    const definitions=productionColumns[view]||[];
+    const defaults=definitions.map(item=>item[0]);
+    try{
+      const saved=JSON.parse(localStorage.getItem(productionColumnStorageKey(view))||'null');
+      if(!Array.isArray(saved))return defaults;
+      const valid=saved.filter(key=>defaults.includes(key));
+      definitions.filter(item=>item[2]===false).forEach(item=>{if(!valid.includes(item[0]))valid.push(item[0]);});
+      defaults.forEach(key=>{if(!valid.includes(key)&&definitions.find(item=>item[0]===key)?.[2]===false)valid.push(key);});
+      return valid;
+    }catch{return defaults;}
+  }
+  function productionColumnDefinition(view,key){return (productionColumns[view]||[]).find(item=>item[0]===key);}
+  function productionColumnHeader(view,key){const definition=productionColumnDefinition(view,key);const numeric=['quantity','unit_price','supplement','amount','goods_value','paid_amount','own_cutting','ratio','revenue','cutting_unit_price','cutting_amount','packaging_unit_price','packaging_amount','external_cost'].includes(key);return `<th class="${numeric?'text-end':''}">${productionEscape(definition?.[1]||key)}</th>`;}
+  function productionChangeState(item){if((item.pending_requests||[]).length)return 'pending';if(item.changed)return 'approved';return 'original';}
+  function productionSortValue(item,key,view){
+    if(key==='date')return new Date(item.work_date||item.created_at||0).getTime();
+    if(key==='amount')return Number(view==='outsourcing'?item.goods_value:view==='processing'?item.revenue:item.amount||0);
+    if(key==='paid_amount')return Number(item.paid_amount||0);
+    if(key==='ratio')return Number(item.goods_value_ratio||0);
+    return Number(item[key]||0);
+  }
+  function productionSorted(items,view){const direction=productionState.sortDirection==='asc'?1:-1;return [...items].sort((a,b)=>{const av=productionSortValue(a,productionState.sortBy,view);const bv=productionSortValue(b,productionState.sortBy,view);if(av===bv)return String(a.product_code||a.contractor_name||a.id).localeCompare(String(b.product_code||b.contractor_name||b.id),'zh-CN');return direction*(av-bv);});}
+  function productionActiveFilterCount(){return [productionState.search,productionState.worker,productionState.type,productionState.attribution,productionState.change,productionState.calculation].filter(Boolean).length;}
+  function productionResetDataTools(){productionState.search='';productionState.worker='';productionState.type='';productionState.attribution='';productionState.change='';productionState.calculation='';productionState.sortBy='date';productionState.sortDirection='asc';productionRender();}
+  function productionRenderColumnDialog(){
+    const view=productionState.view;const definitions=productionColumns[view]||[];const selected=productionState.columnDraft||productionVisibleColumns(view);
+    const ordered=[...selected.map(key=>definitions.find(item=>item[0]===key)).filter(Boolean),...definitions.filter(item=>!selected.includes(item[0]))];
+    document.getElementById('production-column-options').innerHTML=ordered.map((item,index)=>{const checked=selected.includes(item[0]);const fixed=item[2]===false;const selectedIndex=selected.indexOf(item[0]);return `<div class="production-column-row" data-production-column="${item[0]}"><label class="form-check"><input class="form-check-input" type="checkbox" ${checked?'checked':''} ${fixed?'disabled':''}/><span class="form-check-label">${productionEscape(item[1])}${fixed?' <span class="text-secondary small">固定</span>':''}</span></label><div class="production-column-moves"><button class="btn btn-sm btn-icon btn-outline-secondary" type="button" data-column-move="up" title="上移" ${!checked||selectedIndex<=0?'disabled':''}><i class="ti ti-arrow-up"></i></button><button class="btn btn-sm btn-icon btn-outline-secondary" type="button" data-column-move="down" title="下移" ${!checked||selectedIndex<0||selectedIndex>=selected.length-1?'disabled':''}><i class="ti ti-arrow-down"></i></button></div></div>`;}).join('');
+  }
+  function productionOpenColumns(){productionState.columnDraft=[...productionVisibleColumns(productionState.view)];productionRenderColumnDialog();document.getElementById('production-column-dialog').showModal();}
   function productionValue(field,value){if(field==='include_in_payroll')return value?'计入':'不计入';if(['quantity','unit_price','supplement'].includes(field))return productionMoney(value);return value||'—';}
   function productionFullImageUrl(url){const value=String(url||'');if(value.includes('erp.qiniu.wsgjp.com'))return value.replace(/!200x200(?:\?.*)?$/,'');return value.replace(/_\d+x\d+xz(?=$|[?#])/,'');}
   function productionImage(line){if(!line.image_url)return '<span class="production-thumb-placeholder" title="商品档案暂无图片"><i class="ti ti-photo-off"></i></span>';const title=[line.product_code,line.color,line.size].filter(Boolean).join(' · ');return `<button class="production-thumb-button" type="button" data-production-image="${productionEscape(productionFullImageUrl(line.image_url))}" data-production-image-title="${productionEscape(title)}" title="查看商品大图" aria-label="查看 ${productionEscape(title)} 的商品大图"><img class="production-thumb" src="${productionEscape(line.image_url)}" alt="${productionEscape(title)}" loading="lazy" referrerpolicy="no-referrer" onerror="this.closest('button').outerHTML='<span class=&quot;production-thumb-placeholder&quot; title=&quot;图片加载失败&quot;><i class=&quot;ti ti-photo-off&quot;></i></span>'"></button>`;}
@@ -509,6 +614,7 @@
     document.getElementById('production-finance-edit').hidden=!(productionState.view==='finance'&&open&&productionHas('production.finance.manage'));
     document.getElementById('production-counterparties').hidden=productionState.view!=='lines';
     document.getElementById('production-expense-add').hidden=!(productionState.view==='finance'&&open&&productionHas('production.edit'));
+    document.getElementById('production-wage-add').hidden=!(productionState.view==='wages'&&open&&productionHas('production.edit'));
     const auxiliaryView=['outsourcing','processing'].includes(productionState.view);
     const auxiliaryAdd=document.getElementById('production-auxiliary-add');
     auxiliaryAdd.hidden=!(auxiliaryView&&open&&productionHas('production.edit'));
@@ -564,16 +670,99 @@
 
   function productionRenderFinanceAccurate(){
     const report=productionState.data?.factory_finance||{};const v=report.values||{};const i=report.inputs||{};
-    const income=[['内部产值收入',v.internal_income,`${productionMoney(v.internal_value)} × ${i.internal_value_multiplier}`],['内部样衣收入',v.sample_income,`${productionMoney(v.sample_value)} × ${i.sample_value_multiplier}`],['外加工收入',v.external_processing_income,(productionState.data?.external_processing_records||[]).length?'已批准外加工明细的加工收入合计':'历史月度核算参数'],['总收入',v.total_income,'内部产值收入 + 样衣收入 + 外加工收入']];
-    const expenses=[['工人工资',v.worker_wages,'计件工资 + 已批准工资附加项'],['工厂房租水电（预估）',v.rent_utilities_estimate,'生产记工固定预估口径'],['裁剪管理费',v.cutting_management_fee,`内部裁剪产值 × ${i.cutting_rate} + 样衣产值 × ${i.sample_cutting_rate} + 外加工裁剪及包装成本 ${productionMoney(v.external_processing_cost)}`],['制作管理费',v.production_management_fee,`（内部产值 + 样衣产值）× ${i.production_management_rate}`],['其他费用申报',v.other_expenses,'已批准申报的有符号金额'],['冲抵费用申报',v.offset_amount,'已批准申报的有符号金额'],['总费用',v.total_expenses,'工人工资 + 预估费用 + 管理费 + 已批准申报']];
-    const manager=[['剑锋计件工资',v.jianfeng_piecework_wage],['剑锋工资附加项',v.jianfeng_wage_adjustments],['剑锋工人工资合计',v.jianfeng_regular_wage],['裁剪管理费',v.cutting_management_fee],['制作管理费',v.production_management_fee],['个人利润',v.personal_profit],['生产负责人工资',v.production_manager_salary]];
-    const settlement=[['其他人员工资',v.other_worker_wages],['生产负责人工资',v.production_manager_salary],['外发货值分成',v.external_value_share,`${productionMoney(v.external_value_amount)} × ${i.external_value_share_rate}`],['手工费用代发',i.jianfeng_manual_payment],['其他调整',i.jianfeng_other],['工厂结算金额',v.jianfeng_settlement]];
+    const income=[['internal_income','内部产值收入',v.internal_income,`${productionMoney(v.internal_value)} × ${i.internal_value_multiplier}`],['sample_income','内部样衣收入',v.sample_income,`${productionMoney(v.sample_value)} × ${i.sample_value_multiplier}`],['external_processing_income','外加工收入',v.external_processing_income,(productionState.data?.external_processing_records||[]).length?'已批准外加工明细的加工收入合计':'历史月度核算参数'],['total_income','总收入',v.total_income,'内部产值收入 + 样衣收入 + 外加工收入']];
+    const expenses=[['worker_wages','工人工资',v.worker_wages,'计件工资 + 已批准工资附加项'],['rent_utilities_estimate','工厂房租水电（预估）',v.rent_utilities_estimate,'生产记工固定预估口径'],['cutting_management_fee','裁剪管理费',v.cutting_management_fee,`内部裁剪产值 × ${i.cutting_rate} + 样衣产值 × ${i.sample_cutting_rate} + 外加工裁剪及包装成本 ${productionMoney(v.external_processing_cost)}`],['production_management_fee','制作管理费',v.production_management_fee,`（内部产值 + 样衣产值）× ${i.production_management_rate}`],['other_expenses','其他费用申报',v.other_expenses,'已批准申报的有符号金额'],['offset_amount','冲抵费用申报',v.offset_amount,'已批准申报的有符号金额'],['total_expenses','总费用',v.total_expenses,'工人工资 + 预估费用 + 管理费 + 已批准申报']];
+    const manager=[['jianfeng_piecework_wage','剑锋计件工资',v.jianfeng_piecework_wage],['jianfeng_wage_adjustments','剑锋工资附加项',v.jianfeng_wage_adjustments],['jianfeng_regular_wage','剑锋工人工资合计',v.jianfeng_regular_wage],['cutting_management_fee','裁剪管理费',v.cutting_management_fee],['production_management_fee','制作管理费',v.production_management_fee],['personal_profit','个人利润',v.personal_profit],['production_manager_salary','生产负责人工资',v.production_manager_salary]];
+    const settlement=[['other_worker_wages','其他人员工资',v.other_worker_wages],['production_manager_salary','生产负责人工资',v.production_manager_salary],['external_value_share','外发货值分成',v.external_value_share,`${productionMoney(v.external_value_amount)} × ${i.external_value_share_rate}`],['jianfeng_manual_payment','手工费用代发',i.jianfeng_manual_payment],['jianfeng_other','其他调整',i.jianfeng_other],['jianfeng_settlement','工厂结算金额',v.jianfeng_settlement]];
     const claims=(productionState.data?.expense_claims||[]).map(claim=>`<article class="production-claim"><div><div class="production-request-title"><span>${productionEscape(claim.claim_no)}</span>${productionBadge(claim.status)}</div><div class="production-request-meta">${productionEscape(claim.submitted_by_name||'历史核算参数')} · ${productionDateTime(claim.submitted_at)}</div></div><div><strong>${productionEscape(productionExpenseCategories[claim.category]||claim.category)}</strong><div class="text-secondary small">${productionEscape(claim.note)}</div></div><strong class="production-number ${Number(claim.amount)<0?'text-success':'text-danger'}">${Number(claim.amount)>=0?'+':''}¥${productionMoney(claim.amount)}</strong><button class="btn btn-sm btn-outline-primary" type="button" data-expense-view="${productionEscape(claim.id)}">查看</button></article>`).join('');
-    const ledger=items=>`<ul class="production-ledger">${items.map((item,index)=>`<li class="${index===items.length-1?'production-ledger-total':''}"><span>${item[0]}</span><strong class="production-number ${Number(item[1])<0?'text-success':''}">¥${productionMoney(item[1])}</strong>${item[2]?`<small class="production-ledger-formula">${productionEscape(item[2])}</small>`:''}</li>`).join('')}</ul>`;
-    document.getElementById('production-finance-view').innerHTML=`<div class="production-finance-kpis"><div class="production-finance-kpi"><span>总收入</span><strong>¥${productionMoney(v.total_income)}</strong></div><div class="production-finance-kpi"><span>工人工资</span><strong>¥${productionMoney(v.worker_wages)}</strong></div><div class="production-finance-kpi"><span>总费用</span><strong>¥${productionMoney(v.total_expenses)}</strong></div><div class="production-finance-kpi"><span>工厂利润</span><strong class="${Number(v.profit)>=0?'text-success':'text-danger'}">¥${productionMoney(v.profit)}</strong></div></div><div class="production-summary-grid mb-3"><section class="production-section"><div class="production-section-head"><h3 class="production-section-title">工厂收入</h3></div>${ledger(income)}</section><section class="production-section"><div class="production-section-head"><h3 class="production-section-title">工厂成本</h3></div>${ledger(expenses)}</section></div><div class="production-summary-grid mb-3"><section class="production-section"><div class="production-section-head"><h3 class="production-section-title">生产负责人工资组成</h3><span class="text-secondary small">林剑锋</span></div>${ledger(manager)}</section><section class="production-section"><div class="production-section-head"><h3 class="production-section-title">工厂结算</h3></div>${ledger(settlement)}${i.note?`<div class="p-3 border-top text-secondary small">${productionEscape(i.note)}</div>`:''}</section></div><section class="production-section"><div class="production-section-head"><h3 class="production-section-title">费用申报</h3><span class="text-secondary small">正数增加费用，负数冲减费用</span></div><div class="production-claim-list border-0 rounded-0">${claims||'<div class="production-empty">暂无费用申报</div>'}</div></section>`;
+    const ledger=items=>`<ul class="production-ledger">${items.map((item,index)=>`<li class="${index===items.length-1?'production-ledger-total':''}"><button class="production-ledger-button" type="button" data-production-trace="${item[0]}" title="查看计算来源"><span>${item[1]}</span><strong class="production-number ${Number(item[2])<0?'text-success':''}">¥${productionMoney(item[2])}</strong>${item[3]?`<small class="production-ledger-formula">${productionEscape(item[3])}</small>`:''}</button></li>`).join('')}</ul>`;
+    document.getElementById('production-finance-view').innerHTML=`<div class="production-finance-kpis"><button class="production-finance-kpi text-start" type="button" data-production-trace="total_income"><span>总收入</span><strong>¥${productionMoney(v.total_income)}</strong></button><button class="production-finance-kpi text-start" type="button" data-production-trace="worker_wages"><span>工人工资</span><strong>¥${productionMoney(v.worker_wages)}</strong></button><button class="production-finance-kpi text-start" type="button" data-production-trace="total_expenses"><span>总费用</span><strong>¥${productionMoney(v.total_expenses)}</strong></button><button class="production-finance-kpi text-start" type="button" data-production-trace="profit"><span>工厂利润</span><strong class="${Number(v.profit)>=0?'text-success':'text-danger'}">¥${productionMoney(v.profit)}</strong></button></div><div class="production-summary-grid mb-3"><section class="production-section"><div class="production-section-head"><h3 class="production-section-title">工厂收入</h3><span class="text-secondary small">点击任一金额核验来源</span></div>${ledger(income)}</section><section class="production-section"><div class="production-section-head"><h3 class="production-section-title">工厂成本</h3><span class="text-secondary small">点击任一金额核验来源</span></div>${ledger(expenses)}</section></div><div class="production-summary-grid mb-3"><section class="production-section"><div class="production-section-head"><h3 class="production-section-title">生产负责人工资组成</h3><span class="text-secondary small">林剑锋</span></div>${ledger(manager)}</section><section class="production-section"><div class="production-section-head"><h3 class="production-section-title">工厂结算</h3><span class="text-secondary small">点击任一金额核验来源</span></div>${ledger(settlement)}${i.note?`<div class="p-3 border-top text-secondary small">${productionEscape(i.note)}</div>`:''}</section></div><section class="production-section"><div class="production-section-head"><h3 class="production-section-title">费用申报</h3><span class="text-secondary small">正数增加费用，负数冲减费用</span></div><div class="production-claim-list border-0 rounded-0">${claims||'<div class="production-empty">暂无费用申报</div>'}</div></section>`;
   }
 
-  function productionRender(){productionRenderKpis();productionRenderLines();productionRenderRequests();productionRenderWages();productionRenderFinanceAccurate();document.querySelectorAll('[data-production-view]').forEach(button=>button.classList.toggle('active',button.dataset.productionView===productionState.view));['lines','requests','wages','finance'].forEach(view=>document.getElementById(`production-${view}-view`).hidden=view!==productionState.view);document.querySelectorAll('[data-production-line-filter]').forEach(item=>item.hidden=!['lines','requests'].includes(productionState.view));document.querySelectorAll('[data-production-lines-only]').forEach(item=>item.hidden=productionState.view!=='lines');document.querySelectorAll('[data-production-request-filter]').forEach(item=>item.hidden=productionState.view!=='requests');const counterparties=[...(productionState.data?.counterparties||[])].filter(item=>productionState.showExcluded||item.included).sort((a,b)=>String(a.counterparty_name).localeCompare(String(b.counterparty_name),'zh-CN'));const selector=document.getElementById('production-worker');const current=selector.value;selector.innerHTML='<option value="">全部</option>'+counterparties.map(item=>`<option value="${productionEscape(item.counterparty_name)}">${productionEscape(item.counterparty_name)}${item.included?'':'（不计入）'}</option>`).join('');selector.value=counterparties.some(item=>item.counterparty_name===current)?current:'';productionState.worker=selector.value;document.getElementById('production-request-filter').value=productionState.requestStatus;document.getElementById('production-request-order').value=productionState.requestOrder;const status=productionStatusLabels[productionState.data?.month?.status]||['未同步','bg-secondary-lt'];const target=document.getElementById('production-status');target.className=`badge production-status ${status[1]}`;target.textContent=status[0];productionSetControls();}
+  function productionOpenTrace(key){
+    const item=productionState.data?.factory_finance?.calculation_trace?.[key];if(!item){productionAlert('当前月份尚无可用的计算核验数据','warning');return;}
+    document.getElementById('production-trace-title').textContent=item.label||'计算核验';document.getElementById('production-trace-result').textContent=`结果 ¥${productionMoney(item.result)} · ${item.source||'自动公式'}`;
+    const components=(item.components||[]).map(component=>`<div class="production-trace-component"><span>${productionEscape(component.label)}</span><strong>${productionMoney(component.value)}</strong></div>`).join('');
+    const rows=(item.rows||[]).map(row=>`<tr><td>${productionEscape(row.label)}</td><td class="text-secondary">${productionEscape(row.detail||'—')}</td><td class="production-number">${productionMoney(row.amount)}</td></tr>`).join('');
+    document.getElementById('production-trace-body').innerHTML=`<div class="production-trace-formula">${productionEscape(item.formula)}</div><div class="production-trace-components">${components}</div>${rows?`<div class="table-responsive"><table class="production-trace-table"><thead><tr><th>来源</th><th>说明</th><th class="text-end">参与金额</th></tr></thead><tbody>${rows}</tbody></table></div>`:'<div class="text-secondary small mt-3">该项直接来自参数或其他已核验汇总项，没有额外行级明细。</div>'}`;
+    document.getElementById('production-trace-dialog').showModal();
+  }
+  function productionLineCell(line,key,canEdit){
+    const pending=(line.pending_requests||[])[0];
+    const cells={
+      row:line.source_row_no??'加项',date:productionEscape(productionDate(line.work_date)),
+      product:`<div class="production-product">${productionImage(line)}<div class="production-product-meta"><div class="production-code">${productionEscape(line.product_code)}</div><small>${productionEscape([line.color,line.size].filter(Boolean).join(' / ')||'无规格')}</small></div></div>`,
+      quantity:productionMoney(line.quantity),unit_price:line.unit_price===null?'<span class="text-danger">待确认</span>':productionMoney(line.unit_price),supplement:productionMoney(line.supplement),amount:`<strong>${productionMoney(line.amount)}</strong>`,
+      counterparty:`<div>${productionEscape(line.worker_name)}</div>${line.counterparty_included?'<span class="badge bg-green-lt mt-1">单位计入</span>':'<span class="badge bg-red-lt mt-1">单位不计入</span>'}`,
+      type:productionEscape(line.work_type),attribution:productionEscape(line.value_attribution),
+      change:pending?`${productionBadge('pending')}<div class="small text-secondary mt-1">${productionEscape(pending.request_no)}</div>`:line.changed?productionBadge('approved'):productionBadge('not_required'),
+      calculation:line.eligible?'<span class="text-success">计入</span>':`<span class="text-danger" title="${productionEscape(line.exclusion_reason)}">不计入</span><div class="small text-secondary mt-1">${productionEscape(line.exclusion_reason)}</div>`,
+      action:pending?`<button class="btn btn-sm btn-outline-warning" type="button" data-request-view="${productionEscape(pending.id)}">查看申请</button>`:canEdit?`<button class="btn btn-sm btn-outline-primary" type="button" data-line-request="${productionEscape(line.id)}"><i class="ti ti-edit me-1"></i>申请调整</button>`:'—'
+    };
+    const numeric=['quantity','unit_price','supplement','amount'].includes(key);return `<td class="${numeric?'production-number':''}">${cells[key]??'—'}</td>`;
+  }
+  function productionFilteredLinesEnhanced(){
+    const search=productionState.search.toLowerCase();
+    const rows=(productionState.data?.lines||[]).filter(line=>{
+      const change=productionChangeState(line);
+      if(!productionState.showExcluded&&line.counterparty_included===false)return false;
+      if(productionState.worker&&line.worker_name!==productionState.worker)return false;
+      if(productionState.type&&line.work_type!==productionState.type)return false;
+      if(productionState.attribution&&line.value_attribution!==productionState.attribution)return false;
+      if(productionState.change&&change!==productionState.change)return false;
+      if(productionState.calculation&&(productionState.calculation==='included')!==Boolean(line.eligible))return false;
+      return !search||[line.product_code,line.worker_name,line.note,line.color,line.size,line.request_no,...(line.pending_requests||[]).flatMap(item=>[item.request_no,item.reason_detail])].some(value=>String(value||'').toLowerCase().includes(search));
+    });
+    return productionSorted(rows,'lines');
+  }
+  function productionRenderLinesEnhanced(){
+    const open=productionState.data?.month?.status==='open';const canEdit=open&&productionHas('production.edit');const lines=productionFilteredLinesEnhanced();const columns=productionVisibleColumns('lines');
+    const body=lines.map(line=>`<tr class="${line.eligible?'':'is-excluded'} ${line.changed?'is-changed':''} ${(line.pending_requests||[]).length?'is-pending':''}">${columns.map(key=>productionLineCell(line,key,canEdit)).join('')}</tr>`).join('');
+    document.getElementById('production-lines-view').innerHTML=`<div class="production-table-wrap"><table class="table table-vcenter table-hover production-table"><thead><tr>${columns.map(key=>productionColumnHeader('lines',key)).join('')}</tr></thead><tbody>${body}</tbody></table>${body?'':`<div class="production-empty">没有符合条件的记工记录</div>`}</div>`;
+  }
+  function productionAuxiliaryPending(type,id){return (productionState.data?.auxiliary_requests||[]).find(request=>request.record_type===type&&request.target_record_id===id&&request.status==='pending');}
+  function productionFilteredAuxiliaryRecords(view){
+    const key=view==='outsourcing'?'outsourcing_records':'external_processing_records';const type=view==='outsourcing'?'outsourcing':'external_processing';const search=productionState.search.toLowerCase();
+    const rows=(productionState.data?.[key]||[]).filter(item=>{const pending=productionAuxiliaryPending(type,item.id);const change=pending?'pending':'approved';if(productionState.worker&&String(item.contractor_name||'')!==productionState.worker)return false;if(productionState.change&&productionState.change!==change)return false;if(productionState.calculation&&productionState.calculation!=='included')return false;return !search||Object.values(item).some(value=>String(value||'').toLowerCase().includes(search));});
+    return productionSorted(rows,view);
+  }
+  function productionAuxiliaryCell(item,key,type,canEdit){
+    const pending=productionAuxiliaryPending(type,item.id);const value={
+      contractor:productionEscape(item.contractor_name),goods_value:productionMoney(item.goods_value),paid_amount:productionMoney(item.paid_amount),own_cutting:productionMoney(item.own_cutting_goods_value),ratio:Number(item.goods_value_ratio||0).toFixed(2),
+      product_code:productionEscape(item.product_code),quantity:productionMoney(item.quantity),unit_price:productionMoney(item.unit_price),revenue:productionMoney(item.revenue),cutting_unit_price:productionMoney(item.cutting_unit_price),cutting_amount:productionMoney(item.cutting_amount),packaging_unit_price:productionMoney(item.packaging_unit_price),packaging_amount:productionMoney(item.packaging_amount),external_cost:productionMoney(item.external_cost),note:productionEscape(item.note||'—'),
+      action:pending?`<button class="btn btn-sm btn-outline-warning" type="button" data-auxiliary-request-view="${productionEscape(pending.id)}">查看申请</button>`:canEdit?`<button class="btn btn-sm btn-outline-primary" type="button" data-auxiliary-edit="${type}" data-record-id="${productionEscape(item.id)}"><i class="ti ti-edit me-1"></i>修改申请</button>`:'—'
+    };const numeric=!['contractor','product_code','note','action'].includes(key);return `<td class="${numeric?'production-number':''}">${value[key]??'—'}</td>`;
+  }
+  function productionRenderAuxiliaryEnhanced(view){
+    const type=view==='outsourcing'?'outsourcing':'external_processing';const records=productionFilteredAuxiliaryRecords(view);const open=productionState.data?.month?.status==='open';const canEdit=open&&productionHas('production.edit');const columns=productionVisibleColumns(view);
+    const rows=records.map(item=>`<tr class="${productionAuxiliaryPending(type,item.id)?'is-pending':''}">${columns.map(key=>productionAuxiliaryCell(item,key,type,canEdit)).join('')}</tr>`).join('');
+    const total=view==='outsourcing'?records.reduce((sum,item)=>sum+Number(item.goods_value||0),0):records.reduce((sum,item)=>sum+Number(item.revenue||0),0);
+    const title=view==='outsourcing'?'外发计价':'外加工收入';const subtitle=view==='outsourcing'?'货值分成按已批准外发货值合计计算':'收入和成本由数量与单价自动生成';
+    document.getElementById(`production-${view}-view`).innerHTML=`<section class="production-section"><div class="production-section-head"><div><h3 class="production-section-title">${title}</h3><span class="text-secondary small">${subtitle}</span></div><span class="text-secondary small">${records.length} 条 · 合计 ¥${productionMoney(total)}</span></div><div class="production-table-wrap border-0 rounded-0"><table class="table table-vcenter production-table"><thead><tr>${columns.map(key=>productionColumnHeader(view,key)).join('')}</tr></thead><tbody>${rows}</tbody></table>${rows?'':`<div class="production-empty">没有符合条件的${title}正式记录，可从顶部提交新增申请</div>`}</div></section>`;
+  }
+  function productionSetSelectOptions(id,values,current){const element=document.getElementById(id);element.innerHTML='<option value="">全部</option>'+values.map(value=>`<option value="${productionEscape(value)}">${productionEscape(value)}</option>`).join('');element.value=values.includes(current)?current:'';}
+  function productionRenderDataTools(){
+    const view=productionState.view;const enabled=['lines','outsourcing','processing'].includes(view);document.getElementById('production-data-tools').hidden=!enabled;if(!enabled)return;
+    const options=productionSortOptions[view]||productionSortOptions.lines;if(!options.some(item=>item[0]===productionState.sortBy))productionState.sortBy='date';
+    document.getElementById('production-sort-by').innerHTML=options.map(item=>`<option value="${item[0]}">${item[1]}</option>`).join('');document.getElementById('production-sort-by').value=productionState.sortBy;
+    document.getElementById('production-sort-direction').innerHTML=`<i class="ti ti-sort-${productionState.sortDirection==='asc'?'ascending':'descending'}"></i>`;
+    document.getElementById('production-search').value=productionState.search;
+    const lines=productionState.data?.lines||[];const records=view==='outsourcing'?(productionState.data?.outsourcing_records||[]):[];
+    const counterparties=view==='lines'?[...new Set(lines.map(item=>item.worker_name).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'zh-CN')):[...new Set(records.map(item=>item.contractor_name).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'zh-CN'));
+    productionSetSelectOptions('production-worker',counterparties,productionState.worker);productionState.worker=document.getElementById('production-worker').value;
+    productionSetSelectOptions('production-type-filter',[...new Set(lines.map(item=>item.work_type).filter(Boolean))],productionState.type);productionSetSelectOptions('production-attribution-filter',[...new Set(lines.map(item=>item.value_attribution).filter(Boolean))],productionState.attribution);
+    document.querySelector('[data-production-filter="counterparty"]').hidden=view==='processing';document.querySelector('[data-production-filter="type"]').hidden=view!=='lines';document.querySelector('[data-production-filter="attribution"]').hidden=view!=='lines';
+    document.getElementById('production-change-filter').value=productionState.change;document.getElementById('production-calculation-filter').value=productionState.calculation;
+    const count=view==='lines'?productionFilteredLinesEnhanced().length:productionFilteredAuxiliaryRecords(view).length;document.getElementById('production-filter-summary').textContent=`当前显示 ${count} 条${productionActiveFilterCount()?` · 已启用 ${productionActiveFilterCount()} 个筛选条件`:''}`;
+  }
+  function productionRender(){
+    productionRenderKpis();productionRenderLinesEnhanced();productionRenderRequests();productionRenderWages();productionRenderFinanceAccurate();productionRenderDataTools();
+    document.querySelectorAll('[data-production-view]').forEach(button=>button.classList.toggle('active',button.dataset.productionView===productionState.view));
+    ['lines','requests','wages','finance'].forEach(view=>document.getElementById(`production-${view}-view`).hidden=view!==productionState.view);
+    document.querySelectorAll('[data-production-request-filter]').forEach(item=>item.hidden=productionState.view!=='requests');
+    document.getElementById('production-request-filter').value=productionState.requestStatus;document.getElementById('production-request-order').value=productionState.requestOrder;document.getElementById('production-request-search').value=productionState.search;
+    const status=productionStatusLabels[productionState.data?.month?.status]||['未同步','bg-secondary-lt'];const target=document.getElementById('production-status');target.className=`badge production-status ${status[1]}`;target.textContent=status[0];productionSetControls();
+  }
   async function productionLoadMonth(month){if(!month)return;productionAlert('正在读取生产记工数据…');try{productionState.data=await productionApi(`/api/production/months/${month}`);productionAlert('');productionRender();}catch(error){productionAlert(error.message,'danger');}}
   async function productionInitialize(){await window.JUN_AUTH_READY;try{const payload=await productionApi('/api/production/months');productionState.months=payload.months||[];const selector=document.getElementById('production-month');selector.innerHTML=productionState.months.map(item=>`<option value="${item.month}">${item.month}</option>`).join('');if(!productionState.months.length){selector.innerHTML='<option value="">暂无数据</option>';productionAlert('生产数据尚未同步','warning');productionRenderKpis();return;}await productionLoadMonth(selector.value);}catch(error){productionAlert(error.message,'danger');}}
 
@@ -598,6 +787,11 @@
   async function productionCancelExpense(){const claim=productionState.detailExpense;if(!confirm(`确认撤回 ${claim.claim_no}？`))return;try{await productionApi(`/api/production/expense-claims/${claim.id}/cancel`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({expected_version:claim.version})});document.getElementById('production-expense-detail').close();await productionLoadMonth(claim.month);productionAlert('费用申报已撤回','success');}catch(error){document.getElementById('production-expense-review-error').textContent=error.message;}}
 
   function productionOpenWage(worker){productionState.editingWage=worker;const form=document.getElementById('production-wage-form');form.reset();productionWageFields.forEach(field=>form.elements[field].value=Number(worker[field]||0));form.elements.wage_note.value=worker.wage_note||'';document.getElementById('production-wage-title').textContent=`${worker.name} · 工资附加项调整申请`;document.getElementById('production-wage-piecework').textContent=`计件工资 ¥${productionMoney(worker.piecework_amount)}（内部产值 ¥${productionMoney(worker.internal_piecework_amount)} + 外加工产值 ¥${productionMoney(worker.external_processing_amount)}）`;document.getElementById('production-wage-error').textContent='';document.getElementById('production-wage-dialog').showModal();}
+  function productionOpenWagePicker(){
+    const requests=productionState.data?.wage_requests||[];const workers=(productionState.data?.summary?.workers||[]).filter(item=>productionState.showExcluded||item.counterparty_included!==false);
+    document.getElementById('production-wage-picker-list').innerHTML=workers.map(worker=>{const pending=requests.find(item=>item.worker_name===worker.name&&item.status==='pending');return `<button class="btn btn-outline-secondary w-100 d-flex justify-content-between align-items-center mb-2" type="button" data-wage-picker-worker="${productionEscape(worker.name)}" ${pending?'disabled':''}><span>${productionEscape(worker.name)}</span><span class="small ${pending?'text-warning':'text-secondary'}">${pending?'已有待审批':`计件 ¥${productionMoney(worker.piecework_amount)}`}</span></button>`;}).join('')||'<div class="production-empty">暂无可申请的员工</div>';
+    document.getElementById('production-wage-picker').showModal();
+  }
   async function productionSubmitWage(event){event.preventDefault();const form=event.currentTarget;const worker=productionState.editingWage;const button=document.getElementById('production-wage-submit');const values={};productionWageFields.forEach(field=>values[field]=Number(form.elements[field].value||0));values.note=form.elements.wage_note.value.trim();button.disabled=true;try{const month=productionState.data.month.month;await productionApi(`/api/production/months/${month}/wage-requests`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({worker_name:worker.name,expected_version:worker.wage_version,values,reason_detail:form.elements.reason_detail.value.trim(),note:form.elements.request_note.value.trim()})});document.getElementById('production-wage-dialog').close();await productionLoadMonth(month);productionAlert('工资调整已提交，批准前不会进入实发工资和工厂成本','success');}catch(error){document.getElementById('production-wage-error').textContent=error.message;}finally{button.disabled=false;}}
   function productionOpenWageDetail(request){productionState.detailWage=request;document.getElementById('production-wage-detail-title').textContent=`工资调整 ${request.request_no}`;document.getElementById('production-wage-detail-meta').textContent=`${request.submitted_by_name||'未知申请人'} · ${productionDateTime(request.submitted_at)}`;const rows=(request.changed_fields||[]).map(field=>`<tr><th>${productionEscape(productionWageFieldLabels[field]||field)}</th><td>${field==='note'?productionEscape(request.before_values?.[field]||'—'):productionMoney(request.before_values?.[field])}</td><td class="fw-semibold">${field==='note'?productionEscape(request.proposed_values?.[field]||'—'):productionMoney(request.proposed_values?.[field])}</td></tr>`).join('');document.getElementById('production-wage-detail-body').innerHTML=`<div class="d-flex gap-2 flex-wrap mb-3">${productionBadge(request.status)}<span class="badge bg-blue-lt">${productionEscape(request.worker_name)}</span></div><dl class="row mb-3"><dt class="col-4 text-secondary">调整原因</dt><dd class="col-8">${productionEscape(request.reason_detail)}</dd><dt class="col-4 text-secondary">申请备注</dt><dd class="col-8">${productionEscape(request.note||'—')}</dd><dt class="col-4 text-secondary">计算影响</dt><dd class="col-8">${request.status==='approved'?'已进入实发工资和工厂成本':'尚未进入实发工资和工厂成本'}</dd>${request.review_note?`<dt class="col-4 text-secondary">审批意见</dt><dd class="col-8">${productionEscape(request.review_note)}</dd>`:''}</dl><div class="table-responsive"><table class="production-diff"><thead><tr><th>调整字段</th><th>原值</th><th>申请值</th></tr></thead><tbody>${rows}</tbody></table></div>`;const pending=request.status==='pending';const canApprove=pending&&productionHas('production.approve');const userId=window.JUN_CONTEXT?.profile?.id;document.getElementById('production-wage-review-wrap').hidden=!canApprove;document.getElementById('production-wage-review-note').value='';document.getElementById('production-wage-approve').hidden=!canApprove;document.getElementById('production-wage-reject').hidden=!canApprove;document.getElementById('production-wage-cancel').hidden=!(pending&&productionHas('production.edit')&&(request.submitted_by===userId||productionHas('production.approve')));document.getElementById('production-wage-review-error').textContent='';document.getElementById('production-wage-detail').showModal();}
   async function productionReviewWage(decision){const request=productionState.detailWage;const note=document.getElementById('production-wage-review-note').value.trim();if(decision==='rejected'&&note.length<2){document.getElementById('production-wage-review-error').textContent='驳回时必须填写审批意见';return;}const buttons=[document.getElementById('production-wage-approve'),document.getElementById('production-wage-reject')];buttons.forEach(button=>button.disabled=true);try{await productionApi(`/api/production/wage-requests/${request.id}/review`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({expected_version:request.version,decision,review_note:note})});document.getElementById('production-wage-detail').close();await productionLoadMonth(request.month);productionAlert(decision==='approved'?'工资调整已批准并进入公式':'工资调整已驳回','success');}catch(error){document.getElementById('production-wage-review-error').textContent=error.message;}finally{buttons.forEach(button=>button.disabled=false);}}
@@ -652,7 +846,7 @@
   function productionCsv(){const headers=['日期','商品编号','颜色','尺码','数量','单价','补价','金额','往来单位','单位计入状态','类型','产值归属','裁床','变更状态','最终计算状态','不计入原因'];const rows=(productionState.data?.lines||[]).map(line=>[productionDate(line.work_date),line.product_code,line.color,line.size,line.quantity,line.unit_price??'',line.supplement,line.amount,line.worker_name,line.counterparty_included?'计入':'不计入',line.work_type,line.value_attribution,line.cutting_type,line.has_pending_change?'待审批':line.changed?'已批准':'原始记录',line.eligible?'计入':'不计入',line.exclusion_reason]);const quote=value=>`"${String(value??'').replaceAll('"','""')}"`;const blob=new Blob(['\ufeff'+[headers,...rows].map(row=>row.map(quote).join(',')).join('\r\n')],{type:'text/csv;charset=utf-8'});const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download=`生产记工_${productionState.data?.month?.month||''}.csv`;link.click();setTimeout(()=>URL.revokeObjectURL(link.href),1000);}
 
   document.getElementById('production-field-picker').innerHTML=productionEditableFields.map(field=>`<label><input type="checkbox" value="${field}"/><span>${productionFieldLabels[field]}</span></label>`).join('');
-  document.addEventListener('click',event=>{const view=event.target.closest('[data-production-view]');if(view){productionState.view=view.dataset.productionView;productionRender();return;}const imageButton=event.target.closest('[data-production-image]');if(imageButton){productionOpenImage(imageButton);return;}const removeImage=event.target.closest('[data-remove-request-image]');if(removeImage){productionState.pendingImages.splice(Number(removeImage.dataset.removeRequestImage),1);productionRenderSelectedImages();return;}const lineButton=event.target.closest('[data-line-request]');if(lineButton){productionOpenEditor((productionState.data?.lines||[]).find(line=>String(line.id)===lineButton.dataset.lineRequest));return;}const requestButton=event.target.closest('[data-request-view]');if(requestButton){const request=(productionState.data?.requests||[]).find(item=>String(item.id)===requestButton.dataset.requestView);if(request)productionOpenDetail(request);return;}const wageButton=event.target.closest('[data-wage-request]');if(wageButton){const worker=(productionState.data?.summary?.workers||[]).find(item=>item.name===wageButton.dataset.wageRequest);if(worker)productionOpenWage(worker);return;}const wageRequestButton=event.target.closest('[data-wage-request-view]');if(wageRequestButton){const request=(productionState.data?.wage_requests||[]).find(item=>String(item.id)===wageRequestButton.dataset.wageRequestView);if(request)productionOpenWageDetail(request);return;}const expenseButton=event.target.closest('[data-expense-view]');if(expenseButton){const claim=(productionState.data?.expense_claims||[]).find(item=>String(item.id)===expenseButton.dataset.expenseView);if(claim)productionOpenExpenseDetail(claim);return;}const auxiliaryRequestButton=event.target.closest('[data-auxiliary-request-view]');if(auxiliaryRequestButton){const request=(productionState.data?.auxiliary_requests||[]).find(item=>String(item.id)===auxiliaryRequestButton.dataset.auxiliaryRequestView);if(request)productionOpenAuxiliaryDetail(request);return;}const auxiliaryEditButton=event.target.closest('[data-auxiliary-edit]');if(auxiliaryEditButton){const record=productionAuxiliaryRecord(auxiliaryEditButton.dataset.auxiliaryEdit,auxiliaryEditButton.dataset.recordId);if(record)productionOpenAuxiliary(auxiliaryEditButton.dataset.auxiliaryEdit,record);return;}const counterpartyButton=event.target.closest('[data-counterparty-save]');if(counterpartyButton){productionSaveCounterparty(counterpartyButton);return;}const close=event.target.closest('[data-production-close]');if(close){document.getElementById(close.dataset.productionClose).close();return;}});
+  document.addEventListener('click',event=>{const view=event.target.closest('[data-production-view]');if(view){productionState.view=view.dataset.productionView;productionState.search='';productionState.worker='';productionState.type='';productionState.attribution='';productionState.change='';productionState.calculation='';productionState.sortBy='date';productionState.sortDirection='asc';productionRender();return;}const trace=event.target.closest('[data-production-trace]');if(trace){productionOpenTrace(trace.dataset.productionTrace);return;}const pickerWorker=event.target.closest('[data-wage-picker-worker]');if(pickerWorker){const worker=(productionState.data?.summary?.workers||[]).find(item=>item.name===pickerWorker.dataset.wagePickerWorker);if(worker){document.getElementById('production-wage-picker').close();productionOpenWage(worker);}return;}const imageButton=event.target.closest('[data-production-image]');if(imageButton){productionOpenImage(imageButton);return;}const removeImage=event.target.closest('[data-remove-request-image]');if(removeImage){productionState.pendingImages.splice(Number(removeImage.dataset.removeRequestImage),1);productionRenderSelectedImages();return;}const lineButton=event.target.closest('[data-line-request]');if(lineButton){productionOpenEditor((productionState.data?.lines||[]).find(line=>String(line.id)===lineButton.dataset.lineRequest));return;}const requestButton=event.target.closest('[data-request-view]');if(requestButton){const request=(productionState.data?.requests||[]).find(item=>String(item.id)===requestButton.dataset.requestView);if(request)productionOpenDetail(request);return;}const wageButton=event.target.closest('[data-wage-request]');if(wageButton){const worker=(productionState.data?.summary?.workers||[]).find(item=>item.name===wageButton.dataset.wageRequest);if(worker)productionOpenWage(worker);return;}const wageRequestButton=event.target.closest('[data-wage-request-view]');if(wageRequestButton){const request=(productionState.data?.wage_requests||[]).find(item=>String(item.id)===wageRequestButton.dataset.wageRequestView);if(request)productionOpenWageDetail(request);return;}const expenseButton=event.target.closest('[data-expense-view]');if(expenseButton){const claim=(productionState.data?.expense_claims||[]).find(item=>String(item.id)===expenseButton.dataset.expenseView);if(claim)productionOpenExpenseDetail(claim);return;}const auxiliaryRequestButton=event.target.closest('[data-auxiliary-request-view]');if(auxiliaryRequestButton){const request=(productionState.data?.auxiliary_requests||[]).find(item=>String(item.id)===auxiliaryRequestButton.dataset.auxiliaryRequestView);if(request)productionOpenAuxiliaryDetail(request);return;}const auxiliaryEditButton=event.target.closest('[data-auxiliary-edit]');if(auxiliaryEditButton){const record=productionAuxiliaryRecord(auxiliaryEditButton.dataset.auxiliaryEdit,auxiliaryEditButton.dataset.recordId);if(record)productionOpenAuxiliary(auxiliaryEditButton.dataset.auxiliaryEdit,record);return;}const counterpartyButton=event.target.closest('[data-counterparty-save]');if(counterpartyButton){productionSaveCounterparty(counterpartyButton);return;}const close=event.target.closest('[data-production-close]');if(close){document.getElementById(close.dataset.productionClose).close();return;}});
   document.getElementById('production-request-form').addEventListener('submit',productionSubmitRequest);
   document.getElementById('production-request-form').elements.reason_code.addEventListener('change',event=>productionSetSelectedFields(productionReasonConfig[event.target.value]?.fields||[]));
   document.getElementById('production-field-picker').addEventListener('change',()=>productionSetSelectedFields([...document.querySelectorAll('#production-field-picker input:checked')].map(input=>input.value)));
@@ -667,14 +861,28 @@
   document.getElementById('production-auxiliary-form').addEventListener('submit',productionSubmitAuxiliary);
   document.getElementById('production-auxiliary-form').addEventListener('input',productionUpdateAuxiliaryFormula);
   document.getElementById('production-month').addEventListener('change',event=>productionLoadMonth(event.target.value));
-  document.getElementById('production-search').addEventListener('input',event=>{productionState.search=event.target.value;productionRenderLines();productionRenderRequests();});
-  document.getElementById('production-worker').addEventListener('change',event=>{productionState.worker=event.target.value;productionRenderLines();});
+  document.getElementById('production-search').addEventListener('input',event=>{productionState.search=event.target.value;productionRender();});
+  document.getElementById('production-request-search').addEventListener('input',event=>{productionState.search=event.target.value;productionRenderRequests();});
+  document.getElementById('production-worker').addEventListener('change',event=>{productionState.worker=event.target.value;productionRender();});
+  document.getElementById('production-type-filter').addEventListener('change',event=>{productionState.type=event.target.value;productionRender();});
+  document.getElementById('production-attribution-filter').addEventListener('change',event=>{productionState.attribution=event.target.value;productionRender();});
+  document.getElementById('production-change-filter').addEventListener('change',event=>{productionState.change=event.target.value;productionRender();});
+  document.getElementById('production-calculation-filter').addEventListener('change',event=>{productionState.calculation=event.target.value;productionRender();});
+  document.getElementById('production-sort-by').addEventListener('change',event=>{productionState.sortBy=event.target.value;productionRender();});
+  document.getElementById('production-sort-direction').addEventListener('click',()=>{productionState.sortDirection=productionState.sortDirection==='asc'?'desc':'asc';productionRender();});
+  document.getElementById('production-filter-reset').addEventListener('click',productionResetDataTools);
+  document.getElementById('production-columns').addEventListener('click',productionOpenColumns);
+  document.getElementById('production-column-options').addEventListener('change',event=>{const row=event.target.closest('[data-production-column]');if(!row||!productionState.columnDraft)return;const key=row.dataset.productionColumn;if(event.target.checked){if(!productionState.columnDraft.includes(key))productionState.columnDraft.push(key);}else productionState.columnDraft=productionState.columnDraft.filter(item=>item!==key);productionRenderColumnDialog();});
+  document.getElementById('production-column-options').addEventListener('click',event=>{const button=event.target.closest('[data-column-move]');const row=event.target.closest('[data-production-column]');if(!button||!row||!productionState.columnDraft)return;const index=productionState.columnDraft.indexOf(row.dataset.productionColumn);const target=index+(button.dataset.columnMove==='up'?-1:1);if(index<0||target<0||target>=productionState.columnDraft.length)return;[productionState.columnDraft[index],productionState.columnDraft[target]]=[productionState.columnDraft[target],productionState.columnDraft[index]];productionRenderColumnDialog();});
+  document.getElementById('production-column-reset').addEventListener('click',()=>{productionState.columnDraft=(productionColumns[productionState.view]||[]).map(item=>item[0]);productionRenderColumnDialog();});
+  document.getElementById('production-column-apply').addEventListener('click',()=>{localStorage.setItem(productionColumnStorageKey(productionState.view),JSON.stringify(productionState.columnDraft||[]));document.getElementById('production-column-dialog').close();productionRender();});
   document.getElementById('production-request-filter').addEventListener('change',event=>{productionState.requestStatus=event.target.value;productionRenderRequests();});
   document.getElementById('production-request-order').addEventListener('change',event=>{productionState.requestOrder=event.target.value;productionRenderRequests();});
   document.getElementById('production-add').addEventListener('click',()=>productionOpenEditor(null));
   document.getElementById('production-export').addEventListener('click',productionCsv);
   document.getElementById('production-counterparties').addEventListener('click',productionOpenCounterparties);
   document.getElementById('production-expense-add').addEventListener('click',productionOpenExpense);
+  document.getElementById('production-wage-add').addEventListener('click',productionOpenWagePicker);
   document.getElementById('production-auxiliary-add').addEventListener('click',()=>productionOpenAuxiliary(productionState.view==='outsourcing'?'outsourcing':'external_processing'));
   document.getElementById('production-finance-edit').addEventListener('click',productionOpenFinance);
   document.getElementById('production-approve-request').addEventListener('click',()=>productionReview('approved'));
@@ -697,8 +905,8 @@
   const productionRenderCore=productionRender;
   productionRender=function(){
     productionRenderCore();
-    productionRenderOutsourcing();
-    productionRenderProcessing();
+    productionRenderAuxiliaryEnhanced('outsourcing');
+    productionRenderAuxiliaryEnhanced('processing');
     document.getElementById('production-outsourcing-view').hidden=productionState.view!=='outsourcing';
     document.getElementById('production-processing-view').hidden=productionState.view!=='processing';
     document.getElementById('production-export').hidden=productionState.view!=='lines';
