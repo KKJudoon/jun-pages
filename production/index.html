@@ -255,6 +255,13 @@
               </a>
             </li>
 
+            <li class="nav-item">
+              <a class="nav-link" href="/jun-pages/production/pattern/">
+                <span class="nav-link-icon"><i class="ti ti-ruler-2"></i></span>
+                <span class="nav-link-title">制版审批</span>
+              </a>
+            </li>
+
             <li class="nav-section-label">生意中台 · 财务</li>
             <li class="nav-item"><a class="nav-link" href="/jun-pages/finance/"><span class="nav-link-icon"><i class="ti ti-report-money"></i></span><span class="nav-link-title">财务月报</span></a></li>
             <li class="nav-item" data-finance-payroll hidden><a class="nav-link" href="/jun-pages/finance/company-payroll/"><span class="nav-link-icon"><i class="ti ti-table"></i></span><span class="nav-link-title">公司工资表</span></a></li>
@@ -822,7 +829,7 @@
     const status=productionStatusLabels[productionState.data?.month?.status]||['未同步','bg-secondary-lt'];const target=document.getElementById('production-status');target.className=`badge production-status ${status[1]}`;target.textContent=status[0];productionSetControls();
   }
   async function productionLoadMonth(month){if(!month)return;productionAlert('正在读取生产记工数据…');try{productionState.data=await productionApi(`/api/production/months/${month}`);productionAlert('');productionRender();}catch(error){productionAlert(error.message,'danger');}}
-  async function productionInitialize(){await window.JUN_AUTH_READY;try{const payload=await productionApi('/api/production/months');productionState.months=payload.months||[];const selector=document.getElementById('production-month');selector.innerHTML=productionState.months.map(item=>`<option value="${item.month}">${item.month}</option>`).join('');if(!productionState.months.length){selector.innerHTML='<option value="">暂无数据</option>';productionAlert('生产数据尚未同步','warning');productionRenderKpis();return;}await productionLoadMonth(selector.value);}catch(error){productionAlert(error.message,'danger');}}
+  async function productionInitialize(){await window.JUN_AUTH_READY;try{const payload=await productionApi('/api/production/months');productionState.months=payload.months||[];const selector=document.getElementById('production-month');selector.innerHTML=productionState.months.map(item=>`<option value="${item.month}">${item.month}</option>`).join('');if(!productionState.months.length){selector.innerHTML='<option value="">暂无数据</option>';productionAlert('生产数据尚未同步','warning');productionRenderKpis();return;}const params=new URLSearchParams(location.search);const requestedMonth=params.get('month');if(requestedMonth&&productionState.months.some(item=>item.month===requestedMonth))selector.value=requestedMonth;const requestedView=params.get('view');if(['lines','requests','expenses','wages','outsourcing','external_processing'].includes(requestedView||''))productionState.view=requestedView;productionState.worker=params.get('worker')||'';await productionLoadMonth(selector.value);}catch(error){productionAlert(error.message,'danger');}}
 
   function productionLineValues(line){return {work_date:productionDate(line?.work_date),product_code:line?.product_code||'',color:line?.color||'',size:line?.size||'',quantity:Number(line?.quantity??1),unit_price:Number(line?.unit_price??0),supplement:Number(line?.supplement??0),worker_name:line?.worker_name||'',work_type:line?.work_type||'大货',value_attribution:line?.value_attribution||'内部产值',cutting_type:line?.cutting_type||'内部裁剪',include_in_payroll:line?.include_in_payroll!==false,exclusion_reason:line?.exclusion_reason||'',note:line?.note||''};}
   function productionSetSelectedFields(fields,create=false){const selected=new Set(create?productionEditableFields:fields);document.getElementById('production-field-picker-wrap').hidden=create;document.querySelectorAll('#production-field-picker input').forEach(input=>input.checked=selected.has(input.value));document.querySelectorAll('[data-production-value]').forEach(wrapper=>{const field=wrapper.dataset.productionValue;wrapper.hidden=!selected.has(field);wrapper.querySelectorAll('input,select').forEach(input=>input.disabled=!selected.has(field));});}

@@ -14,6 +14,7 @@
     logistics_other: '其他物流',
     manual_work: '手工审批',
     erp_shipment: 'ERP 发货',
+    pattern_approval: '制版审批',
   };
   const sectionLabels = {
     income: '收入', product_cost: '产品成本', platform_operations: '平台运营费用',
@@ -95,7 +96,7 @@
       const target = new URL(anchor.href, location.href).pathname.replace(/\/$/, '');
       if (target === current) anchor.classList.add('active');
     });
-    const group = page.startsWith('finance-') ? '/jun-pages/finance' : page === 'production-manual' ? '/jun-pages/production' : '/jun-pages/erp';
+    const group = page.startsWith('finance-') ? '/jun-pages/finance' : page.startsWith('production-') ? '/jun-pages/production' : '/jun-pages/erp';
     document.querySelectorAll('.bottom-tab-bar a').forEach(function (anchor) {
       if (new URL(anchor.href).pathname.replace(/\/$/, '') === group) anchor.classList.add('active');
     });
@@ -224,8 +225,12 @@
   }
 
   function reportActions(line) {
-    const editable = has('finance.manage') && (state.data.month.status === 'open' || state.data.month.historical_snapshot);
-    return `<span class="report-row-actions"><button class="finance-icon-button" type="button" data-trace="${escapeHtml(line.line_key)}" title="查看计算依据" aria-label="查看${escapeHtml(line.label)}计算依据"><i class="ti ti-help-circle"></i></button>${editable ? `<button class="finance-icon-button" type="button" data-override="${escapeHtml(line.line_key)}" title="手动调整" aria-label="调整${escapeHtml(line.label)}"><i class="ti ti-edit"></i></button>` : ''}</span>`;
+    return `<span class="report-row-actions"><button class="finance-icon-button" type="button" data-trace="${escapeHtml(line.line_key)}" title="查看计算依据" aria-label="查看${escapeHtml(line.label)}计算依据"><i class="ti ti-help-circle"></i></button></span>`;
+  }
+
+  function traceAmount(line) {
+    if (!line?.line_key) return amount(line?.final_amount);
+    return `<button class="finance-trace-amount" type="button" data-trace="${escapeHtml(line.line_key)}">${amount(line.final_amount)}</button>`;
   }
 
   function renderCategory(section, income, maxExpense) {
@@ -239,11 +244,11 @@
     const previousMonth = Number((state.data.comparison?.month || '').slice(5));
     const note = total.note || rows.map(function (line) { return line.note; }).filter(Boolean).at(-1) || '';
     return `<section class="finance-report-category">
-      <div class="finance-category-head"><span class="finance-category-name">${escapeHtml(sectionLabels[section])}</span><span class="finance-category-total">${amount(total.final_amount)} <span class="pct">占收入 ${percent(total.final_amount, income)}</span> ${deltaHtml(total.final_amount, previousTotal, goodWhenUp)}</span></div>
+      <div class="finance-category-head"><span class="finance-category-name">${escapeHtml(sectionLabels[section])}</span><span class="finance-category-total">${traceAmount(total)} <span class="pct">占收入 ${percent(total.final_amount, income)}</span> ${deltaHtml(total.final_amount, previousTotal, goodWhenUp)}</span></div>
       <div class="finance-category-bar"><div style="width:${barWidth.toFixed(1)}%"></div></div>
       <div class="finance-subs-wrap"><table class="finance-subs"><thead><tr><th>子项</th><th>${currentMonth}月</th><th>占收入</th><th>${previousMonth || '-'}月</th><th>环比</th></tr></thead><tbody>${rows.map(function (line) {
         const previous = comparisonValue(line);
-        return `<tr class="${line.status === 'missing' ? 'is-missing' : ''}"><td class="sub-name"><span>${escapeHtml(line.label)}${line.manual ? '<span class="finance-line-origin"><i class="ti ti-pencil"></i>手动</span>' : ''}</span>${reportActions(line)}</td><td class="num">${amount(line.final_amount)}</td><td class="num pct">${line.reference_only ? '' : percent(line.final_amount, income)}</td><td class="num prev">${previous == null ? '—' : amount(previous)}</td><td class="num">${deltaHtml(line.final_amount, previous, goodWhenUp)}</td></tr>`;
+        return `<tr class="${line.status === 'missing' ? 'is-missing' : ''}"><td class="sub-name"><span>${escapeHtml(line.label)}</span>${reportActions(line)}</td><td class="num">${traceAmount(line)}</td><td class="num pct">${line.reference_only ? '' : percent(line.final_amount, income)}</td><td class="num prev">${previous == null ? '—' : amount(previous)}</td><td class="num">${deltaHtml(line.final_amount, previous, goodWhenUp)}</td></tr>`;
       }).join('') || '<tr><td colspan="5" class="finance-note">本月无发生额</td></tr>'}</tbody></table></div>${note ? `<div class="finance-category-note">${escapeHtml(note)}</div>` : ''}
     </section>`;
   }
@@ -259,69 +264,40 @@
     const missing = state.data.completeness?.missing?.length || 0;
     const payrollWarning = state.data.payroll_snapshot?.source_status?.source_pending_employee_count || 0;
     content.innerHTML = `${reportTabs()}<div class="finance-report-wrap">
-      <header class="finance-report-title"><h1>${escapeHtml(state.month.replace('-', '年'))}月 月度财务报告</h1><div>君设计 · 中台固定算法 · 数据源与管理员调整均可追溯</div></header>
+      <header class="finance-report-title"><h1>${escapeHtml(state.month.replace('-', '年'))}月 月度财务报告</h1><div>君设计 · 纯展示 · 每个金额都由唯一来源和固定公式生成</div></header>
       <div class="finance-report-kpis">
-        <article><span>收入</span><strong>${amount(income)}</strong><small>100%</small>${deltaHtml(income, numeric(previous.income), true)}</article>
-        <article><span>支出</span><strong>${amount(expenses?.final_amount)}</strong><small>占收入 ${percent(expenses?.final_amount, income)}</small>${deltaHtml(expenses?.final_amount, numeric(previous.expenses), false)}</article>
-        <article><span>最终净利</span><strong>${amount(finalProfit?.final_amount)}</strong><small>扣 CK 后 ${percent(finalProfit?.final_amount, income)}</small><em>经营净利 ${amount(operating?.final_amount)}</em></article>
+        <article><span>收入</span><strong>${traceAmount(incomeLine)}</strong><small>100%</small>${deltaHtml(income, numeric(previous.income), true)}</article>
+        <article><span>支出</span><strong>${traceAmount(expenses)}</strong><small>占收入 ${percent(expenses?.final_amount, income)}</small>${deltaHtml(expenses?.final_amount, numeric(previous.expenses), false)}</article>
+        <article><span>最终净利</span><strong>${traceAmount(finalProfit)}</strong><small>扣 CK 后 ${percent(finalProfit?.final_amount, income)}</small><em>经营净利 ${traceAmount(operating)}</em></article>
       </div>
       <section class="finance-report-card finance-report-ok"><h2>口径状态</h2><div>${state.data.completeness.complete ? '本月所有必需数据已到位，分类小计、支出合计、经营净利和最终净利均由固定公式生成。' : `当前还有 ${missing} 个必需数据项待补，已有金额仍按同一套公式计算。`}${payrollWarning ? ` 生产工资中有 ${payrollWarning} 人仍受待审批记录影响。` : ''}</div></section>
       <section class="finance-report-card finance-waterfall"><h2>收入 → 最终净利 瀑布</h2>${renderWaterfall(income, finalProfit?.final_amount)}</section>
       <h2 class="finance-detail-title">支出明细（由中台数据源生成）</h2>
       ${sectionOrder.map(function (section) { return renderCategory(section, income, maxExpense); }).join('')}
-      <section class="finance-report-card finance-settlement-card"><h2>经营净利与最终结算</h2><dl><dt>支出合计</dt><dd>${amount(expenses?.final_amount)}</dd><dt>经营净利</dt><dd>${amount(operating?.final_amount)}</dd><dt>CK 个人结算</dt><dd>${amount(Math.abs(reportMetric('post_profit_adjustment')?.final_amount || 0))}</dd><dt>最终净利</dt><dd><strong>${amount(finalProfit?.final_amount)}</strong></dd></dl></section>
+      <section class="finance-report-card finance-settlement-card"><h2>经营净利与最终结算</h2><dl><dt>支出合计</dt><dd>${traceAmount(expenses)}</dd><dt>经营净利</dt><dd>${traceAmount(operating)}</dd><dt>CK 个人结算</dt><dd>${traceAmount(reportMetric('post_profit_adjustment'))}</dd><dt>最终净利</dt><dd><strong>${traceAmount(finalProfit)}</strong></dd></dl></section>
     </div>`;
     content.querySelectorAll('[data-trace]').forEach(function (button) { button.addEventListener('click', function () { showTrace(button.dataset.trace); }); });
-    content.querySelectorAll('[data-override]').forEach(function (button) { button.addEventListener('click', function () { showOverride(button.dataset.override); }); });
   }
 
   function showTrace(lineKey) {
     const line = state.data.lines.find(function (item) { return item.line_key === lineKey; });
     if (!line) return;
-    const origin = line.manual ? '管理员手动调整' : line.trace?.kind === 'historical_snapshot' ? '历史财报快照' : '自动计算';
-    dialog('finance-trace-dialog', line.label, `<div class="finance-trace"><dl><dt>当前金额</dt><dd>${amount(line.final_amount)}</dd><dt>自动金额</dt><dd>${amount(line.source_amount)}</dd><dt>数值来源</dt><dd>${origin}</dd><dt>计算逻辑</dt><dd>${escapeHtml(line.trace?.formula || line.trace?.note || '-')}</dd>${line.override ? `<dt>调整原因</dt><dd>${escapeHtml(line.override.reason)}</dd>` : ''}</dl><pre>${escapeHtml(JSON.stringify(line.trace || {}, null, 2))}</pre></div>`);
+    const trace = line.trace || {};
+    const origin = trace.kind === 'historical_snapshot' ? '历史月报快照' : trace.kind === 'formula' ? '固定公式' : '已连接的数据源';
+    const dependencies = (trace.dependencies || []).map(function (key) {
+      const dependency = state.data.lines.find(function (item) { return item.line_key === key; });
+      return dependency ? `<button type="button" class="finance-lineage-chip" data-trace-dependency="${escapeHtml(key)}">${escapeHtml(dependency.label)} · ${amount(dependency.final_amount)}</button>` : '';
+    }).join('');
+    const sourceLink = trace.source_url ? `<a class="btn btn-outline-primary btn-sm" href="${escapeHtml(trace.source_url)}">${escapeHtml(trace.source_label || '查看数据源')}<i class="ti ti-arrow-right ms-1"></i></a>` : '';
+    const element = dialog('finance-trace-dialog', line.label, `<div class="finance-trace finance-trace-simple"><dl><dt>金额</dt><dd><strong>${amount(line.final_amount)}</strong></dd><dt>类型</dt><dd>${escapeHtml(origin)}</dd><dt>计算方式</dt><dd>${escapeHtml(trace.formula || trace.note || '按来源原值展示')}</dd></dl>${dependencies ? `<div class="finance-lineage-links"><span>公式引用</span>${dependencies}</div>` : ''}${sourceLink ? `<div class="finance-lineage-source">${sourceLink}</div>` : ''}</div>`);
+    element.querySelectorAll('[data-trace-dependency]').forEach(function (button) {
+      button.addEventListener('click', function () { element.close(); showTrace(button.dataset.traceDependency); });
+    });
   }
 
   async function sha256(file) {
     const digest = await crypto.subtle.digest('SHA-256', await file.arrayBuffer());
     return Array.from(new Uint8Array(digest)).map(function (byte) { return byte.toString(16).padStart(2, '0'); }).join('');
-  }
-
-  function showOverride(lineKey) {
-    const line = state.data.lines.find(function (item) { return item.line_key === lineKey; });
-    if (!line) return;
-    const element = dialog('finance-override-dialog', `调整：${line.label}`, `<label>核算金额<input class="form-control" name="amount" type="number" step="0.01" required value="${line.final_amount == null ? '' : escapeHtml(line.final_amount)}"></label><label>调整原因<textarea class="form-control" name="reason" rows="3" required>${escapeHtml(line.override?.reason || '')}</textarea></label><label>凭证图片（可选）<input class="form-control" name="evidence" type="file" accept="image/jpeg,image/png,image/webp"></label><p class="finance-note">自动计算值：${amount(line.source_amount)}</p><div class="finance-error" data-message hidden></div><footer>${line.override ? '<button class="btn btn-outline-danger" type="button" data-remove>恢复自动</button>' : ''}<button class="btn btn-outline-secondary" value="cancel">取消</button><button class="btn btn-primary" type="button" data-save>保存</button></footer>`);
-    const message = element.querySelector('[data-message]');
-    element.querySelector('[data-save]').addEventListener('click', async function () {
-      const save = element.querySelector('[data-save]');
-      save.disabled = true;
-      try {
-        const saved = await api(`/api/finance/months/${state.month}/overrides/${encodeURIComponent(line.line_key)}`, {
-          method: 'PUT', headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({amount: Number(element.querySelector('[name="amount"]').value), reason: element.querySelector('[name="reason"]').value, expected_version: line.override?.version || null}),
-        });
-        const file = element.querySelector('[name="evidence"]').files[0];
-        if (file) {
-          const reserved = await api(`/api/finance/overrides/${saved.id}/attachments/upload`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({original_name: file.name, mime_type: file.type, byte_size: file.size, sha256: await sha256(file)})});
-          const upload = await window.JUN_SUPABASE.storage.from(reserved.bucket).uploadToSignedUrl(reserved.path, reserved.token, file, {contentType: file.type});
-          if (upload.error) throw upload.error;
-          await api(`/api/finance/attachments/${reserved.attachment.id}/confirm`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'});
-        }
-        element.close();
-        await loadReport();
-      } catch (error) {
-        message.hidden = false;
-        message.textContent = error.message;
-        save.disabled = false;
-      }
-    });
-    element.querySelector('[data-remove]')?.addEventListener('click', async function () {
-      try {
-        await api(`/api/finance/months/${state.month}/overrides/${encodeURIComponent(line.line_key)}`, {method: 'DELETE', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({expected_version: line.override.version})});
-        element.close();
-        await loadReport();
-      } catch (error) { message.hidden = false; message.textContent = error.message; }
-    });
   }
 
   async function loadReport() {
@@ -369,6 +345,37 @@
     return visible.map(function (item) { return `${escapeHtml(item.label)} ${amount(item.amount)}`; }).join(' + ') || escapeHtml(row.calculation || '月度工资');
   }
 
+  function showPayrollDetail(rowId) {
+    const row = payrollRows().find(function (item) { return item.id === rowId; });
+    if (!row) return;
+    const components = (row.components || []).filter(function (item) { return item.amount == null || Number(item.amount) !== 0; }).map(function (item) {
+      const source = item.source_url ? `<a href="${escapeHtml(item.source_url)}">${escapeHtml(item.source_label || '查看来源')}<i class="ti ti-arrow-right"></i></a>` : '';
+      return `<li><div><span>${escapeHtml(item.label)}</span><strong>${amount(item.amount)}</strong></div><p>${escapeHtml(item.formula || '按来源原值计入')}</p>${source}</li>`;
+    }).join('');
+    const netFormula = row.net_pay == null
+      ? '<div class="payroll-net-pending"><i class="ti ti-alert-circle"></i>财务尚未核定个人医社保和个税，因此实发金额待补。</div>'
+      : `<div class="payroll-net-formula"><span>${amount(row.gross_pay)}</span><i>−</i><span>${amount(row.personal_social_insurance)}</span><i>−</i><span>${amount(row.income_tax)}</span><i>=</i><strong>${amount(row.net_pay)}</strong><small>税前工资　个人医社保　个税　实发</small></div>`;
+    dialog('payroll-detail-dialog', `${row.employee_name} · 工资详情`, `<div class="payroll-detail-dialog"><div class="payroll-detail-net"><span>实发金额</span><strong>${amount(row.net_pay)}</strong></div>${netFormula}<h4>税前工资组成</h4><ul>${components || '<li>暂无工资组成</li>'}</ul></div>`);
+  }
+
+  async function setPayrollPaid(rowId, checked, control) {
+    const row = payrollRows().find(function (item) { return item.id === rowId; });
+    if (!row) return;
+    control.disabled = true;
+    try {
+      const saved = await api(`/api/finance/payroll/${state.month}/payments/${rowId}`, {
+        method: 'PUT', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({is_paid: checked, expected_version: row.payment?.version || null, note: checked ? '管理员确认已发放' : '管理员撤销已发放标记'}),
+      });
+      row.payment = saved;
+      await loadPayroll();
+    } catch (error) {
+      control.checked = !checked;
+      control.disabled = false;
+      window.alert(error.message);
+    }
+  }
+
   function renderPayroll() {
     const rows = payrollSortedRows();
     const grossTotal = rows.reduce(function (sum, row) { return sum + Number(row.gross_pay || 0); }, 0);
@@ -376,18 +383,24 @@
     const netTotal = netValues.some(function (value) { return value == null; }) ? null : netValues.reduce(function (sum, value) { return sum + value; }, 0);
     content.innerHTML = `${reportTabs()}<div class="payroll-sheet">
       <header class="payroll-title"><h1>${escapeHtml(state.month.replace('-', '年'))}月 工资发放单</h1></header>
-      <div class="payroll-total-band"><span>${rows.length} 人</span><strong>应发合计 ${amount(grossTotal)}</strong><em>实发合计 ${amount(netTotal)}</em></div>
+      <div class="payroll-total-band"><span>${rows.length} 人</span><strong>实发合计 ${amount(netTotal)}</strong><em>税前合计 ${amount(grossTotal)}</em></div>
       <div class="payroll-payment-list">${rows.map(function (row) {
         const statusClass = row.calculation_status === 'missing_input' ? 'is-missing' : row.calculation_status === 'source_pending' ? 'is-pending' : 'is-ready';
-        const pay = row.net_pay == null ? row.gross_pay : row.net_pay;
+        const paymentReady = state.data.payroll_snapshot?.status === 'final' && row.net_pay != null;
+        const paid = row.payment?.is_paid === true;
+        const adminControl = window.JUN_CONTEXT?.profile?.role === 'admin'
+          ? `<label class="payroll-paid-control ${paid ? 'is-paid' : ''}"><input type="checkbox" data-payroll-paid="${escapeHtml(row.id)}" ${paid ? 'checked' : ''} ${paymentReady ? '' : 'disabled'}><span>${paid ? '已发' : '未发'}</span></label>`
+          : `<span class="payroll-paid-state ${paid ? 'is-paid' : ''}">${paid ? '已发' : '未发'}</span>`;
         return `<article class="payroll-payment-row ${statusClass}">
-          <div class="payroll-payment-person"><strong>${escapeHtml(row.employee_no || '-')} · ${escapeHtml(row.employee_name)}</strong><span>${escapeHtml(row.role_name || row.department || '')}</span></div>
-          <div class="payroll-payment-detail"><strong>${payrollComponentSummary(row)}</strong><span>应发 ${amount(row.gross_pay)} · 医社保 ${amount(row.personal_social_insurance)} · 个税 ${amount(row.income_tax)}</span></div>
+          <div class="payroll-payment-person"><strong>${escapeHtml(row.employee_name)}</strong><span>${escapeHtml(row.role_name || row.department || '')}</span></div>
           <div class="payroll-payment-bank"><i class="ti ti-building-bank"></i><span>${escapeHtml([row.payment_bank, row.payment_method].filter(Boolean).join(' · ') || '付款资料待补')}</span><strong>${escapeHtml(row.payment_account || '账号待补')}</strong></div>
-          <div class="payroll-payment-amount"><small>${escapeHtml(payrollStatus(row))}</small><strong>${amount(pay)}</strong><span>${row.net_pay == null ? '当前应发' : '最终实发'}</span></div>
+          <button type="button" class="payroll-payment-amount" data-payroll-detail="${escapeHtml(row.id)}"><small>${row.net_pay == null ? '实发待财务核定' : '点击查看金额组成'}</small><strong>${amount(row.net_pay)}</strong><span>实发</span></button>
+          <div class="payroll-payment-state">${adminControl}</div>
         </article>`;
       }).join('') || '<div class="finance-empty">尚未生成本月工资快照。</div>'}</div>
     </div>`;
+    content.querySelectorAll('[data-payroll-detail]').forEach(function (button) { button.addEventListener('click', function () { showPayrollDetail(button.dataset.payrollDetail); }); });
+    content.querySelectorAll('[data-payroll-paid]').forEach(function (checkbox) { checkbox.addEventListener('change', function () { setPayrollPaid(checkbox.dataset.payrollPaid, checkbox.checked, checkbox); }); });
   }
 
   function payrollRuleType(row) {
@@ -406,7 +419,7 @@
     {key:'production_manager',title:'工厂合作制',match:function(row){return payrollRuleType(row) === 'production_manager';},columns:[['piecework','工钱'],['management','制作管理费'],['profit','个人利润分红'],['cutting','裁床费用'],['other','其他']]},
     {key:'production_worker',title:'车工计件',match:function(row){return payrollRuleType(row) === 'production_worker';},columns:[['internal_output','内部产值'],['external_processing','外加工产值'],['output_bonus','产值奖励'],['meal_allowance','餐补'],['seniority','工龄福利'],['quality_bonus','质量奖'],['paid_leave','带薪休假福利'],['other','其他']]},
     {key:'warehouse',title:'仓管',match:function(row){return payrollRuleType(row) === 'warehouse';},columns:[['manual_work','手工提成工资'],['shipment','订单管理工资'],['other','其他']]},
-    {key:'pattern_points',title:'制版',match:function(row){return payrollRuleType(row) === 'pattern_points';},columns:[['points_settlement','实际积分计数'],['paid_leave','带薪假期福利'],['performance_bonus','绩效奖金'],['other','其他']]},
+    {key:'pattern_points',title:'制版',match:function(row){return payrollRuleType(row) === 'pattern_points';},columns:[['points_settlement','制版积分结算'],['paid_leave','带薪假期福利'],['performance_bonus','绩效奖金'],['other','其他']]},
     {key:'planning_submission',title:'企划',match:function(row){return payrollRuleType(row) === 'planning_submission';},columns:[['base','基础工资'],['commission','销售提成'],['other','其他']]},
     {key:'design_submission',title:'设计',match:function(row){return payrollRuleType(row) === 'design_submission';},columns:[['project','项目工资'],['sales_commission','销售提成'],['other','其他']]},
     {key:'customer_service',title:'客服',match:function(row){return payrollRuleType(row) === 'fixed' && /客服|客户/.test(`${row.role_name || ''}${row.compensation_method || ''}`);},columns:[['fixed','基础工资'],['sales_commission','销售提成'],['other','其他']]},
@@ -420,10 +433,32 @@
     });
   }
 
+  function payrollManualInputKey(row, key) {
+    const type = payrollRuleType(row);
+    const mapping = {
+      fixed: {sales_commission:'sales_commission', other:'other_amount'},
+      production_manager: {other:'other_amount'},
+      warehouse: {other:'other_amount'},
+      pattern_points: {paid_leave:'paid_leave_amount', performance_bonus:'performance_bonus', other:'other_amount'},
+      planning_submission: {commission:'sales_amount', other:'other_amount'},
+      design_submission: {project:'project_amount', sales_commission:'sales_commission', other:'other_amount'},
+    };
+    return mapping[type]?.[key] || null;
+  }
+
   function payrollCell(row, key) {
     const item = payrollComponent(row, key);
     if (!item) return '<span class="company-payroll-empty">-</span>';
-    return `<span class="company-payroll-value ${item.adjusted ? 'is-adjusted' : ''}">${amount(item.amount)}${item.adjusted ? '<i class="ti ti-pencil" title="管理员已调整"></i>' : ''}</span>`;
+    const inputKey = payrollManualInputKey(row, key);
+    const manual = Boolean(inputKey) && has('finance.manage') && state.data.month.status === 'open';
+    return `<button type="button" class="company-payroll-value ${manual ? 'is-manual-source' : 'is-linked-source'}" data-component-row="${escapeHtml(row.id)}" data-component-key="${escapeHtml(key)}" ${manual ? `data-source-input="${escapeHtml(inputKey)}"` : ''}>${amount(item.amount)}<i class="ti ti-${manual ? 'pencil' : 'link'}"></i></button>`;
+  }
+
+  function showPayrollComponent(row, key) {
+    const item = payrollComponent(row, key);
+    if (!item) return;
+    const source = item.source_url ? `<a class="btn btn-outline-primary btn-sm" href="${escapeHtml(item.source_url)}">${escapeHtml(item.source_label || '查看来源')}<i class="ti ti-arrow-right ms-1"></i></a>` : '';
+    dialog('payroll-component-dialog', `${row.employee_name} · ${item.label}`, `<div class="finance-trace finance-trace-simple"><dl><dt>金额</dt><dd><strong>${amount(item.amount)}</strong></dd><dt>计算方式</dt><dd>${escapeHtml(item.formula || '按来源原值计入')}</dd><dt>数据性质</dt><dd>${item.input_key ? '工资表人工源数据' : item.source_kind === 'rule' ? '生效计薪规则' : '自动引用或公式计算'}</dd></dl>${source ? `<div class="finance-lineage-source">${source}</div>` : ''}</div>`);
   }
 
   function companyPayrollStatus(row) {
@@ -432,18 +467,15 @@
   }
 
   function renderCompanyPayrollTable(module) {
-    const canEdit = has('finance.manage') && state.data.month.status === 'open';
     const gross = module.rows.reduce(function(sum,row){return sum + Number(row.gross_pay || 0);},0);
     const columns = module.columns.map(function(column){return `<th class="number">${escapeHtml(column[1])}</th>`;}).join('');
     return `<section class="company-payroll-module" data-company-payroll-section="${escapeHtml(module.key)}">
       <header><div><h2>${escapeHtml(module.title)}</h2><span>${module.rows.length} 人</span></div><strong>${amount(gross)}</strong></header>
-      <div class="company-payroll-table-wrap"><table class="company-payroll-table"><thead><tr><th class="company-payroll-action"></th><th class="company-payroll-no">工号</th><th class="company-payroll-name">姓名</th>${columns}<th class="number total">税前工资</th><th class="number">个人医社保</th><th class="number">个税</th><th class="number total">实发金额</th><th>状态</th><th>备注</th></tr></thead><tbody>${module.rows.map(function(row){
-        const adjusted = (row.payload?.adjusted_components || []).length || row.payload?.gross_override;
+      <div class="company-payroll-table-wrap"><table class="company-payroll-table"><thead><tr><th class="company-payroll-name">姓名</th>${columns}<th class="number total">税前工资</th><th class="number">个人医社保</th><th class="number">个税</th><th class="number total">实发金额</th><th>状态</th><th>备注</th></tr></thead><tbody>${module.rows.map(function(row){
         return `<tr class="${row.calculation_status === 'missing_input' ? 'is-missing' : row.calculation_status === 'source_pending' ? 'is-pending' : ''}">
-          <td class="company-payroll-action">${canEdit && row.employee_id ? `<button class="finance-icon-button" data-company-payroll-edit="${escapeHtml(row.employee_id)}" title="修改${escapeHtml(row.employee_name)}本月工资" aria-label="修改${escapeHtml(row.employee_name)}本月工资"><i class="ti ti-edit"></i></button>` : ''}</td>
-          <td class="company-payroll-no">${escapeHtml(row.employee_no || '-')}</td><td class="company-payroll-name"><strong>${escapeHtml(row.employee_name)}</strong><span>${escapeHtml(row.role_name || '')}</span></td>
+          <td class="company-payroll-name" id="payroll-row-${escapeHtml(row.employee_id)}"><strong>${escapeHtml(row.employee_name)}</strong><span>${escapeHtml(row.role_name || '')}</span></td>
           ${module.columns.map(function(column){return `<td class="number">${payrollCell(row,column[0])}</td>`;}).join('')}
-          <td class="number total">${amount(row.gross_pay)}${adjusted ? '<i class="ti ti-pencil company-payroll-adjusted" title="含管理员调整"></i>' : ''}</td><td class="number">${amount(row.personal_social_insurance)}</td><td class="number">${amount(row.income_tax)}</td><td class="number total">${amount(row.net_pay)}</td><td>${companyPayrollStatus(row)}</td><td class="company-payroll-note" title="${escapeHtml(row.note || '')}">${escapeHtml(row.note || '-')}</td>
+          <td class="number total"><button type="button" class="company-payroll-total-link" data-payroll-detail="${escapeHtml(row.id)}">${amount(row.gross_pay)}</button></td><td class="number"><button type="button" class="company-payroll-total-link" data-payroll-detail="${escapeHtml(row.id)}">${amount(row.personal_social_insurance)}</button></td><td class="number"><button type="button" class="company-payroll-total-link" data-payroll-detail="${escapeHtml(row.id)}">${amount(row.income_tax)}</button></td><td class="number total"><button type="button" class="company-payroll-total-link is-net" data-payroll-detail="${escapeHtml(row.id)}">${amount(row.net_pay)}</button></td><td>${companyPayrollStatus(row)}</td><td class="company-payroll-note" title="${escapeHtml(row.note || '')}">${escapeHtml(row.note || '-')}</td>
         </tr>`;
       }).join('')}</tbody></table></div>
     </section>`;
@@ -459,12 +491,18 @@
     const rows = payrollSortedRows();
     const gross = rows.reduce(function(sum,row){return sum + Number(row.gross_pay || 0);},0);
     content.innerHTML = `${reportTabs()}<div class="company-payroll-sheet">
-      <div class="company-payroll-summary"><div><span>人员</span><strong>${rows.length}</strong></div><div><span>税前工资合计</span><strong>${amount(gross)}</strong></div><div><span>待补或待审批</span><strong>${rows.filter(function(row){return ['missing_input','source_pending'].includes(row.calculation_status);}).length}</strong></div></div>
+      <div class="company-payroll-summary"><div><span>人员</span><strong>${rows.length}</strong></div><div><span>税前工资合计</span><strong>${amount(gross)}</strong></div><div><span>待补源数据</span><strong>${rows.filter(function(row){return ['missing_input','source_pending'].includes(row.calculation_status);}).length}</strong></div></div>
       <nav class="company-payroll-switch" aria-label="岗位模块"><button type="button" data-company-payroll-module="all">全部</button>${groups.map(function(module){return `<button type="button" data-company-payroll-module="${escapeHtml(module.key)}">${escapeHtml(module.title)} <span>${module.rows.length}</span></button>`;}).join('')}</nav>
       <div class="company-payroll-modules">${groups.map(renderCompanyPayrollTable).join('') || '<div class="finance-empty">尚未生成本月工资快照。</div>'}</div>
     </div>`;
     content.querySelectorAll('[data-company-payroll-module]').forEach(function(button){button.addEventListener('click',function(){state.companyPayrollModule=button.dataset.companyPayrollModule;applyCompanyPayrollFilter();});});
-    content.querySelectorAll('[data-company-payroll-edit]').forEach(function(button){button.addEventListener('click',function(){showPayrollInput(button.dataset.companyPayrollEdit);});});
+    content.querySelectorAll('[data-component-row]').forEach(function(button){button.addEventListener('click',function(){
+      const row = payrollRows().find(function(item){return item.id === button.dataset.componentRow;});
+      if (!row) return;
+      if (button.dataset.sourceInput) showPayrollInput(row.employee_id, button.dataset.sourceInput);
+      else showPayrollComponent(row, button.dataset.componentKey);
+    });});
+    content.querySelectorAll('[data-payroll-detail]').forEach(function(button){button.addEventListener('click',function(){showPayrollDetail(button.dataset.payrollDetail);});});
     applyCompanyPayrollFilter();
   }
 
@@ -528,9 +566,23 @@
       try { await importPayroll(file); await loadCompanyPayroll(); } catch (error) { renderError(error); }
     });
     renderCompanyPayroll();
+    const query = new URLSearchParams(location.search);
+    const employeeName = query.get('employee');
+    const inputKey = query.get('input');
+    const linkedRow = employeeName ? payrollRows().find(function (row) { return row.employee_name === employeeName; }) : null;
+    if (linkedRow) {
+      const target = document.getElementById(`payroll-row-${linkedRow.employee_id}`);
+      target?.closest('tr')?.classList.add('is-lineage-target');
+      target?.scrollIntoView({block:'center'});
+      if (inputKey && has('finance.manage')) {
+        query.delete('input');
+        const url = new URL(location.href); url.search = query.toString(); history.replaceState({}, '', url);
+        await showPayrollInput(linkedRow.employee_id, inputKey);
+      }
+    }
   }
 
-  async function showPayrollInput(employeeId) {
+  async function showPayrollInput(employeeId, focusInputKey) {
     const foundation = await api(`/api/finance/employees?month=${encodeURIComponent(state.month)}`);
     const employee = (foundation.employees || []).find(function (item) { return item.id === employeeId; });
     const rule = (foundation.rules || []).find(function (item) { return item.employee_id === employeeId; });
@@ -539,7 +591,6 @@
     if (!employee) return;
     const inputs = existing?.inputs || {};
     const ruleType = rule?.rule_type || row?.payload?.rule_type || '';
-    const module = companyPayrollModules.find(function (item) { return item.match(row || {...employee, payload:{rule_type:ruleType}}); });
     const value = function (name) {
       if (inputs[name] != null) return inputs[name];
       if (name === 'other_amount' && inputs.additional_amount != null) return inputs.additional_amount;
@@ -551,30 +602,20 @@
     let directFields = '';
     const directNames = [];
     const addField = function (label, name, minimum) { directNames.push(name); directFields += field(label, name, minimum); };
-    if (ruleType === 'fixed') { addField('销售/其他提成', 'sales_commission'); addField('其他', 'other_amount', false); }
+    if (ruleType === 'fixed') { addField('销售提成', 'sales_commission'); addField('其他', 'other_amount', false); }
     if (ruleType === 'production_manager') addField('其他', 'other_amount', false);
     if (ruleType === 'warehouse') addField('其他', 'other_amount', false);
-    if (ruleType === 'pattern_points') { addField('审批积分总额', 'points'); addField('带薪假期福利', 'paid_leave_amount'); addField('绩效奖金', 'performance_bonus'); addField('其他', 'other_amount', false); }
-    if (ruleType === 'planning_submission') { addField('企划提报订单金额', 'sales_amount'); addField('基础工资', 'base_amount'); addField('其他', 'other_amount', false); }
+    if (ruleType === 'pattern_points') { addField('带薪假期福利', 'paid_leave_amount'); addField('绩效奖金', 'performance_bonus'); addField('其他', 'other_amount', false); }
+    if (ruleType === 'planning_submission') { addField('企划提报订单金额', 'sales_amount'); addField('其他', 'other_amount', false); }
     if (ruleType === 'design_submission') { addField('项目工资', 'project_amount'); addField('销售提成', 'sales_commission'); addField('其他', 'other_amount', false); }
-    const directComponentKeys = {
-      fixed:['sales_commission','other'],production_manager:['other'],warehouse:['other'],pattern_points:['points_settlement','paid_leave','performance_bonus','other'],planning_submission:['base','commission','other'],design_submission:['project','sales_commission','other'],
-    }[ruleType] || [];
-    const existingOverrides = inputs.component_overrides || {};
-    const overrideFields = (module?.columns || []).filter(function (column) { return !directComponentKeys.includes(column[0]); }).map(function (column) {
-      const automatic = payrollComponent(row || {}, column[0])?.automatic_amount ?? payrollComponent(row || {}, column[0])?.amount;
-      return `<label>${escapeHtml(column[1])}<input class="form-control" type="number" step="0.01" name="component_${escapeHtml(column[0])}" value="${escapeHtml(existingOverrides[column[0]] ?? '')}" placeholder="自动 ${automatic == null ? '待补' : money.format(Number(automatic))}"></label>`;
-    }).join('');
-    const current = (row?.components || []).filter(function (item) { return item.key !== 'admin_override'; }).map(function (item) { return `<div><span>${escapeHtml(item.label)}</span><strong>${amount(item.amount)}</strong></div>`; }).join('');
-    const element = dialog('finance-payroll-input-dialog', `${employee.employee_no} · ${employee.employee_name}`, `<div class="company-payroll-current">${current}</div><div class="employee-form-grid">${directFields}${overrideFields}</div><details><summary>最终税前工资覆盖</summary><label>税前工资<input class="form-control" type="number" step="0.01" min="0" name="gross_override" value="${escapeHtml(value('gross_override'))}"></label></details><label>调整原因<textarea class="form-control" rows="3" name="reason" required>${escapeHtml(existing?.reason || '')}</textarea></label><div class="finance-error" data-message hidden></div><footer><button class="btn btn-outline-secondary" value="cancel">取消</button><button class="btn btn-primary" type="button" data-save>保存并重算</button></footer>`);
+    if (!directNames.length) return;
+    const sourceSummary = (row?.components || []).filter(function (item) { return item.input_key; }).map(function (item) { return `<div><span>${escapeHtml(item.label)}</span><strong>${amount(item.amount)}</strong></div>`; }).join('');
+    const approved = existing?.approved_at ? `上次确认：${dateTime(existing.approved_at)} · 版本 ${existing.version}` : '尚未填报本月人工源数据';
+    const element = dialog('finance-payroll-input-dialog', `${employee.employee_name} · 本月工资源数据`, `<p class="finance-note">这里只能维护无法自动生成或引用的数据。自动金额、公式结果和实发金额均不可修改。</p>${sourceSummary ? `<div class="company-payroll-current">${sourceSummary}</div>` : ''}<div class="employee-form-grid">${directFields}</div><label>来源与确认说明<textarea class="form-control" rows="3" name="reason" required placeholder="说明这笔数据来自哪里或为何确认">${escapeHtml(existing?.reason || '')}</textarea></label><p class="finance-note">${escapeHtml(approved)}</p><div class="finance-error" data-message hidden></div><footer><button class="btn btn-outline-secondary" value="cancel">取消</button><button class="btn btn-primary" type="button" data-save>确认源数据并重算</button></footer>`);
+    if (focusInputKey) element.querySelector(`[name="${focusInputKey}"]`)?.focus();
     element.querySelector('[data-save]').addEventListener('click', async function () {
       const values = {};
       directNames.forEach(function (name) { const input = element.querySelector(`[name="${name}"]`); if (input?.value !== '') values[name] = Number(input.value); });
-      const componentOverrides = {};
-      element.querySelectorAll('[name^="component_"]').forEach(function (input) { if (input.value !== '') componentOverrides[input.name.replace('component_','')] = Number(input.value); });
-      if (Object.keys(componentOverrides).length) values.component_overrides = componentOverrides;
-      const grossOverride = element.querySelector('[name="gross_override"]');
-      if (grossOverride.value !== '') values.gross_override = Number(grossOverride.value);
       const message = element.querySelector('[data-message]');
       try {
         await api(`/api/finance/payroll/${state.month}/inputs/${employeeId}`, {method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({inputs: values, reason: element.querySelector('[name="reason"]').value, expected_version: existing?.version || null})});
@@ -666,7 +707,10 @@
     target.querySelectorAll('[data-record]').forEach(function (button) {
       button.addEventListener('click', function () {
         const row = JSON.parse(button.dataset.record);
-        dialog('finance-record-dialog', row.reference_no || row.title || '数据明细', `<div class="finance-trace"><dl><dt>时间</dt><dd>${dateTime(row.occurred_at)}</dd><dt>金额</dt><dd>${amount(row.amount)}</dd><dt>数量</dt><dd>${row.quantity == null ? '-' : integer.format(row.quantity)}</dd><dt>状态</dt><dd>${escapeHtml(row.status || '-')}</dd></dl><pre>${escapeHtml(JSON.stringify(row.payload || {}, null, 2))}</pre></div>`);
+        const payload = row.payload || {};
+        const detailUrl = payload['审批详情'] || payload['审批详情 URL'] || '';
+        const fields = Object.entries(payload).filter(function (entry) { return entry[1] != null && entry[1] !== '' && !['审批详情','审批详情 URL'].includes(entry[0]); }).slice(0, 16).map(function (entry) { return `<dt>${escapeHtml(entry[0])}</dt><dd>${escapeHtml(entry[1])}</dd>`; }).join('');
+        dialog('finance-record-dialog', row.reference_no || row.title || '数据明细', `<div class="finance-trace finance-trace-simple"><dl><dt>时间</dt><dd>${dateTime(row.occurred_at)}</dd><dt>金额</dt><dd>${amount(row.amount)}</dd><dt>数量</dt><dd>${row.quantity == null ? '-' : integer.format(row.quantity)}</dd><dt>状态</dt><dd>${escapeHtml(row.status || '-')}</dd>${fields}</dl>${detailUrl ? `<div class="finance-lineage-source"><a class="btn btn-outline-primary btn-sm" href="${escapeHtml(detailUrl)}" target="_blank" rel="noopener">打开企微审批详情<i class="ti ti-external-link ms-1"></i></a></div>` : ''}</div>`);
       });
     });
   }
@@ -703,15 +747,17 @@
   async function loadSources() {
     state.data = await api(`/api/finance/months/${state.month}`);
     const batches = new Map((state.data.source_batches || []).map(function (batch) { return [batch.source_type, batch]; }));
+    const requestedSource = new URLSearchParams(location.search).get('source_type');
+    if (requestedSource && sourceLabels[requestedSource] && !['manual_work','erp_shipment','pattern_approval'].includes(requestedSource)) state.sourceType = requestedSource;
+    if (!batches.has(state.sourceType)) state.sourceType = Array.from(batches.keys()).find(function (key) { return !['manual_work','erp_shipment','pattern_approval'].includes(key); }) || 'taobao_income_order';
     toolbar.innerHTML = `${monthSelect(state.months, state.month)}<span class="finance-toolbar-spacer"></span>${has('finance.manage') ? '<button class="btn btn-outline-primary" id="add-cost"><i class="ti ti-plus me-1"></i>费用</button><button class="btn btn-outline-primary" id="add-policy"><i class="ti ti-adjustments me-1"></i>经营调整</button>' : ''}`;
     toolbar.querySelector('#finance-month').addEventListener('change', async function (event) { setMonth(event.target.value); state.offset = 0; await loadSources(); });
     toolbar.querySelector('#add-cost')?.addEventListener('click', function () { showCostDialog(null); });
     toolbar.querySelector('#add-policy')?.addEventListener('click', function () { showPolicyDialog(null); });
-    content.innerHTML = `${reportTabs()}<div class="finance-source-grid">${Object.keys(sourceLabels).filter(function (key) { return !['manual_work','erp_shipment'].includes(key); }).map(function (key) { return sourceCard(batches.get(key) || {source_type: key, amount_total: null, record_count: 0, captured_at: null}); }).join('')}</div><section class="finance-section"><div class="finance-section-header"><h3>导入明细</h3></div><div id="source-records"><div class="finance-loading"><span class="spinner-border spinner-border-sm"></span>正在读取</div></div></section><section class="finance-section mt-4"><div class="finance-section-header"><h3>其他固定费用</h3></div>${renderCostTable(state.data.recurring_costs || [])}</section><section class="finance-section mt-4"><div class="finance-section-header"><h3>经营模块外调整</h3></div>${renderPolicyTable(state.data.policies || [])}</section>`;
+    content.innerHTML = `${reportTabs()}<div class="finance-source-grid">${Object.keys(sourceLabels).filter(function (key) { return !['manual_work','erp_shipment','pattern_approval'].includes(key); }).map(function (key) { return sourceCard(batches.get(key) || {source_type: key, amount_total: null, record_count: 0, captured_at: null}); }).join('')}</div><section class="finance-section"><div class="finance-section-header"><h3>导入明细</h3></div><div id="source-records"><div class="finance-loading"><span class="spinner-border spinner-border-sm"></span>正在读取</div></div></section><section class="finance-section mt-4"><div class="finance-section-header"><h3>其他固定费用</h3></div>${renderCostTable(state.data.recurring_costs || [])}</section><section class="finance-section mt-4"><div class="finance-section-header"><h3>经营模块外调整</h3></div>${renderPolicyTable(state.data.policies || [])}</section>`;
     content.querySelectorAll('[data-source]').forEach(function (button) { button.addEventListener('click', async function () { state.sourceType = button.dataset.source; state.offset = 0; content.querySelectorAll('[data-source]').forEach(function (item) { item.classList.toggle('active', item === button); }); await loadSourceRecords(); }); });
     content.querySelectorAll('[data-cost]').forEach(function (button) { button.addEventListener('click', function () { showCostDialog(JSON.parse(button.dataset.cost)); }); });
     content.querySelectorAll('[data-policy]').forEach(function (button) { button.addEventListener('click', function () { showPolicyDialog(JSON.parse(button.dataset.policy)); }); });
-    if (!batches.has(state.sourceType)) state.sourceType = Array.from(batches.keys()).find(function (key) { return !['manual_work','erp_shipment'].includes(key); }) || 'taobao_income_order';
     await loadSourceRecords();
   }
 
@@ -726,9 +772,11 @@
   async function loadStandaloneSource(endpoint, title) {
     const months = rollingMonths();
     state.month = selectedMonthFromUrl(monthBeforeNow());
-    toolbar.innerHTML = `${monthSelect(months, state.month)}<span class="finance-toolbar-spacer"></span><span class="finance-status">${escapeHtml(title)}</span>`;
+    const search = new URLSearchParams(location.search).get('search') || '';
+    toolbar.innerHTML = `${monthSelect(months, state.month)}<input id="source-search" class="form-control finance-source-search" type="search" placeholder="搜索姓名、编号或内容" value="${escapeHtml(search)}"><span class="finance-toolbar-spacer"></span><span class="finance-status">${escapeHtml(title)}</span>`;
     toolbar.querySelector('#finance-month').addEventListener('change', async function (event) { setMonth(event.target.value); state.offset = 0; await loadStandaloneSource(endpoint, title); });
-    const query = new URLSearchParams({month: state.month, limit: state.limit, offset: state.offset});
+    toolbar.querySelector('#source-search').addEventListener('change', async function (event) { const url = new URL(location.href); if (event.target.value.trim()) url.searchParams.set('search', event.target.value.trim()); else url.searchParams.delete('search'); history.replaceState({}, '', url); state.offset = 0; await loadStandaloneSource(endpoint, title); });
+    const query = new URLSearchParams({month: state.month, limit: state.limit, offset: state.offset, search: search});
     const payload = await api(`${endpoint}?${query}`);
     state.sourceTotal = payload.total || 0;
     content.innerHTML = renderRecordTable(payload.items || [], true);
@@ -740,6 +788,7 @@
     await window.JUN_AUTH_READY;
     markNavigation();
     if (page === 'production-manual') return await loadStandaloneSource('/api/production/manual-approvals', '手工审批');
+    if (page === 'production-pattern') return await loadStandaloneSource('/api/production/pattern-approvals', '制版审批');
     if (page === 'erp-shipments') return await loadStandaloneSource('/api/erp/shipments', '发货情况');
     await loadFinanceMonths();
     setMonth(state.month);

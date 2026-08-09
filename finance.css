@@ -79,6 +79,13 @@ button.finance-source-item { cursor: pointer; }
 .finance-trace dt { color: var(--finance-muted); font-weight: 500; }
 .finance-trace dd { margin: 0; overflow-wrap: anywhere; }
 .finance-trace pre { max-height: 260px; margin: 0; padding: 12px; overflow: auto; border-radius: 6px; background: #f3f5f8; color: #344054; font-size: 11px; white-space: pre-wrap; }
+.finance-trace-amount { padding: 0; border: 0; border-bottom: 1px dashed #9bb6d5; background: transparent; color: inherit; font: inherit; font-weight: inherit; font-variant-numeric: tabular-nums; }
+.finance-trace-amount:hover, .finance-trace-amount:focus-visible { color: var(--finance-blue); border-bottom-color: var(--finance-blue); }
+.finance-lineage-links { display: grid; gap: 7px; padding-top: 11px; border-top: 1px solid var(--finance-border); }
+.finance-lineage-links > span { color: var(--finance-muted); font-size: 11px; font-weight: 600; }
+.finance-lineage-chip { padding: 8px 10px; border: 1px solid var(--finance-border); border-radius: 6px; background: #f8fafc; color: #344054; text-align: left; }
+.finance-lineage-chip:hover { border-color: #9bbce1; background: #edf4fc; color: var(--finance-blue); }
+.finance-lineage-source { padding-top: 4px; }
 .finance-note { color: var(--finance-muted); font-size: 12px; }
 .finance-error { padding: 13px; border: 1px solid #efb7b7; border-radius: 7px; background: #fff5f5; color: var(--finance-red); }
 
@@ -182,11 +189,11 @@ button.finance-source-item { cursor: pointer; }
 .payroll-adjust { position: absolute; right: 10px; bottom: 8px; }
 
 .payroll-payment-list { overflow: hidden; border: 1px solid var(--finance-border); border-radius: 7px; background: #fff; }
-.payroll-payment-row { display: grid; grid-template-columns: 150px minmax(220px, 1fr) minmax(230px, .8fr) 130px; gap: 12px; align-items: center; min-height: 70px; padding: 9px 12px; border-bottom: 1px solid #edf0f4; }
+.payroll-payment-row { display: grid; grid-template-columns: 150px minmax(230px, 1fr) 190px 78px; gap: 14px; align-items: center; min-height: 78px; padding: 11px 14px; border-bottom: 1px solid #edf0f4; }
 .payroll-payment-row:last-child { border-bottom: 0; }
 .payroll-payment-row.is-missing { box-shadow: inset 4px 0 #c92a2a; }
 .payroll-payment-row.is-pending { box-shadow: inset 4px 0 #e07b00; }
-.payroll-payment-person, .payroll-payment-detail, .payroll-payment-bank, .payroll-payment-amount { min-width: 0; }
+.payroll-payment-person, .payroll-payment-bank, .payroll-payment-amount, .payroll-payment-state { min-width: 0; }
 .payroll-payment-person strong, .payroll-payment-person span, .payroll-payment-detail strong, .payroll-payment-detail span, .payroll-payment-bank span, .payroll-payment-bank strong, .payroll-payment-amount small, .payroll-payment-amount span { display: block; }
 .payroll-payment-person strong { font-size: 14px; }
 .payroll-payment-person span, .payroll-payment-detail span, .payroll-payment-bank span, .payroll-payment-amount small, .payroll-payment-amount span { color: var(--finance-muted); font-size: 11px; }
@@ -194,8 +201,30 @@ button.finance-source-item { cursor: pointer; }
 .payroll-payment-bank { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 1px 7px; align-items: center; }
 .payroll-payment-bank i { grid-row: 1 / 3; color: var(--finance-muted); }
 .payroll-payment-bank strong { overflow: hidden; font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 11px; letter-spacing: 0; text-overflow: ellipsis; white-space: nowrap; }
-.payroll-payment-amount { text-align: right; }
-.payroll-payment-amount strong { display: block; color: #1d3557; font-size: 17px; font-variant-numeric: tabular-nums; letter-spacing: 0; white-space: nowrap; }
+.payroll-payment-amount { padding: 8px 10px; border: 1px solid #b8cce4; border-radius: 7px; background: #f3f7fc; text-align: right; }
+.payroll-payment-amount:hover, .payroll-payment-amount:focus-visible { border-color: var(--finance-blue); background: #e9f2fc; }
+.payroll-payment-amount strong { display: block; color: #153e75; font-size: 22px; font-variant-numeric: tabular-nums; letter-spacing: -.02em; white-space: nowrap; }
+.payroll-payment-amount span { color: #153e75; font-weight: 700; }
+.payroll-payment-state { display: flex; justify-content: flex-end; }
+.payroll-paid-control { display: inline-flex; gap: 6px; align-items: center; margin: 0; padding: 6px 8px; border: 1px solid var(--finance-border); border-radius: 6px; color: #667085; font-size: 12px; font-weight: 600; }
+.payroll-paid-control.is-paid, .payroll-paid-state.is-paid { border-color: #a9d9b6; color: var(--finance-green); }
+.payroll-paid-control input { width: 15px; height: 15px; margin: 0; }
+.payroll-paid-state { padding: 3px 7px; border: 1px solid var(--finance-border); border-radius: 5px; color: var(--finance-muted); font-size: 11px; }
+.payroll-detail-dialog { display: grid; gap: 15px; }
+.payroll-detail-net { display: flex; align-items: baseline; justify-content: space-between; padding: 13px 15px; border-radius: 7px; background: #153e75; color: #fff; }
+.payroll-detail-net span { opacity: .78; font-size: 12px; }
+.payroll-detail-net strong { font-size: 25px; }
+.payroll-net-formula { display: grid; grid-template-columns: repeat(7, auto); gap: 5px; align-items: center; justify-content: center; padding: 12px; border: 1px solid var(--finance-border); border-radius: 7px; font-variant-numeric: tabular-nums; }
+.payroll-net-formula i { color: var(--finance-muted); font-style: normal; }
+.payroll-net-formula strong { color: #153e75; }
+.payroll-net-formula small { grid-column: 1 / -1; color: var(--finance-muted); font-size: 10px; text-align: center; word-spacing: 15px; }
+.payroll-net-pending { padding: 11px; border: 1px solid #efcf9c; border-radius: 7px; background: #fff8eb; color: #8a5b00; font-size: 12px; }
+.payroll-detail-dialog h4 { margin: 0; font-size: 14px; }
+.payroll-detail-dialog ul { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.payroll-detail-dialog li { padding: 10px 11px; border: 1px solid var(--finance-border); border-radius: 7px; }
+.payroll-detail-dialog li div { display: flex; justify-content: space-between; }
+.payroll-detail-dialog li p { margin: 4px 0; color: var(--finance-muted); font-size: 11px; }
+.payroll-detail-dialog li a { display: inline-flex; gap: 4px; align-items: center; font-size: 11px; text-decoration: none; }
 
 .company-payroll-sheet { display: grid; gap: 14px; }
 .company-payroll-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; overflow: hidden; border: 1px solid var(--finance-border); border-radius: 7px; background: var(--finance-border); }
@@ -222,17 +251,19 @@ button.finance-source-item { cursor: pointer; }
 .company-payroll-table tbody tr.is-pending td { background: #fffaf0; }
 .company-payroll-table .number { min-width: 94px; font-variant-numeric: tabular-nums; text-align: right; }
 .company-payroll-table .total { color: #1d3557; font-weight: 700; }
-.company-payroll-action, .company-payroll-no, .company-payroll-name { position: sticky !important; z-index: 3 !important; }
-th.company-payroll-action, th.company-payroll-no, th.company-payroll-name { z-index: 5 !important; background: #f6f8fb !important; }
-.company-payroll-action { left: 0; width: 42px; min-width: 42px; text-align: center !important; }
-.company-payroll-no { left: 42px; width: 64px; min-width: 64px; }
-.company-payroll-name { left: 106px; width: 112px; min-width: 112px; box-shadow: 2px 0 0 #e3e7ec; }
+.company-payroll-name { position: sticky !important; left: 0; z-index: 3 !important; width: 118px; min-width: 118px; box-shadow: 2px 0 0 #e3e7ec; }
+th.company-payroll-name { z-index: 5 !important; background: #f6f8fb !important; }
 .company-payroll-name strong, .company-payroll-name span { display: block; }
 .company-payroll-name span { color: var(--finance-muted); font-size: 10px; }
 .company-payroll-note { max-width: 220px; overflow: hidden; color: var(--finance-muted); text-overflow: ellipsis; }
-.company-payroll-value { display: inline-flex; gap: 3px; align-items: center; }
-.company-payroll-value.is-adjusted, .company-payroll-adjusted { color: var(--finance-blue); }
-.company-payroll-value i, .company-payroll-adjusted { font-size: 11px; }
+.company-payroll-value { display: inline-flex; gap: 4px; align-items: center; padding: 3px 5px; border: 0; border-radius: 4px; background: transparent; color: inherit; font: inherit; font-variant-numeric: tabular-nums; }
+.company-payroll-value.is-manual-source { background: #fff7df; color: #8a5b00; box-shadow: inset 0 0 0 1px #eed08a; }
+.company-payroll-value.is-linked-source { color: #3b5f87; }
+.company-payroll-value:hover { background: #edf4fc; color: var(--finance-blue); }
+.company-payroll-value i { font-size: 11px; }
+.company-payroll-total-link { padding: 0; border: 0; border-bottom: 1px dashed #9bb6d5; background: transparent; color: inherit; font: inherit; font-weight: inherit; font-variant-numeric: tabular-nums; }
+.company-payroll-total-link.is-net { color: #153e75; }
+.company-payroll-table tr.is-lineage-target td { box-shadow: inset 0 2px #206bc4, inset 0 -2px #206bc4; }
 .company-payroll-empty { color: #98a2b3; }
 .company-payroll-status { display: inline-flex; padding: 2px 6px; border-radius: 4px; background: #e7f4ec; color: #1d6f42; font-size: 10px; }
 .company-payroll-status.is-pending { background: #fff1db; color: #985600; }
@@ -283,12 +314,11 @@ th.company-payroll-action, th.company-payroll-no, th.company-payroll-name { z-in
   .payroll-deductions div:nth-child(-n+2) { border-bottom: 1px solid #edf0f3; }
   .payroll-bank { grid-template-columns: auto minmax(0, 1fr); }
   .payroll-bank strong { grid-column: 2; text-align: left; }
-  .payroll-payment-row { grid-template-columns: minmax(0, 1fr) auto; gap: 7px 12px; min-height: 0; padding: 10px 12px; }
-  .payroll-payment-detail, .payroll-payment-bank { grid-column: 1 / -1; }
-  .payroll-payment-detail { grid-row: 2; }
-  .payroll-payment-bank { grid-row: 3; }
+  .payroll-payment-row { grid-template-columns: minmax(0, 1fr) auto; gap: 9px 12px; min-height: 0; padding: 12px; }
+  .payroll-payment-bank { grid-column: 1 / -1; grid-row: 2; }
   .payroll-payment-amount { grid-column: 2; grid-row: 1; }
-  .payroll-payment-detail strong { white-space: normal; }
+  .payroll-payment-state { grid-column: 1 / -1; grid-row: 3; justify-content: flex-start; }
+  .payroll-net-formula { grid-template-columns: repeat(7, auto); overflow-x: auto; justify-content: start; font-size: 12px; }
   .company-payroll-summary { grid-template-columns: 1fr 1fr; }
   .company-payroll-summary div:nth-child(2) { grid-column: span 1; }
   .company-payroll-summary div:last-child { grid-column: 1 / -1; }
