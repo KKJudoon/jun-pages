@@ -791,6 +791,7 @@
     toolbar.querySelector('#add-policy')?.addEventListener('click', function () { showPolicyDialog(null); });
     content.innerHTML = `${reportTabs()}<section class="finance-section"><div class="finance-section-header"><div><h3>人工财务数据原</h3><p class="finance-note mb-0">所有无法从中台自动引用的当月金额都在这里逐项确认，并按母条目直接进入月报。</p></div></div>${renderManualSourceTable(state.data.manual_source_lines || [])}</section><div class="finance-source-grid mt-4">${Object.keys(sourceLabels).filter(function (key) { return !['manual_work','erp_shipment','pattern_approval'].includes(key); }).map(function (key) { return sourceCard(batches.get(key) || {source_type: key, amount_total: null, record_count: 0, captured_at: null}); }).join('')}</div><section class="finance-section"><div class="finance-section-header"><h3>自动导入明细</h3></div><div id="source-records"><div class="finance-loading"><span class="spinner-border spinner-border-sm"></span>正在读取</div></div></section><section class="finance-section mt-4"><div class="finance-section-header"><h3>跨月周期费用</h3></div>${renderCostTable(state.data.recurring_costs || [])}</section><section class="finance-section mt-4"><div class="finance-section-header"><h3>经营模块外调整</h3></div>${renderPolicyTable(state.data.policies || [])}</section>`;
     content.querySelectorAll('[data-source]').forEach(function (button) { button.addEventListener('click', async function () { state.sourceType = button.dataset.source; state.offset = 0; content.querySelectorAll('[data-source]').forEach(function (item) { item.classList.toggle('active', item === button); }); await loadSourceRecords(); }); });
+    content.querySelectorAll('[data-manual]').forEach(function (button) { button.addEventListener('click', function () { showManualSourceDialog(JSON.parse(button.dataset.manual)); }); });
     content.querySelectorAll('[data-cost]').forEach(function (button) { button.addEventListener('click', function () { showCostDialog(JSON.parse(button.dataset.cost)); }); });
     content.querySelectorAll('[data-policy]').forEach(function (button) { button.addEventListener('click', function () { showPolicyDialog(JSON.parse(button.dataset.policy)); }); });
     await loadSourceRecords();
@@ -842,4 +843,3 @@
 
   init().catch(renderError);
 })();
-    content.querySelectorAll('[data-manual]').forEach(function (button) { button.addEventListener('click', function () { showManualSourceDialog(JSON.parse(button.dataset.manual)); }); });
