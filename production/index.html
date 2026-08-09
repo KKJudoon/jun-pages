@@ -23,8 +23,8 @@
     .production-search { flex:1 1 15rem; min-width:12rem; }
     .production-filter { flex:0 1 10rem; min-width:8rem; }
     .production-actions { display:flex; gap:.45rem; margin-left:auto; flex-wrap:wrap; }
-    .production-view-switch { display:inline-grid; grid-template-columns:repeat(4,auto); padding:3px; border:1px solid var(--production-border); border-radius:5px; background:#f4f6f8; }
-    .production-view-switch .btn { min-width:6.8rem; border:0; }
+    .production-view-switch { display:inline-grid; grid-template-columns:repeat(6,auto); padding:3px; border:1px solid var(--production-border); border-radius:5px; background:#f4f6f8; }
+    .production-view-switch .btn { min-width:5.8rem; border:0; }
     .production-view-switch .btn.active { color:#fff; background:#206bc4; }
     .production-table-wrap { overflow:auto; border:1px solid var(--production-border); border-radius:6px; background:#fff; }
     .production-table { min-width:1210px; margin:0; }
@@ -145,7 +145,7 @@
       .production-month-control label { flex:1 1 auto; }
       .production-month-control .form-select { width:100%; }
       .production-status { display:inline-flex; min-height:40px; align-items:center; justify-content:center; }
-      .production-view-switch { width:100%; grid-template-columns:repeat(4,1fr); }
+      .production-view-switch { width:100%; grid-template-columns:repeat(3,1fr); }
       .production-view-switch .btn { min-width:0; padding:.4rem .25rem; font-size:.72rem; }
       .production-search { flex-basis:100%; }
       .production-filter { flex:1 1 calc(50% - .4rem); }
@@ -222,6 +222,8 @@
               <button class="btn btn-sm active" type="button" data-production-view="lines"><i class="ti ti-list-details me-1"></i>记工</button>
               <button class="btn btn-sm" type="button" data-production-view="requests"><i class="ti ti-checklist me-1"></i>审批</button>
               <button class="btn btn-sm" type="button" data-production-view="wages"><i class="ti ti-users me-1"></i>工资</button>
+              <button class="btn btn-sm" type="button" data-production-view="outsourcing"><i class="ti ti-truck-delivery me-1"></i>外发结算</button>
+              <button class="btn btn-sm" type="button" data-production-view="processing"><i class="ti ti-arrows-exchange me-1"></i>外加工</button>
               <button class="btn btn-sm" type="button" data-production-view="finance"><i class="ti ti-calculator me-1"></i>收支</button>
             </div>
             <label class="production-search" data-production-line-filter><span class="form-label">搜索</span><div class="input-icon"><span class="input-icon-addon"><i class="ti ti-search"></i></span><input id="production-search" class="form-control" type="search" placeholder="款号、往来单位、申请编号"/></div></label>
@@ -241,6 +243,8 @@
           <section id="production-lines-view"></section>
           <section id="production-requests-view" hidden></section>
           <section id="production-wages-view" hidden></section>
+          <section id="production-outsourcing-view" hidden></section>
+          <section id="production-processing-view" hidden></section>
           <section id="production-finance-view" hidden></section>
         </div>
       </div>
@@ -483,6 +487,18 @@
 
   function productionRenderFinance(){const report=productionState.data?.factory_finance||{};const v=report.values||{};const i=report.inputs||{};const income=[['内部产值收入',v.internal_income,`${productionMoney(v.internal_value)} × ${i.internal_value_multiplier}`],['内部样衣收入',v.sample_income,`${productionMoney(v.sample_value)} × ${i.sample_value_multiplier}`],['外加工收入',v.external_processing_income,'月度核算参数'],['总收入',v.total_income,'内部产值收入 + 样衣收入 + 外加工收入']];const expenses=[['计件工资',v.worker_wages,'已批准、行级计入且往来单位本月计入'],['工厂房租水电（预估）',v.rent_utilities_estimate,'生产记工固定预估口径'],['裁剪管理费',v.cutting_management_fee,`内部裁剪产值 × ${i.cutting_rate} + 样衣产值 × ${i.sample_cutting_rate} + 额外裁剪费`],['制作管理费',v.production_management_fee,`（内部产值 + 样衣产值）× ${i.production_management_rate}`],['其他费用申报',v.other_expenses,'已批准申报的有符号金额'],['冲抵费用申报',v.offset_amount,'已批准申报的有符号金额'],['总费用',v.total_expenses,'计件工资 + 预估费用 + 管理费 + 已批准申报']];const manager=[['剑锋计件工资',v.jianfeng_regular_wage],['裁剪管理费',v.cutting_management_fee],['制作管理费',v.production_management_fee],['个人利润',v.personal_profit],['生产负责人工资',v.production_manager_salary]];const settlement=[['其他人员计件工资',v.other_worker_wages],['生产负责人工资',v.production_manager_salary],['外发货值分成',v.external_value_share],['手工费用代发',i.jianfeng_manual_payment],['其他调整',i.jianfeng_other],['工厂结算金额',v.jianfeng_settlement]];const claims=(productionState.data?.expense_claims||[]).map(claim=>`<article class="production-claim"><div><div class="production-request-title"><span>${productionEscape(claim.claim_no)}</span>${productionBadge(claim.status)}</div><div class="production-request-meta">${productionEscape(claim.submitted_by_name||'历史核算参数')} · ${productionDateTime(claim.submitted_at)}</div></div><div><strong>${productionEscape(productionExpenseCategories[claim.category]||claim.category)}</strong><div class="text-secondary small">${productionEscape(claim.note)}</div></div><strong class="production-number ${Number(claim.amount)<0?'text-success':'text-danger'}">${Number(claim.amount)>=0?'+':''}¥${productionMoney(claim.amount)}</strong><button class="btn btn-sm btn-outline-primary" type="button" data-expense-view="${productionEscape(claim.id)}">查看</button></article>`).join('');const ledger=items=>`<ul class="production-ledger">${items.map((item,index)=>`<li class="${index===items.length-1?'production-ledger-total':''}"><span>${item[0]}</span><strong class="production-number ${Number(item[1])<0?'text-success':''}">¥${productionMoney(item[1])}</strong>${item[2]?`<small class="production-ledger-formula">${productionEscape(item[2])}</small>`:''}</li>`).join('')}</ul>`;document.getElementById('production-finance-view').innerHTML=`<div class="production-finance-kpis"><div class="production-finance-kpi"><span>总收入</span><strong>¥${productionMoney(v.total_income)}</strong></div><div class="production-finance-kpi"><span>计件工资</span><strong>¥${productionMoney(v.worker_wages)}</strong></div><div class="production-finance-kpi"><span>总费用</span><strong>¥${productionMoney(v.total_expenses)}</strong></div><div class="production-finance-kpi"><span>工厂利润</span><strong class="${Number(v.profit)>=0?'text-success':'text-danger'}">¥${productionMoney(v.profit)}</strong></div></div><div class="production-summary-grid mb-3"><section class="production-section"><div class="production-section-head"><h3 class="production-section-title">工厂收入</h3></div>${ledger(income)}</section><section class="production-section"><div class="production-section-head"><h3 class="production-section-title">工厂成本</h3></div>${ledger(expenses)}</section></div><div class="production-summary-grid mb-3"><section class="production-section"><div class="production-section-head"><h3 class="production-section-title">生产负责人工资组成</h3><span class="text-secondary small">林剑锋</span></div>${ledger(manager)}</section><section class="production-section"><div class="production-section-head"><h3 class="production-section-title">工厂结算</h3></div>${ledger(settlement)}${i.note?`<div class="p-3 border-top text-secondary small">${productionEscape(i.note)}</div>`:''}</section></div><section class="production-section"><div class="production-section-head"><h3 class="production-section-title">费用申报</h3><span class="text-secondary small">正数增加费用，负数冲减费用</span></div><div class="production-claim-list border-0 rounded-0">${claims||'<div class="production-empty">暂无费用申报</div>'}</div></section>`;}
 
+  function productionRenderOutsourcing(){
+    const records=productionState.data?.outsourcing_records||[];
+    const rows=records.map(item=>`<tr><td>${productionEscape(productionDate(item.work_date))}</td><td>${productionEscape(item.source_no||'—')}</td><td>${productionEscape(item.product_code||'—')}</td><td>${productionEscape(item.contractor_name||'—')}</td><td class="production-number">${productionMoney(item.quantity)}</td><td class="production-number">${productionMoney(item.standard_unit_value)}</td><td class="production-number">${productionMoney(item.standard_value)}</td><td class="production-number">${productionMoney(item.outsource_unit_cost)}</td><td class="production-number">${productionMoney(item.adjustment_amount)}</td><td class="production-number fw-semibold">${productionMoney(item.settlement_amount)}</td><td>${productionEscape(item.status_label||'—')}</td></tr>`).join('');
+    document.getElementById('production-outsourcing-view').innerHTML=`<section class="production-section"><div class="production-section-head"><h3 class="production-section-title">外发结算表</h3><span class="text-secondary small">${records.length} 条</span></div><div class="production-table-wrap border-0 rounded-0"><table class="table table-vcenter production-table"><thead><tr><th>日期</th><th>来源单号</th><th>商品编号</th><th>外发单位</th><th class="text-end">数量</th><th class="text-end">标准单件产值</th><th class="text-end">标准产值</th><th class="text-end">外发单价</th><th class="text-end">补价/调整</th><th class="text-end">结算金额</th><th>状态</th></tr></thead><tbody>${rows}</tbody></table>${rows?'':'<div class="production-empty">本月暂无外发结算记录</div>'}</div></section>`;
+  }
+
+  function productionRenderProcessing(){
+    const records=productionState.data?.external_processing_records||[];
+    const rows=records.map(item=>`<tr><td>${productionEscape(productionDate(item.work_date))}</td><td>${productionEscape(item.customer_name||'—')}</td><td>${productionEscape(item.order_no||'—')}</td><td>${productionEscape(item.product_code||'—')}</td><td class="production-number">${productionMoney(item.quantity)}</td><td class="production-number">${productionMoney(item.customer_unit_price)}</td><td class="production-number">${productionMoney(item.revenue)}</td><td>${productionEscape(item.execution_type||'—')}</td><td class="production-number">${productionMoney(item.execution_cost)}</td><td class="production-number">${productionMoney(item.cutting_cost)}</td><td class="production-number">${productionMoney(item.packaging_cost)}</td><td class="production-number fw-semibold">${productionMoney(item.gross_profit)}</td><td>${productionEscape(item.status_label||'—')}</td></tr>`).join('');
+    document.getElementById('production-processing-view').innerHTML=`<section class="production-section"><div class="production-section-head"><h3 class="production-section-title">外加工业务表</h3><span class="text-secondary small">${records.length} 条</span></div><div class="production-table-wrap border-0 rounded-0"><table class="table table-vcenter production-table"><thead><tr><th>日期</th><th>客户</th><th>订单号</th><th>商品编号</th><th class="text-end">数量</th><th class="text-end">对客单价</th><th class="text-end">加工收入</th><th>执行方式</th><th class="text-end">执行成本</th><th class="text-end">裁剪费</th><th class="text-end">包装费</th><th class="text-end">毛利</th><th>状态</th></tr></thead><tbody>${rows}</tbody></table>${rows?'':'<div class="production-empty">本月暂无外加工记录</div>'}</div></section>`;
+  }
+
   function productionRenderFinanceAccurate(){
     const report=productionState.data?.factory_finance||{};const v=report.values||{};const i=report.inputs||{};
     const income=[['内部产值收入',v.internal_income,`${productionMoney(v.internal_value)} × ${i.internal_value_multiplier}`],['内部样衣收入',v.sample_income,`${productionMoney(v.sample_value)} × ${i.sample_value_multiplier}`],['外加工收入',v.external_processing_income,'月度核算参数'],['总收入',v.total_income,'内部产值收入 + 样衣收入 + 外加工收入']];
@@ -566,6 +582,15 @@
   productionPolishFinancialDisplay();
   document.getElementById('production-finalize').addEventListener('click',async()=>{const month=document.getElementById('production-month').value;if(!confirm(`确认定稿 ${month}？定稿后不能继续提交申请。`))return;try{await productionApi(`/api/production/months/${month}/finalize`,{method:'POST'});await productionLoadMonth(month);productionAlert('本月记工已定稿','success');}catch(error){productionAlert(error.message,'danger');}});
   document.getElementById('production-reopen').addEventListener('click',async()=>{const month=document.getElementById('production-month').value;const reason=prompt('填写重新打开原因');if(!reason)return;try{await productionApi(`/api/production/months/${month}/reopen`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({reason})});await productionLoadMonth(month);productionAlert('月份已重新打开','warning');}catch(error){productionAlert(error.message,'danger');}});
+  const productionRenderCore=productionRender;
+  productionRender=function(){
+    productionRenderCore();
+    productionRenderOutsourcing();
+    productionRenderProcessing();
+    document.getElementById('production-outsourcing-view').hidden=productionState.view!=='outsourcing';
+    document.getElementById('production-processing-view').hidden=productionState.view!=='processing';
+    document.getElementById('production-export').hidden=productionState.view!=='lines';
+  };
   productionInitialize();
   </script>
 </body>
