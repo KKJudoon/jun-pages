@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>财务月报 - 生意中台</title>
+  <link rel="stylesheet" href="/jun-pages/vendor/tabler.min.css"/>
+  <link rel="stylesheet" href="/jun-pages/vendor/tabler-icons.min.css"/>
+  <link rel="stylesheet" href="/jun-pages/finance.css?v=20260810-1"/>
+  <link rel="stylesheet" href="/jun-pages/auth-gate.css">
+  <link rel="icon" type="image/png" sizes="32x32" href="/jun-pages/assets/jun-icon-32.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/jun-pages/assets/jun-icon-180.png">
+  <link rel="manifest" href="/jun-pages/manifest.webmanifest">
+  <meta name="theme-color" content="#101b3d">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <script src="/jun-pages/vendor/supabase.js"></script>
+  <script src="/jun-pages/config.js?v=20260810-1"></script>
+  <script src="/jun-pages/device.js"></script>
+  <script src="/jun-pages/public-bridge.js?v=20260810-1"></script>
+</head>
+<body class="layout-fluid" data-jun-page="finance-report">
+  <div class="page">
+    <aside class="navbar navbar-vertical navbar-expand-lg" data-bs-theme="dark">
+      <div class="container-fluid">
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#sidebar-menu"><span class="navbar-toggler-icon"></span></button>
+        <h1 class="navbar-brand navbar-brand-autodark"><a href="/jun-pages/" class="text-reset text-decoration-none"><span class="ms-2">生意中台</span></a></h1>
+        <div class="collapse navbar-collapse" id="sidebar-menu">
+          <ul class="navbar-nav pt-lg-3">
+            <li class="nav-section-label">生意中台 · ERP</li>
+            <li class="nav-item"><a class="nav-link" href="/jun-pages/erp/"><span class="nav-link-icon"><i class="ti ti-clipboard-check"></i></span><span class="nav-link-title">订单审核</span></a></li>
+            <li class="nav-item"><a class="nav-link" href="/jun-pages/erp/products/"><span class="nav-link-icon"><i class="ti ti-shirt"></i></span><span class="nav-link-title">商品档案</span></a></li>
+            <li class="nav-item"><a class="nav-link" href="/jun-pages/inventory/"><span class="nav-link-icon"><i class="ti ti-building-warehouse"></i></span><span class="nav-link-title">库存明细</span></a></li>
+            <li class="nav-item"><a class="nav-link" href="/jun-pages/erp/shipments/"><span class="nav-link-icon"><i class="ti ti-truck-delivery"></i></span><span class="nav-link-title">发货情况</span></a></li>
+            <li class="nav-section-label">生意中台 · 生产</li>
+            <li class="nav-item"><a class="nav-link" href="/jun-pages/production/"><span class="nav-link-icon"><i class="ti ti-building-factory-2"></i></span><span class="nav-link-title">生产记工</span></a></li>
+            <li class="nav-item"><a class="nav-link" href="/jun-pages/production/manual/"><span class="nav-link-icon"><i class="ti ti-writing-sign"></i></span><span class="nav-link-title">手工审批</span></a></li>
+            <li class="nav-section-label">生意中台 · 财务</li>
+            <li class="nav-item"><a class="nav-link" href="/jun-pages/finance/"><span class="nav-link-icon"><i class="ti ti-report-money"></i></span><span class="nav-link-title">财务月报</span></a></li>
+            <li class="nav-item"><a class="nav-link" href="/jun-pages/finance/payroll/"><span class="nav-link-icon"><i class="ti ti-cash-banknote"></i></span><span class="nav-link-title">工资发放</span></a></li>
+            <li class="nav-item"><a class="nav-link" href="/jun-pages/finance/sources/"><span class="nav-link-icon"><i class="ti ti-database"></i></span><span class="nav-link-title">财务数据源</span></a></li>
+            <li class="nav-section-label">生意中台 · 电商运营</li>
+            <li class="nav-item"><a class="nav-link" href="/jun-pages/"><span class="nav-link-icon"><i class="ti ti-dashboard"></i></span><span class="nav-link-title">运营总览</span></a></li>
+            <li class="nav-item"><a class="nav-link" href="/jun-pages/sycm/"><span class="nav-link-icon"><i class="ti ti-chart-bar"></i></span><span class="nav-link-title">生意参谋</span></a></li>
+            <li class="nav-item"><a class="nav-link" href="/jun-pages/marketing-safety/"><span class="nav-link-icon"><i class="ti ti-shield-exclamation"></i></span><span class="nav-link-title">营销安全</span></a></li>
+          </ul>
+        </div>
+      </div>
+    </aside>
+
+    <div class="page-wrapper">
+      <div class="page-header d-print-none">
+        <div class="container-xl">
+          <div class="page-pretitle">生意中台 · 财务</div>
+          <h2 class="page-title">财务月报</h2>
+        </div>
+      </div>
+      <div class="page-body">
+        <main class="container-xl finance-shell">
+          <div id="module-toolbar" class="finance-toolbar" aria-live="polite"></div>
+          <div id="module-content" aria-live="polite"><div class="finance-loading"><span class="spinner-border spinner-border-sm"></span>正在读取</div></div>
+        </main>
+      </div>
+    </div>
+  </div>
+
+  <nav class="bottom-tab-bar">
+    <div class="tab-items">
+      <a href="/jun-pages/" class="tab-item"><i class="ti ti-dashboard"></i><span>运营</span></a>
+      <a href="/jun-pages/erp/" class="tab-item"><i class="ti ti-clipboard-check"></i><span>ERP</span></a>
+      <a href="/jun-pages/production/" class="tab-item"><i class="ti ti-building-factory-2"></i><span>生产</span></a>
+      <a href="/jun-pages/finance/" class="tab-item"><i class="ti ti-report-money"></i><span>财务</span></a>
+    </div>
+  </nav>
+
+  <script src="/jun-pages/vendor/xlsx.full.min.js"></script>
+  <script src="/jun-pages/finance.js?v=20260810-1"></script>
+  <script src="/jun-pages/vendor/tabler.min.js"></script>
+</body>
+</html>
