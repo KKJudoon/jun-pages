@@ -147,7 +147,10 @@ html.jun-auth-error body::before {
 .jun-icon-button { width: 34px; height: 34px; border: 0; border-radius: 50%; background: #eef2f6; color: #667085; font-size: 23px; line-height: 1; cursor: pointer; }
 .jun-dialog-body { padding: 18px 20px 20px; overflow: auto; }
 .jun-dialog-body label { display: grid; gap: 6px; margin-bottom: 14px; font-weight: 600; }
-.jun-dialog-body input { min-height: 42px; padding: 8px 11px; border: 1px solid #cfd7e3; border-radius: 7px; color: #182433; }
+.jun-dialog-body input,
+.jun-dialog-body select,
+.jun-dialog-body textarea { box-sizing: border-box; width: 100%; min-height: 42px; padding: 8px 11px; border: 1px solid #cfd7e3; border-radius: 7px; background: white; color: #182433; font: inherit; }
+.jun-dialog-body textarea { min-height: 96px; resize: vertical; }
 .jun-field-label { margin: 4px 0 9px; font-weight: 600; }
 .jun-avatar-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 7px; }
 .jun-avatar-choice { display: grid; place-items: center; padding: 3px; border: 2px solid transparent; border-radius: 11px; background: transparent; cursor: pointer; }
@@ -165,6 +168,22 @@ html.jun-auth-error body::before {
 .jun-device-list article div { display: grid; }
 .jun-device-list small { margin-top: 4px; color: #7a8699; }
 .jun-device-list button { border: 1px solid #d63939; border-radius: 6px; background: white; color: #d63939; }
+.jun-dialog-note { margin: 0 0 14px; color: #667085; font-size: 12px; line-height: 1.55; }
+.jun-feedback-history { margin-top: 20px; padding-top: 16px; border-top: 1px solid #e7ebf0; }
+.jun-feedback-history h4 { margin: 0 0 10px; font-size: 14px; }
+.jun-feedback-item { padding: 12px 0; border-bottom: 1px solid #edf0f5; }
+.jun-feedback-item header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.jun-feedback-item header span { padding: 2px 7px; border-radius: 999px; background: #eef2f6; color: #475467; font-size: 11px; white-space: nowrap; }
+.jun-feedback-item header span.is-done { background: #e8f7ee; color: #18794e; }
+.jun-feedback-item header span.is-in_progress,
+.jun-feedback-item header span.is-accepted { background: #e8f1fb; color: #175a9e; }
+.jun-feedback-item p { margin: 8px 0 5px; line-height: 1.55; white-space: pre-wrap; }
+.jun-feedback-item small { color: #7a8699; overflow-wrap: anywhere; }
+.jun-feedback-resolution { margin-top: 8px; padding: 8px 10px; border-left: 3px solid #206bc4; background: #f3f7fc; color: #344054; font-size: 12px; }
+.jun-feedback-admin { display: grid; grid-template-columns: 120px 1fr auto; gap: 7px; margin-top: 10px; }
+.jun-feedback-admin select,
+.jun-feedback-admin input { min-height: 34px; }
+.jun-feedback-admin button { border: 1px solid #206bc4; border-radius: 6px; background: #206bc4; color: white; font-weight: 700; }
 
 @media (max-width: 700px) {
   /* The compact dark navbar is 56px tall on mobile. Keep the account control
@@ -179,4 +198,6 @@ html.jun-auth-error body::before {
   .jun-account-menu { top: 48px; }
   .jun-notification-menu { top: 48px; right: 0; }
   .jun-avatar-grid { grid-template-columns: repeat(4, 1fr); }
+  .jun-feedback-admin { grid-template-columns: 1fr; }
+  .jun-feedback-admin button { min-height: 36px; }
 }

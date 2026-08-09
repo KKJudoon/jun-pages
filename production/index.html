@@ -237,7 +237,6 @@
           <ul class="navbar-nav pt-lg-3">
             <li class="nav-section-label">生意中台 · ERP</li>
             <li class="nav-item"><a class="nav-link" href="/jun-pages/erp/"><span class="nav-link-icon"><i class="ti ti-clipboard-check"></i></span><span class="nav-link-title">订单审核</span></a></li>
-            <li class="nav-item"><a class="nav-link" href="/jun-pages/erp/products/"><span class="nav-link-icon"><i class="ti ti-shirt"></i></span><span class="nav-link-title">商品档案</span></a></li>
             <li class="nav-item"><a class="nav-link" href="/jun-pages/inventory/"><span class="nav-link-icon"><i class="ti ti-building-warehouse"></i></span><span class="nav-link-title">库存明细</span></a></li>
             <li class="nav-section-label">生意中台 · 生产</li>
             <li class="nav-item"><a class="nav-link active" href="/jun-pages/production/"><span class="nav-link-icon"><i class="ti ti-building-factory-2"></i></span><span class="nav-link-title">生产记工</span></a></li>
@@ -552,7 +551,7 @@
     </div>
   </dialog>
 
-  <nav class="bottom-tab-bar"><div class="tab-items"><a href="/jun-pages/" class="tab-item"><i class="ti ti-dashboard"></i><span>运营</span></a><a href="/jun-pages/erp/" class="tab-item"><i class="ti ti-clipboard-check"></i><span>审核</span></a><a href="/jun-pages/erp/products/" class="tab-item"><i class="ti ti-shirt"></i><span>档案</span></a><a href="/jun-pages/inventory/" class="tab-item"><i class="ti ti-building-warehouse"></i><span>库存</span></a><a href="/jun-pages/production/" class="tab-item active"><i class="ti ti-building-factory-2"></i><span>生产</span></a></div></nav>
+  <nav class="bottom-tab-bar"><div class="tab-items"><a href="/jun-pages/" class="tab-item"><i class="ti ti-dashboard"></i><span>运营</span></a><a href="/jun-pages/erp/" class="tab-item"><i class="ti ti-clipboard-check"></i><span>审核</span></a><a href="/jun-pages/inventory/" class="tab-item"><i class="ti ti-building-warehouse"></i><span>库存</span></a><a href="/jun-pages/production/" class="tab-item active"><i class="ti ti-building-factory-2"></i><span>生产</span></a></div></nav>
 
   <script src="/jun-pages/vendor/tabler.min.js"></script>
   <script>
@@ -639,7 +638,7 @@
   function productionOpenColumns(){productionState.columnDraft=[...productionVisibleColumns(productionState.view)];productionRenderColumnDialog();document.getElementById('production-column-dialog').showModal();}
   function productionValue(field,value){if(field==='include_in_payroll')return value?'计入':'不计入';if(['quantity','unit_price','supplement'].includes(field))return productionMoney(value);return value||'—';}
   function productionFullImageUrl(url){const value=String(url||'');if(value.includes('erp.qiniu.wsgjp.com'))return value.replace(/!200x200(?:\?.*)?$/,'');return value.replace(/_\d+x\d+xz(?=$|[?#])/,'');}
-  function productionImage(line){if(!line.image_url)return '<span class="production-thumb-placeholder" title="商品档案暂无图片"><i class="ti ti-photo-off"></i></span>';const title=[line.product_code,line.color,line.size].filter(Boolean).join(' · ');return `<button class="production-thumb-button" type="button" data-production-image="${productionEscape(productionFullImageUrl(line.image_url))}" data-production-image-title="${productionEscape(title)}" title="查看商品大图" aria-label="查看 ${productionEscape(title)} 的商品大图"><img class="production-thumb" src="${productionEscape(line.image_url)}" alt="${productionEscape(title)}" loading="lazy" referrerpolicy="no-referrer" onerror="this.closest('button').outerHTML='<span class=&quot;production-thumb-placeholder&quot; title=&quot;图片加载失败&quot;><i class=&quot;ti ti-photo-off&quot;></i></span>'"></button>`;}
+  function productionImage(line){if(!line.image_url)return '<span class="production-thumb-placeholder" title="暂无商品图片"><i class="ti ti-photo-off"></i></span>';const title=[line.product_code,line.color,line.size].filter(Boolean).join(' · ');return `<button class="production-thumb-button" type="button" data-production-image="${productionEscape(productionFullImageUrl(line.image_url))}" data-production-image-title="${productionEscape(title)}" title="查看商品大图" aria-label="查看 ${productionEscape(title)} 的商品大图"><img class="production-thumb" src="${productionEscape(line.image_url)}" alt="${productionEscape(title)}" loading="lazy" referrerpolicy="no-referrer" onerror="this.closest('button').outerHTML='<span class=&quot;production-thumb-placeholder&quot; title=&quot;图片加载失败&quot;><i class=&quot;ti ti-photo-off&quot;></i></span>'"></button>`;}
 
   async function productionCompressImage(file){
     if(!['image/jpeg','image/png','image/webp'].includes(file.type))throw new Error('仅支持 JPG、PNG 和 WebP 图片');

@@ -265,6 +265,7 @@ th.company-payroll-name { z-index: 5 !important; background: #f6f8fb !important;
 .company-payroll-total-link.is-net { color: #153e75; }
 .company-payroll-table tr.is-lineage-target td { box-shadow: inset 0 2px #206bc4, inset 0 -2px #206bc4; }
 .company-payroll-empty { color: #98a2b3; }
+.company-payroll-na { color: #98a2b3; font-size: 10px; white-space: nowrap; }
 .company-payroll-status { display: inline-flex; padding: 2px 6px; border-radius: 4px; background: #e7f4ec; color: #1d6f42; font-size: 10px; }
 .company-payroll-status.is-pending { background: #fff1db; color: #985600; }
 .company-payroll-status.is-missing { background: #fff0f0; color: #b42318; }

@@ -103,7 +103,6 @@
     if (pathname.startsWith(`${basePath}/finance`)) return 'finance.read';
     if (pathname.startsWith(`${basePath}/production`)) return 'production.read';
     if (pathname.startsWith(`${basePath}/inventory`)) return 'inventory.read';
-    if (pathname.startsWith(`${basePath}/erp/products`)) return 'products.read';
     if (pathname.startsWith(`${basePath}/erp`)) return 'orders.read';
     if (pathname.startsWith(`${basePath}/sycm`)) return 'operations.sycm.read';
     if (pathname.startsWith(`${basePath}/marketing-safety`)) return 'operations.marketing.read';
@@ -128,12 +127,26 @@
     });
   }
 
+  const feedbackModules = [
+    ['overview','经营总览','/'],['inventory','库存明细','/inventory/'],['erp','ERP 订单与发货','/erp/'],
+    ['sycm','生意参谋','/sycm/'],['marketing','营销安全','/marketing-safety/'],['production','生产记工','/production/'],
+    ['production_manual','手工审批','/production/manual/'],['production_pattern','制版审批','/production/pattern/'],
+    ['finance_report','财务月报','/finance/'],['finance_company_payroll','公司工资表','/finance/company-payroll/'],
+    ['finance_payroll','工资发放','/finance/payroll/'],['finance_sources','财务数据源','/finance/sources/'],
+    ['finance_employees','员工信息','/finance/employees/'],['admin_users','用户与安全','/admin/users/'],['account','账号与登录','/account/'],['other','其他','/other/'],
+  ];
+
+  function currentFeedbackModule() {
+    const relative = window.location.pathname.slice(basePath.length) || '/';
+    const ordered = feedbackModules.filter(function (item) { return item[2] !== '/'; }).sort(function (a, b) { return b[2].length - a[2].length; });
+    return (ordered.find(function (item) { return relative.startsWith(item[2]); }) || feedbackModules[0])[0];
+  }
+
   function navPermission(pathname) {
     if (pathname.startsWith(`${basePath}/finance/sources`)) return 'finance.sources.read';
     if (pathname.startsWith(`${basePath}/finance`)) return 'finance.read';
     if (pathname.startsWith(`${basePath}/production`)) return 'production.read';
     if (pathname.startsWith(`${basePath}/inventory`)) return 'inventory.read';
-    if (pathname.startsWith(`${basePath}/erp/products`)) return 'products.read';
     if (pathname.startsWith(`${basePath}/erp`)) return 'orders.read';
     if (pathname.startsWith(`${basePath}/sycm`)) return 'operations.sycm.read';
     if (pathname.startsWith(`${basePath}/marketing-safety`)) return 'operations.marketing.read';
@@ -199,6 +212,7 @@
       <div class="jun-account-menu" hidden>
         <div class="jun-account-summary"><span class="jun-avatar jun-avatar-lg" style="${avatarStyle(profile.avatar_key)}"></span><div><strong>${displayName}</strong><small>@${username} · ${roleLabel}</small></div></div>
         ${permissions.has('users.manage') ? `<a href="${basePath}/admin/users/"><i class="ti ti-users"></i>用户与安全</a>` : ''}
+        <button type="button" data-action="feedback"><i class="ti ti-message-plus"></i>功能修改建议</button>
         <button type="button" data-action="profile"><i class="ti ti-user-edit"></i>个人资料</button>
         <button type="button" data-action="password"><i class="ti ti-key"></i>修改密码</button>
         ${profile.role !== 'admin' ? '<button type="button" data-action="devices"><i class="ti ti-devices"></i>登录设备</button>' : ''}
@@ -283,6 +297,47 @@
     });
 
     const deviceDialog = dialogShell('jun-device-dialog', '登录设备', '<div class="jun-device-list">正在读取…</div><footer><button value="cancel" class="jun-secondary-button">关闭</button></footer>');
+
+    const feedbackDialog = dialogShell('jun-feedback-dialog', '功能修改建议', `
+      <p class="jun-dialog-note">建议会绑定模块和当前页面并保留处理记录，方便后续直接定位修改。</p>
+      <label>对应模块<select name="module_key">${feedbackModules.map(function (item) { return `<option value="${item[0]}">${item[1]}</option>`; }).join('')}</select></label>
+      <label>修改建议<textarea name="suggestion" maxlength="3000" rows="5" placeholder="请写清希望修改什么、现在有什么问题"></textarea></label>
+      <p class="jun-form-message" aria-live="polite"></p>
+      <footer><button value="cancel" class="jun-secondary-button">关闭</button><button type="button" class="jun-primary-button" data-submit-feedback>提交建议</button></footer>
+      <div class="jun-feedback-history"><h4>${profile.role === 'admin' ? '全部建议记录' : '我的建议记录'}</h4><div data-feedback-list>正在读取…</div></div>`);
+    feedbackDialog.querySelector('[name="module_key"]').value = currentFeedbackModule();
+    const feedbackStatusLabels = {submitted:'已提交',accepted:'已采纳',in_progress:'处理中',done:'已完成',declined:'暂不处理'};
+    async function loadFeedback() {
+      const response = await window.fetch('/api/feedback');
+      const payload = await response.json().catch(function () { return {}; });
+      const target = feedbackDialog.querySelector('[data-feedback-list]');
+      if (!response.ok) { target.textContent = payload.detail || '读取建议记录失败'; return; }
+      target.innerHTML = (payload.items || []).map(function (item) {
+        const module = feedbackModules.find(function (option) { return option[0] === item.module_key; });
+        const adminControls = payload.admin ? `<div class="jun-feedback-admin"><select data-feedback-status="${item.id}">${Object.entries(feedbackStatusLabels).map(function (entry) { return `<option value="${entry[0]}" ${entry[0] === item.status ? 'selected' : ''}>${entry[1]}</option>`; }).join('')}</select><input data-feedback-note="${item.id}" maxlength="1500" placeholder="处理说明" value="${escapeHtml(item.resolution_note || '')}"><button type="button" data-feedback-save="${item.id}" data-version="${item.version}">保存状态</button></div>` : '';
+        return `<article class="jun-feedback-item"><header><strong>${escapeHtml(module?.[1] || item.module_key)}</strong><span class="is-${escapeHtml(item.status)}">${escapeHtml(feedbackStatusLabels[item.status] || item.status)}</span></header><p>${escapeHtml(item.suggestion)}</p><small>${escapeHtml(item.created_by_name || '')} · ${new Date(item.created_at).toLocaleString('zh-CN')} · ${escapeHtml(item.page_path)}</small>${item.resolution_note ? `<div class="jun-feedback-resolution">${escapeHtml(item.resolution_note)}</div>` : ''}${adminControls}</article>`;
+      }).join('') || '<p class="jun-dialog-note">还没有建议记录。</p>';
+      target.querySelectorAll('[data-feedback-save]').forEach(function (button) {
+        button.addEventListener('click', async function () {
+          button.disabled = true;
+          const id = button.dataset.feedbackSave;
+          const status = target.querySelector(`[data-feedback-status="${id}"]`).value;
+          const resolutionNote = target.querySelector(`[data-feedback-note="${id}"]`).value.trim();
+          const savedResponse = await window.fetch(`/api/feedback/${id}/status`, {method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:status,resolution_note:resolutionNote,expected_version:Number(button.dataset.version)})});
+          if (!savedResponse.ok) { button.disabled=false; return; }
+          await loadFeedback();
+        });
+      });
+    }
+    feedbackDialog.querySelector('[data-submit-feedback]').addEventListener('click', async function () {
+      const suggestion = feedbackDialog.querySelector('[name="suggestion"]').value.trim();
+      const message = feedbackDialog.querySelector('.jun-form-message');
+      if (suggestion.length < 3) { message.textContent='请至少写 3 个字'; return; }
+      const response = await window.fetch('/api/feedback',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({module_key:feedbackDialog.querySelector('[name="module_key"]').value,page_path:`${window.location.pathname}${window.location.search}`,suggestion:suggestion})});
+      const payload = await response.json().catch(function () { return {}; });
+      if (!response.ok) { message.textContent=payload.detail||'提交失败'; return; }
+      feedbackDialog.querySelector('[name="suggestion"]').value=''; message.classList.add('success'); message.textContent='已提交并记录'; await loadFeedback();
+    });
     async function showDevices() {
       deviceDialog.showModal();
       const response = await window.fetch('/api/account/devices');
@@ -305,6 +360,7 @@
     accountMenu.addEventListener('click', function (event) {
       const action = event.target.closest('[data-action]')?.dataset.action;
       if (action === 'profile') profileDialog.showModal();
+      if (action === 'feedback') { feedbackDialog.showModal(); loadFeedback(); }
       if (action === 'password') passwordDialog.showModal();
       if (action === 'devices') showDevices();
       if (action === 'logout') window.JUN_SIGN_OUT();
