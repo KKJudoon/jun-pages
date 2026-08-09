@@ -16,9 +16,12 @@
     erp_shipment: 'ERP 发货',
   };
   const sectionLabels = {
-    revenue: '经营收入', product_cost: '商品成本', operations: '运营履约',
-    payroll: '人员费用', fixed: '固定及分摊费用', adjustment: '经营模块外调整', result: '核算结果', historical: '历史财报',
+    income: '收入', product_cost: '产品成本', platform_operations: '平台运营费用',
+    logistics: '物流', customer_service: '客服', rent_food_equipment: '房租水电、食杂与设备',
+    design: '设计', factory_manager: '工厂运营·厂长费用', business_show: '商务（走秀开支）',
+    company_social: '公司医社保', software: '软件费用', finance_fee: '财务费用',
   };
+  const sectionOrder = ['income','product_cost','platform_operations','logistics','customer_service','rent_food_equipment','design','factory_manager','business_show','company_social','software','finance_fee'];
   const state = {months: [], month: '', data: null, sourceType: 'taobao_income_order', offset: 0, limit: 100, sourceTotal: 0};
 
   function escapeHtml(value) {
@@ -96,6 +99,9 @@
     document.querySelectorAll('.bottom-tab-bar a').forEach(function (anchor) {
       if (new URL(anchor.href).pathname.replace(/\/$/, '') === group) anchor.classList.add('active');
     });
+    document.querySelectorAll('[data-finance-admin]').forEach(function (element) {
+      element.hidden = !has('finance.employees.manage');
+    });
   }
 
   function dialog(id, title, body) {
@@ -121,48 +127,142 @@
   }
 
   function reportTabs() {
-    return `<nav class="finance-tabs" aria-label="财务模块"><a href="/jun-pages/finance/" ${page === 'finance-report' ? 'class="active"' : ''}>财务月报</a><a href="/jun-pages/finance/payroll/" ${page === 'finance-payroll' ? 'class="active"' : ''}>工资发放</a><a href="/jun-pages/finance/sources/" ${page === 'finance-sources' ? 'class="active"' : ''}>财务数据源</a></nav>`;
+    return `<nav class="finance-tabs" aria-label="财务模块"><a href="/jun-pages/finance/" ${page === 'finance-report' ? 'class="active"' : ''}>财务月报</a><a href="/jun-pages/finance/payroll/" ${page === 'finance-payroll' ? 'class="active"' : ''}>工资发放</a><a href="/jun-pages/finance/sources/" ${page === 'finance-sources' ? 'class="active"' : ''}>财务数据源</a>${has('finance.employees.manage') ? `<a href="/jun-pages/finance/employees/" ${page === 'finance-employees' ? 'class="active"' : ''}>员工信息</a>` : ''}</nav>`;
   }
 
-  function reportLine(line) {
+  function reportMetric(key, fallback) {
+    const line = (state.data.lines || []).find(function (item) { return item.line_key === key; });
+    return line || fallback || null;
+  }
+
+  function numeric(value) {
+    const parsed = Number(value);
+    return value == null || !Number.isFinite(parsed) ? null : parsed;
+  }
+
+  function percent(value, base) {
+    return value == null || !base ? '' : `${money.format((Number(value) / Number(base)) * 100)}%`;
+  }
+
+  function deltaHtml(current, previous, goodWhenUp) {
+    if (current == null || previous == null) return '<span class="delta flat">—</span>';
+    const difference = Number(current) - Number(previous);
+    const ratio = Number(previous) === 0 ? null : difference / Math.abs(Number(previous)) * 100;
+    const direction = difference > 0 ? 'up' : difference < 0 ? 'down' : 'flat';
+    const favorable = difference === 0 ? 'flat' : (difference > 0) === goodWhenUp ? 'good' : direction;
+    const symbol = difference > 0 ? '▲' : difference < 0 ? '▼' : '—';
+    return `<span class="delta ${favorable}">${symbol} ${money.format(Math.abs(difference))}${ratio == null ? '' : ` ${difference >= 0 ? '+' : ''}${ratio.toFixed(1)}%`}</span>`;
+  }
+
+  function comparisonValue(line) {
+    const comparison = state.data.comparison || {};
+    if (Object.hasOwn(comparison.lines_by_key || {}, line.line_key)) return numeric(comparison.lines_by_key[line.line_key]);
+    const normalized = String(line.label || '').replace(/[（(].*?[）)]/g, '').replace(/\s+/g, '').trim();
+    return Object.hasOwn(comparison.lines_by_label || {}, normalized) ? numeric(comparison.lines_by_label[normalized]) : null;
+  }
+
+  function sectionLines(section) {
+    return (state.data.lines || []).filter(function (line) {
+      if (line.section_key !== section) return false;
+      return !['total_expenses','operating_profit','post_profit_adjustment','final_profit'].includes(line.line_key);
+    }).sort(function (left, right) { return Number(left.sort_order || 0) - Number(right.sort_order || 0); });
+  }
+
+  function sectionTotal(section, lines) {
+    const total = lines.find(function (line) { return line.is_total || /小计/.test(line.label || ''); });
+    if (total) return total;
+    const values = lines.filter(function (line) { return !line.reference_only; }).map(function (line) { return numeric(line.final_amount); });
+    if (!values.length) return {final_amount: section === 'business_show' ? 0 : null, note: ''};
+    if (values.some(function (value) { return value == null; })) return {final_amount: null, note: ''};
+    return {final_amount: values.reduce(function (sum, value) { return sum + value; }, 0), note: ''};
+  }
+
+  function renderWaterfall(income, finalProfit) {
+    const width = 1060;
+    const height = 360;
+    const baseline = 310;
+    const top = 80;
+    const max = Math.max(Number(income || 0), 1);
+    const scale = (baseline - top) / max;
+    const items = [{label: '收入', amount: Number(income || 0), kind: 'income'}];
+    sectionOrder.slice(1).forEach(function (section) {
+      const total = sectionTotal(section, sectionLines(section));
+      if (total.final_amount != null && (Number(total.final_amount) !== 0 || section === 'business_show')) items.push({label: sectionLabels[section], amount: Number(total.final_amount), kind: 'cost'});
+    });
+    const adjustment = reportMetric('post_profit_adjustment');
+    if (adjustment?.final_amount) items.push({label: 'CK结算', amount: Math.abs(Number(adjustment.final_amount)), kind: 'cost'});
+    items.push({label: '最终净利', amount: Number(finalProfit || 0), kind: 'profit'});
+    const step = 960 / Math.max(items.length - 1, 1);
+    let running = Number(income || 0);
+    const bars = items.map(function (item, index) {
+      const x = 54 + index * step;
+      let y;
+      let barHeight;
+      let color;
+      if (item.kind === 'income') {
+        barHeight = Math.max(1, item.amount * scale); y = baseline - barHeight; color = '#2e7d32';
+      } else if (item.kind === 'profit') {
+        barHeight = Math.max(1, item.amount * scale); y = baseline - barHeight; color = '#1565c0';
+      } else {
+        const before = running; running -= item.amount;
+        barHeight = Math.max(1, item.amount * scale); y = baseline - before * scale; color = '#c62828';
+      }
+      const shortLabel = item.label.length > 12 ? `${item.label.slice(0, 11)}…` : item.label;
+      return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="42" height="${barHeight.toFixed(1)}" fill="${color}" rx="3"/><text x="${(x + 21).toFixed(1)}" y="${Math.max(18, y - 6).toFixed(1)}" text-anchor="middle" font-size="10" fill="#333">${escapeHtml(`${(item.amount / 1000).toFixed(1)}k`)}</text><text x="${(x + 21).toFixed(1)}" y="324" text-anchor="middle" font-size="10" fill="#555" transform="rotate(28 ${(x + 21).toFixed(1)} 324)">${escapeHtml(shortLabel)}</text>`;
+    }).join('');
+    return `<svg viewBox="0 0 ${width} ${height}" role="img" aria-label="收入到最终净利瀑布图"><line x1="50" y1="310" x2="1010" y2="310" stroke="#bbb"/>${bars}</svg>`;
+  }
+
+  function reportActions(line) {
     const editable = has('finance.manage') && (state.data.month.status === 'open' || state.data.month.historical_snapshot);
-    const resultClass = line.section_key === 'result' ? ' is-result' : '';
-    return `<div class="finance-line ${line.status === 'missing' ? 'is-missing' : ''}${resultClass}">
-      <div class="finance-line-label">${escapeHtml(line.label)}${line.manual ? '<span class="finance-line-origin"><i class="ti ti-pencil"></i>手动</span>' : ''}</div>
-      <div class="finance-amount">${amount(line.final_amount)}</div>
-      <button class="finance-icon-button" type="button" data-trace="${escapeHtml(line.line_key)}" title="查看计算依据" aria-label="查看${escapeHtml(line.label)}计算依据"><i class="ti ti-help-circle"></i></button>
-      ${editable ? `<button class="finance-icon-button" type="button" data-override="${escapeHtml(line.line_key)}" title="手动调整" aria-label="调整${escapeHtml(line.label)}"><i class="ti ti-edit"></i></button>` : '<span></span>'}
-    </div>`;
+    return `<span class="report-row-actions"><button class="finance-icon-button" type="button" data-trace="${escapeHtml(line.line_key)}" title="查看计算依据" aria-label="查看${escapeHtml(line.label)}计算依据"><i class="ti ti-help-circle"></i></button>${editable ? `<button class="finance-icon-button" type="button" data-override="${escapeHtml(line.line_key)}" title="手动调整" aria-label="调整${escapeHtml(line.label)}"><i class="ti ti-edit"></i></button>` : ''}</span>`;
+  }
+
+  function renderCategory(section, income, maxExpense) {
+    const all = sectionLines(section);
+    const total = sectionTotal(section, all);
+    const rows = all.filter(function (line) { return !(line.is_total || /小计/.test(line.label || '')); });
+    const previousTotal = numeric(state.data.comparison?.category_totals?.[section]);
+    const goodWhenUp = section === 'income';
+    const barWidth = section === 'income' ? 2 : Math.max(2, Math.min(100, Number(total.final_amount || 0) / Math.max(maxExpense, 1) * 100));
+    const currentMonth = Number(state.month.slice(5));
+    const previousMonth = Number((state.data.comparison?.month || '').slice(5));
+    const note = total.note || rows.map(function (line) { return line.note; }).filter(Boolean).at(-1) || '';
+    return `<section class="finance-report-category">
+      <div class="finance-category-head"><span class="finance-category-name">${escapeHtml(sectionLabels[section])}</span><span class="finance-category-total">${amount(total.final_amount)} <span class="pct">占收入 ${percent(total.final_amount, income)}</span> ${deltaHtml(total.final_amount, previousTotal, goodWhenUp)}</span></div>
+      <div class="finance-category-bar"><div style="width:${barWidth.toFixed(1)}%"></div></div>
+      <div class="finance-subs-wrap"><table class="finance-subs"><thead><tr><th>子项</th><th>${currentMonth}月</th><th>占收入</th><th>${previousMonth || '-'}月</th><th>环比</th></tr></thead><tbody>${rows.map(function (line) {
+        const previous = comparisonValue(line);
+        return `<tr class="${line.status === 'missing' ? 'is-missing' : ''}"><td class="sub-name"><span>${escapeHtml(line.label)}${line.manual ? '<span class="finance-line-origin"><i class="ti ti-pencil"></i>手动</span>' : ''}</span>${reportActions(line)}</td><td class="num">${amount(line.final_amount)}</td><td class="num pct">${line.reference_only ? '' : percent(line.final_amount, income)}</td><td class="num prev">${previous == null ? '—' : amount(previous)}</td><td class="num">${deltaHtml(line.final_amount, previous, goodWhenUp)}</td></tr>`;
+      }).join('') || '<tr><td colspan="5" class="finance-note">本月无发生额</td></tr>'}</tbody></table></div>${note ? `<div class="finance-category-note">${escapeHtml(note)}</div>` : ''}
+    </section>`;
   }
 
   function renderReport() {
-    const data = state.data;
-    const byKey = new Map((data.lines || []).map(function (line) { return [line.line_key, line]; }));
-    const profit = byKey.get('final_profit') || byKey.get('profit') || (data.lines || []).at(-1);
-    const revenue = byKey.get('taobao_income') || byKey.get('total_income');
-    const expenses = byKey.get('total_expenses');
-    const missing = data.completeness?.missing?.length || 0;
-    const sections = new Map();
-    (data.lines || []).forEach(function (line) {
-      if (!sections.has(line.section_key)) sections.set(line.section_key, []);
-      sections.get(line.section_key).push(line);
-    });
-    content.innerHTML = `${reportTabs()}
-      <div class="finance-kpis">
-        <div class="finance-kpi"><span>经营收入</span><strong>${amount(revenue?.final_amount)}</strong></div>
-        <div class="finance-kpi"><span>成本费用</span><strong>${amount(expenses?.final_amount)}</strong></div>
-        <div class="finance-kpi"><span>调整后利润</span><strong class="${Number(profit?.final_amount) >= 0 ? 'positive' : 'negative'}">${amount(profit?.final_amount)}</strong></div>
-        <div class="finance-kpi"><span>待补项目</span><strong>${missing}</strong></div>
+    const incomeLine = reportMetric('income_total', reportMetric('taobao_income'));
+    const expenses = reportMetric('total_expenses');
+    const operating = reportMetric('operating_profit');
+    const finalProfit = reportMetric('final_profit', (state.data.lines || []).at(-1));
+    const income = numeric(incomeLine?.final_amount);
+    const previous = state.data.comparison?.metrics || {};
+    const maxExpense = Math.max.apply(null, sectionOrder.slice(1).map(function (section) { return Number(sectionTotal(section, sectionLines(section)).final_amount || 0); }).concat([1]));
+    const missing = state.data.completeness?.missing?.length || 0;
+    const payrollWarning = state.data.payroll_snapshot?.source_status?.source_pending_employee_count || 0;
+    content.innerHTML = `${reportTabs()}<div class="finance-report-wrap">
+      <header class="finance-report-title"><h1>${escapeHtml(state.month.replace('-', '年'))}月 月度财务报告</h1><div>君设计 · 中台固定算法 · 数据源与管理员调整均可追溯</div></header>
+      <div class="finance-report-kpis">
+        <article><span>收入</span><strong>${amount(income)}</strong><small>100%</small>${deltaHtml(income, numeric(previous.income), true)}</article>
+        <article><span>支出</span><strong>${amount(expenses?.final_amount)}</strong><small>占收入 ${percent(expenses?.final_amount, income)}</small>${deltaHtml(expenses?.final_amount, numeric(previous.expenses), false)}</article>
+        <article><span>最终净利</span><strong>${amount(finalProfit?.final_amount)}</strong><small>扣 CK 后 ${percent(finalProfit?.final_amount, income)}</small><em>经营净利 ${amount(operating?.final_amount)}</em></article>
       </div>
-      <div class="finance-report">${Array.from(sections.entries()).map(function (entry) {
-        return `<section class="finance-section"><div class="finance-section-header"><h3>${escapeHtml(sectionLabels[entry[0]] || entry[0])}</h3></div>${entry[1].map(reportLine).join('')}</section>`;
-      }).join('')}</div>`;
-    content.querySelectorAll('[data-trace]').forEach(function (button) {
-      button.addEventListener('click', function () { showTrace(button.dataset.trace); });
-    });
-    content.querySelectorAll('[data-override]').forEach(function (button) {
-      button.addEventListener('click', function () { showOverride(button.dataset.override); });
-    });
+      <section class="finance-report-card finance-report-ok"><h2>口径状态</h2><div>${state.data.completeness.complete ? '本月所有必需数据已到位，分类小计、支出合计、经营净利和最终净利均由固定公式生成。' : `当前还有 ${missing} 个必需数据项待补，已有金额仍按同一套公式计算。`}${payrollWarning ? ` 生产工资中有 ${payrollWarning} 人仍受待审批记录影响。` : ''}</div></section>
+      <section class="finance-report-card finance-waterfall"><h2>收入 → 最终净利 瀑布</h2>${renderWaterfall(income, finalProfit?.final_amount)}</section>
+      <h2 class="finance-detail-title">支出明细（由中台数据源生成）</h2>
+      ${sectionOrder.map(function (section) { return renderCategory(section, income, maxExpense); }).join('')}
+      <section class="finance-report-card finance-settlement-card"><h2>经营净利与最终结算</h2><dl><dt>支出合计</dt><dd>${amount(expenses?.final_amount)}</dd><dt>经营净利</dt><dd>${amount(operating?.final_amount)}</dd><dt>CK 个人结算</dt><dd>${amount(Math.abs(reportMetric('post_profit_adjustment')?.final_amount || 0))}</dd><dt>最终净利</dt><dd><strong>${amount(finalProfit?.final_amount)}</strong></dd></dl></section>
+    </div>`;
+    content.querySelectorAll('[data-trace]').forEach(function (button) { button.addEventListener('click', function () { showTrace(button.dataset.trace); }); });
+    content.querySelectorAll('[data-override]').forEach(function (button) { button.addEventListener('click', function () { showOverride(button.dataset.override); }); });
   }
 
   function showTrace(lineKey) {
@@ -226,19 +326,61 @@
     return state.data?.payroll_rows || [];
   }
 
+  function payrollStatus(row) {
+    const labels = {ready: '应发已生成', missing_input: '待补提报', source_pending: '受待审批影响', excluded: '不计经营报表'};
+    return labels[row.calculation_status] || (row.net_pay == null ? '待财务核定' : '已核定');
+  }
+
+  function payrollComponents(row) {
+    if (Array.isArray(row.components) && row.components.length) {
+      return row.components.map(function (component) {
+        return `<li><span>${escapeHtml(component.label)}</span><strong>${amount(component.amount)}</strong><small>${escapeHtml(component.formula || '')}</small></li>`;
+      }).join('');
+    }
+    return `<li><span>${escapeHtml(row.calculation || '月度应发')}</span><strong>${amount(row.gross_pay)}</strong><small>${escapeHtml(row.note || '')}</small></li>`;
+  }
+
   function renderPayroll() {
     const rows = payrollRows();
-    content.innerHTML = `${reportTabs()}<div class="finance-table-wrap"><table class="finance-table"><thead><tr><th>姓名</th><th>部门 / 职位</th><th class="number">应发</th><th class="number">个税</th><th class="number">个人医社保</th><th class="number">公司医社保</th><th class="number">实发</th><th>银行</th><th>备注</th></tr></thead><tbody>${rows.map(function (row) { return `<tr><td><strong>${escapeHtml(row.employee_name)}</strong></td><td>${escapeHtml(row.department)}<div class="text-secondary small">${escapeHtml(row.role_name)}</div></td><td class="number">${amount(row.gross_pay)}</td><td class="number">${amount(row.income_tax)}</td><td class="number">${amount(row.personal_social_insurance)}</td><td class="number">${amount(row.employer_social_insurance)}</td><td class="number"><strong>${amount(row.net_pay)}</strong></td><td>${escapeHtml(row.payment_bank)}<div class="text-secondary small">${escapeHtml(row.payment_account)}</div></td><td class="subtle" title="${escapeHtml(row.note)}">${escapeHtml(row.note)}</td></tr>`; }).join('') || '<tr><td colspan="9"><div class="finance-empty">当前月份尚无工资数据</div></td></tr>'}</tbody></table></div>`;
+    const grossTotal = rows.reduce(function (sum, row) { return sum + Number(row.gross_pay || 0); }, 0);
+    const netValues = rows.map(function (row) { return numeric(row.net_pay); });
+    const netTotal = netValues.some(function (value) { return value == null; }) ? null : netValues.reduce(function (sum, value) { return sum + value; }, 0);
+    content.innerHTML = `${reportTabs()}<div class="payroll-sheet">
+      <header class="payroll-title"><h1>${escapeHtml(state.month.replace('-', '年'))}月 工资发放单</h1><p>应发由中台月度快照生成，个人医社保与个税由财务回表核定</p></header>
+      <div class="payroll-total-band"><span>${rows.length} 人</span><strong>应发合计 ${amount(grossTotal)}</strong><em>实发合计 ${amount(netTotal)}</em></div>
+      <div class="payroll-cards">${rows.map(function (row) {
+        const statusClass = row.calculation_status === 'missing_input' ? 'is-missing' : row.calculation_status === 'source_pending' ? 'is-pending' : 'is-ready';
+        const canInput = has('finance.manage') && state.data.month.status === 'open' && row.employee_id;
+        return `<article class="payroll-card ${statusClass}"><div class="payroll-card-head"><div><h2>${escapeHtml(row.employee_name)}</h2><p>${escapeHtml(row.department)} · ${escapeHtml(row.role_name)}</p><span>${escapeHtml(row.compensation_method || row.calculation || '')}</span></div><div class="payroll-card-pay"><small>${escapeHtml(payrollStatus(row))}</small><strong>${amount(row.net_pay == null ? row.gross_pay : row.net_pay)}</strong><em>${row.net_pay == null ? '当前应发' : '最终实发'}</em></div></div>
+          <div class="payroll-tags"><span>${escapeHtml(row.payment_method || '工资发放')}</span>${row.included_in_company_report === false ? '<span class="is-excluded">不计入经营财报</span>' : ''}${row.missing_inputs?.map(function (item) { return `<span class="is-warning">待补：${escapeHtml(item)}</span>`; }).join('') || ''}</div>
+          <ul class="payroll-breakdown">${payrollComponents(row)}</ul>
+          <dl class="payroll-deductions"><div><dt>应发</dt><dd>${amount(row.gross_pay)}</dd></div><div><dt>个人医社保</dt><dd>${amount(row.personal_social_insurance)}</dd></div><div><dt>个税</dt><dd>${amount(row.income_tax)}</dd></div><div><dt>实发</dt><dd>${amount(row.net_pay)}</dd></div></dl>
+          <div class="payroll-bank"><i class="ti ti-building-bank"></i><span>${escapeHtml(row.payment_bank || '开户行待补')}</span><strong>${escapeHtml(row.payment_account || '账号待补')}</strong></div>
+          ${row.note ? `<p class="payroll-note">${escapeHtml(row.note)}</p>` : ''}${canInput ? `<button class="finance-icon-button payroll-adjust" data-payroll-input="${escapeHtml(row.employee_id)}" title="补录或调整月度工资输入" aria-label="调整${escapeHtml(row.employee_name)}月度工资输入"><i class="ti ti-edit"></i></button>` : ''}
+        </article>`;
+      }).join('') || '<div class="finance-empty">尚未生成本月工资快照，请由管理员执行重新核算。</div>'}</div>
+    </div>`;
+    content.querySelectorAll('[data-payroll-input]').forEach(function (button) {
+      button.addEventListener('click', function () { showPayrollInput(button.dataset.payrollInput); });
+    });
   }
 
   function exportPayroll() {
-    const rows = payrollRows().map(function (row) {
-      return {'月份': state.month, '姓名': row.employee_name, '部门': row.department, '职位': row.role_name, '计算说明': row.calculation, '应发工资': row.gross_pay, '个人所得税': row.income_tax, '个人医社保扣除': row.personal_social_insurance, '公司承担医社保': row.employer_social_insurance, '实发工资': row.net_pay, '支付账号': row.payment_account, '开户行': row.payment_bank, '计入公司财报': row.included_in_company_report === false ? '否' : '是', '备注': row.note};
+    const headers = ['月份','工号','姓名','部门','职位','工资计算方式','应发金额','个税（财务核定）','个人医社保扣除（财务填写）','公司承担医社保','实发金额（公式）','电话','身份证号','工资发放方式','工资账号','银行（开户行）','计入公司财报','备注'];
+    const rows = payrollRows();
+    const values = [headers].concat(rows.map(function (row) {
+      return [state.month,row.employee_no || '',row.employee_name,row.department,row.role_name,row.compensation_method || row.calculation,row.gross_pay,row.income_tax,row.personal_social_insurance,row.employer_social_insurance,row.net_pay,row.phone || '',row.identity_no || '',row.payment_method || '',row.payment_account,row.payment_bank,row.included_in_company_report === false ? '否' : '是',row.note || ''];
+    }));
+    const sheet = XLSX.utils.aoa_to_sheet(values);
+    rows.forEach(function (_row, index) {
+      const excelRow = index + 2;
+      sheet[`K${excelRow}`] = {t: 'n', f: `G${excelRow}-H${excelRow}-I${excelRow}`};
+      sheet[`O${excelRow}`] = {t: 's', v: String(values[index + 1][14] || '')};
+      sheet[`M${excelRow}`] = {t: 's', v: String(values[index + 1][12] || '')};
     });
-    const sheet = XLSX.utils.json_to_sheet(rows, {header: ['月份','姓名','部门','职位','计算说明','应发工资','个人所得税','个人医社保扣除','公司承担医社保','实发工资','支付账号','开户行','计入公司财报','备注']});
-    sheet['!cols'] = [9,12,12,12,32,12,12,15,15,12,24,18,14,32].map(function (width) { return {wch: width}; });
+    sheet['!cols'] = [9,9,12,12,14,30,12,14,20,16,16,14,22,16,24,22,14,42].map(function (width) { return {wch: width}; });
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, sheet, '工资核算');
+    XLSX.utils.book_append_sheet(workbook, sheet, '财务发薪表');
     XLSX.writeFile(workbook, `${state.month.replace('-', '年')}月工资核算.xlsx`);
   }
 
@@ -247,8 +389,8 @@
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const raw = XLSX.utils.sheet_to_json(sheet, {defval: '', raw: false});
     const rows = raw.filter(function (item) { return String(item['姓名'] || '').trim(); }).map(function (item, index) {
-      const numberOrNull = function (value) { const parsed = Number(String(value).replace(/,/g, '')); return value === '' || !Number.isFinite(parsed) ? null : parsed; };
-      return {row_key: `${String(item['姓名']).trim()}-${index + 1}`, employee_name: String(item['姓名']).trim(), department: String(item['部门'] || '').trim(), role_name: String(item['职位'] || '').trim(), calculation: String(item['计算说明'] || '').trim(), gross_pay: numberOrNull(item['应发工资']), income_tax: numberOrNull(item['个人所得税']), personal_social_insurance: numberOrNull(item['个人医社保扣除']), employer_social_insurance: numberOrNull(item['公司承担医社保']), net_pay: numberOrNull(item['实发工资']), payment_account: String(item['支付账号'] || '').replace(/\s/g, ''), payment_bank: String(item['开户行'] || '').trim(), included_in_company_report: String(item['计入公司财报'] || '是').trim() !== '否', note: String(item['备注'] || '').trim(), payload: item};
+      const numberOrZero = function (value) { const parsed = Number(String(value).replace(/,/g, '')); return value === '' || !Number.isFinite(parsed) ? 0 : parsed; };
+      return {employee_no: String(item['工号'] || '').trim(), row_key: `${String(item['姓名']).trim()}-${index + 1}`, employee_name: String(item['姓名']).trim(), income_tax: numberOrZero(item['个税（财务核定）'] ?? item['个人所得税']), personal_social_insurance: numberOrZero(item['个人医社保扣除（财务填写）'] ?? item['个人医社保扣除']), employer_social_insurance: numberOrZero(item['公司承担医社保']), note: String(item['备注'] || '').trim()};
     });
     if (!rows.length) throw new Error('工资核算表中没有有效人员行');
     await api(`/api/finance/payroll/${state.month}/import`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({stage: 'finance_return', file_name: file.name, file_sha256: await sha256(file), rows: rows, summary: {row_count: rows.length}})});
@@ -256,15 +398,108 @@
 
   async function loadPayroll() {
     state.data = await api(`/api/finance/months/${state.month}`);
-    toolbar.innerHTML = `${monthSelect(state.months, state.month)}<span class="finance-toolbar-spacer"></span><button id="payroll-export" class="btn btn-outline-primary"><i class="ti ti-file-export me-1"></i>导出 Excel</button>${has('finance.payroll.manage') ? '<label class="btn btn-primary mb-0"><i class="ti ti-file-import me-1"></i>导入财务回表<input id="payroll-import" type="file" accept=".xlsx,.xls" hidden></label>' : ''}`;
+    const snapshot = state.data.payroll_snapshot;
+    toolbar.innerHTML = `${monthSelect(state.months, state.month)}${snapshot ? `<span class="finance-status ${snapshot.status === 'final' ? 'is-ready' : 'is-missing'}">${snapshot.status === 'final' ? '财务已核定' : snapshot.status === 'awaiting_finance' ? '待财务核定' : '工资草稿'}</span>` : '<span class="finance-status is-missing">尚未核算</span>'}<span class="finance-toolbar-spacer"></span>${has('finance.manage') && state.data.month.status === 'open' ? '<button id="payroll-recalculate" class="btn btn-outline-primary"><i class="ti ti-calculator me-1"></i>重新核算</button>' : ''}<button id="payroll-export" class="btn btn-outline-primary" ${payrollRows().length ? '' : 'disabled'}><i class="ti ti-file-export me-1"></i>导出 Excel</button>${has('finance.payroll.manage') && payrollRows().length ? '<label class="btn btn-primary mb-0"><i class="ti ti-file-import me-1"></i>导入财务回表<input id="payroll-import" type="file" accept=".xlsx,.xls" hidden></label>' : ''}`;
     toolbar.querySelector('#finance-month').addEventListener('change', async function (event) { setMonth(event.target.value); await loadPayroll(); });
     toolbar.querySelector('#payroll-export').addEventListener('click', exportPayroll);
+    toolbar.querySelector('#payroll-recalculate')?.addEventListener('click', async function (event) {
+      event.currentTarget.disabled = true;
+      try { await api(`/api/finance/payroll/${state.month}/recalculate`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'}); await loadPayroll(); }
+      catch (error) { renderError(error); }
+    });
     toolbar.querySelector('#payroll-import')?.addEventListener('change', async function (event) {
       const file = event.target.files[0];
       if (!file) return;
       try { await importPayroll(file); await loadPayroll(); } catch (error) { renderError(error); }
     });
     renderPayroll();
+  }
+
+  async function showPayrollInput(employeeId) {
+    const foundation = await api(`/api/finance/employees?month=${encodeURIComponent(state.month)}`);
+    const employee = (foundation.employees || []).find(function (item) { return item.id === employeeId; });
+    const rule = (foundation.rules || []).find(function (item) { return item.employee_id === employeeId; });
+    const existing = (foundation.month_inputs || []).find(function (item) { return item.employee_id === employeeId; });
+    if (!employee) return;
+    const inputs = existing?.inputs || {};
+    const fields = rule?.rule_type === 'pattern_points'
+      ? '<label>制版审批积分<input class="form-control" type="number" step="0.01" min="0" name="points"></label>'
+      : rule?.rule_type === 'planning_submission'
+      ? '<label>企划提报订单金额<input class="form-control" type="number" step="0.01" min="0" name="sales_amount"></label><label>基础/售后金额<input class="form-control" type="number" step="0.01" min="0" name="base_amount"></label><label>其他已确认项目<input class="form-control" type="number" step="0.01" name="additional_amount"></label>'
+      : rule?.rule_type === 'design_submission'
+      ? '<label>设计项目提报金额<input class="form-control" type="number" step="0.01" min="0" name="project_amount"></label><label>其他已确认项目<input class="form-control" type="number" step="0.01" name="additional_amount"></label>'
+      : '';
+    const element = dialog('finance-payroll-input-dialog', `${employee.employee_name} · 月度工资输入`, `${fields}<details><summary>管理员直接核定应发金额</summary><label>应发金额覆盖<input class="form-control" type="number" step="0.01" min="0" name="gross_override"></label></details><label>调整原因<textarea class="form-control" rows="3" name="reason" required>${escapeHtml(existing?.reason || '')}</textarea></label><div class="finance-error" data-message hidden></div><footer><button class="btn btn-outline-secondary" value="cancel">取消</button><button class="btn btn-primary" type="button" data-save>保存并重算</button></footer>`);
+    Object.entries(inputs).forEach(function (entry) { const field = element.querySelector(`[name="${entry[0]}"]`); if (field) field.value = entry[1]; });
+    element.querySelector('[data-save]').addEventListener('click', async function () {
+      const values = {};
+      element.querySelectorAll('input[name]').forEach(function (field) { if (field.value !== '') values[field.name] = Number(field.value); });
+      const message = element.querySelector('[data-message]');
+      try {
+        await api(`/api/finance/payroll/${state.month}/inputs/${employeeId}`, {method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({inputs: values, reason: element.querySelector('[name="reason"]').value, expected_version: existing?.version || null})});
+        await api(`/api/finance/payroll/${state.month}/recalculate`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'});
+        element.close(); await loadPayroll();
+      } catch (error) { message.hidden = false; message.textContent = error.message; }
+    });
+  }
+
+  function maskValue(value, start, end) {
+    const text = String(value || '');
+    if (!text) return '-';
+    if (text.length <= start + end) return text;
+    return `${text.slice(0, start)}${'•'.repeat(Math.min(8, text.length - start - end))}${text.slice(-end)}`;
+  }
+
+  function ruleFields(type, parameters) {
+    const p = parameters || {};
+    const field = function (label, name, value, step) { return `<label>${label}<input class="form-control" type="number" min="0" step="${step || '0.01'}" name="rule_${name}" value="${escapeHtml(value ?? '')}"></label>`; };
+    if (type === 'fixed') return field('固定工资', 'amount', p.amount);
+    if (type === 'production_worker') return `<label>生产记工姓名<input class="form-control" name="rule_source_worker_name" value="${escapeHtml(p.source_worker_name || '')}"></label>`;
+    if (type === 'warehouse') return field('每件发货工资', 'shipment_rate', p.shipment_rate ?? 21);
+    if (type === 'pattern_points') return `${field('积分阈值', 'threshold', p.threshold ?? 4000, '1')}${field('超出部分倍率', 'excess_multiplier', p.excess_multiplier ?? 1.2)}`;
+    if (type === 'planning_submission') return `${field('基础/售后金额', 'base_amount', p.base_amount ?? 2500)}${field('订单提成率', 'commission_rate', p.commission_rate ?? 0.05, '0.001')}`;
+    return '';
+  }
+
+  function employeeRule(employeeId) {
+    return (state.employeeFoundation?.rules || []).find(function (rule) { return rule.employee_id === employeeId; }) || null;
+  }
+
+  function renderEmployees() {
+    const employees = state.employeeFoundation?.employees || [];
+    content.innerHTML = `${reportTabs()}<section class="employee-panel"><div class="employee-summary"><div><strong>${employees.filter(function (item) { return item.active; }).length}</strong><span>当前在册</span></div><div><strong>${employees.filter(function (item) { return item.has_social_insurance; }).length}</strong><span>有医社保</span></div><div><strong>${employees.filter(function (item) { return item.included_in_company_report === false; }).length}</strong><span>工资不计经营财报</span></div></div><div class="finance-table-wrap"><table class="finance-table employee-table"><thead><tr><th>工号 / 姓名</th><th>部门 / 职位</th><th>计薪方式</th><th class="number">基础工资</th><th>医社保</th><th>付款资料</th><th>经营财报</th><th></th></tr></thead><tbody>${employees.map(function (employee) {
+      return `<tr class="${employee.active ? '' : 'is-inactive'}"><td><strong>${escapeHtml(employee.employee_no)} · ${escapeHtml(employee.employee_name)}</strong><div class="finance-note">${escapeHtml(employee.nickname || '')}</div></td><td>${escapeHtml(employee.department)}<div class="finance-note">${escapeHtml(employee.role_name)}</div></td><td>${escapeHtml(employee.compensation_method || employeeRule(employee.id)?.rule_type || '-')}</td><td class="number">${amount(employee.base_salary)}</td><td>${employee.has_social_insurance ? '有' : '无'}</td><td>${escapeHtml(employee.payment_bank || '-')}<div class="finance-note">${escapeHtml(maskValue(employee.payment_account, 4, 4))}</div></td><td>${employee.included_in_company_report === false ? '<span class="badge bg-orange-lt">不计入</span>' : '<span class="badge bg-green-lt">计入</span>'}</td><td><button class="finance-icon-button" data-employee="${escapeHtml(employee.id)}" title="查看并编辑员工资料"><i class="ti ti-edit"></i></button></td></tr>`;
+    }).join('') || '<tr><td colspan="8"><div class="finance-empty">员工主档尚未导入</div></td></tr>'}</tbody></table></div></section>`;
+    content.querySelectorAll('[data-employee]').forEach(function (button) { button.addEventListener('click', function () { showEmployeeDialog((state.employeeFoundation.employees || []).find(function (item) { return item.id === button.dataset.employee; })); }); });
+  }
+
+  function showEmployeeDialog(employee) {
+    const rule = employee ? employeeRule(employee.id) : null;
+    const ruleType = rule?.rule_type || 'fixed';
+    const element = dialog('finance-employee-dialog', employee ? `员工资料 · ${employee.employee_name}` : '新增员工', `<div class="employee-form-grid"><label>工号<input class="form-control" name="employee_no" required value="${escapeHtml(employee?.employee_no || '')}"></label><label>姓名<input class="form-control" name="employee_name" required value="${escapeHtml(employee?.employee_name || '')}"></label><label>称呼<input class="form-control" name="nickname" value="${escapeHtml(employee?.nickname || '')}"></label><label>性别<select class="form-select" name="gender"><option value="">未填</option><option value="男">男</option><option value="女">女</option></select></label><label>出生日期<input class="form-control" type="date" name="birth_date" value="${escapeHtml(employee?.birth_date || '')}"></label><label>手机号<input class="form-control" name="phone" value="${escapeHtml(employee?.phone || '')}"></label><label>身份证号<input class="form-control" name="identity_no" value="${escapeHtml(employee?.identity_no || '')}"></label><label class="span-2">身份证地址<input class="form-control" name="identity_address" value="${escapeHtml(employee?.identity_address || '')}"></label><label>部门<input class="form-control" name="department" value="${escapeHtml(employee?.department || '')}"></label><label>职位<input class="form-control" name="role_name" value="${escapeHtml(employee?.role_name || '')}"></label><label class="span-2">工资计算方式<input class="form-control" name="compensation_method" value="${escapeHtml(employee?.compensation_method || '')}"></label><label>基础工资<input class="form-control" type="number" min="0" step="0.01" name="base_salary" value="${escapeHtml(employee?.base_salary ?? 0)}"></label><label>餐补基数<input class="form-control" type="number" min="0" step="0.01" name="meal_allowance_rate" value="${escapeHtml(employee?.meal_allowance_rate ?? 0)}"></label><label>工龄补贴<input class="form-control" type="number" min="0" step="0.01" name="seniority_allowance" value="${escapeHtml(employee?.seniority_allowance ?? 0)}"></label><label>其他固定补贴<input class="form-control" type="number" min="0" step="0.01" name="fixed_allowance" value="${escapeHtml(employee?.fixed_allowance ?? 0)}"></label><label>发放方式<input class="form-control" name="payment_method" value="${escapeHtml(employee?.payment_method || '')}"></label><label>工资账号<input class="form-control" name="payment_account" value="${escapeHtml(employee?.payment_account || '')}"></label><label class="span-2">开户行<input class="form-control" name="payment_bank" value="${escapeHtml(employee?.payment_bank || '')}"></label><label>入职日期<input class="form-control" type="date" name="employment_start" value="${escapeHtml(employee?.employment_start || '')}"></label><label>离职日期<input class="form-control" type="date" name="employment_end" value="${escapeHtml(employee?.employment_end || '')}"></label></div><div class="employee-checks"><label class="form-check"><input class="form-check-input" type="checkbox" name="has_social_insurance" ${employee?.has_social_insurance ? 'checked' : ''}><span>有医社保</span></label><label class="form-check"><input class="form-check-input" type="checkbox" name="included_in_company_report" ${employee?.included_in_company_report === false ? '' : 'checked'}><span>计入公司经营财报</span></label><label class="form-check"><input class="form-check-input" type="checkbox" name="active" ${employee?.active === false ? '' : 'checked'}><span>当前在册</span></label></div><hr><div class="employee-form-grid"><label>计薪规则<select class="form-select" name="rule_type"><option value="fixed">固定工资</option><option value="production_worker">生产车工</option><option value="production_manager">生产负责人</option><option value="warehouse">仓管</option><option value="pattern_points">制版积分</option><option value="planning_submission">企划提报</option><option value="design_submission">设计提报</option></select></label><label>规则开始月份<input class="form-control" type="month" name="rule_start_month" value="${escapeHtml(rule?.start_month || state.month)}"></label><div class="span-2 employee-rule-fields"></div><label class="form-check span-2"><input class="form-check-input" type="checkbox" name="self_funded_social" ${rule?.parameters?.self_funded_social ? 'checked' : ''}><span>医社保全部从个人工资扣回</span></label><label class="span-2">备注<textarea class="form-control" name="note" rows="3">${escapeHtml(employee?.note || '')}</textarea></label></div><div class="finance-error" data-message hidden></div><footer><button class="btn btn-outline-secondary" value="cancel">取消</button><button class="btn btn-primary" type="button" data-save>保存</button></footer>`);
+    element.querySelector('[name="gender"]').value = employee?.gender || '';
+    element.querySelector('[name="rule_type"]').value = ruleType;
+    const refreshRuleFields = function () { element.querySelector('.employee-rule-fields').innerHTML = ruleFields(element.querySelector('[name="rule_type"]').value, rule?.parameters || {}); };
+    element.querySelector('[name="rule_type"]').addEventListener('change', refreshRuleFields); refreshRuleFields();
+    element.querySelector('[data-save]').addEventListener('click', async function () {
+      const value = function (name) { return element.querySelector(`[name="${name}"]`)?.value || ''; };
+      const numberValue = function (name) { const raw = value(name); return raw === '' ? 0 : Number(raw); };
+      const values = {employee_no:value('employee_no'),employee_name:value('employee_name'),nickname:value('nickname'),gender:value('gender'),birth_date:value('birth_date'),identity_no:value('identity_no'),identity_address:value('identity_address'),phone:value('phone'),department:value('department'),role_name:value('role_name'),compensation_method:value('compensation_method'),has_social_insurance:element.querySelector('[name="has_social_insurance"]').checked,base_salary:numberValue('base_salary'),meal_allowance_rate:numberValue('meal_allowance_rate'),seniority_allowance:numberValue('seniority_allowance'),fixed_allowance:numberValue('fixed_allowance'),payment_method:value('payment_method'),payment_account:value('payment_account').replace(/\s/g,''),payment_bank:value('payment_bank'),included_in_company_report:element.querySelector('[name="included_in_company_report"]').checked,employment_start:value('employment_start'),employment_end:value('employment_end'),active:element.querySelector('[name="active"]').checked,note:value('note')};
+      const parameters = {self_funded_social: element.querySelector('[name="self_funded_social"]').checked};
+      element.querySelectorAll('.employee-rule-fields [name]').forEach(function (field) { const key = field.name.replace('rule_',''); parameters[key] = field.type === 'number' ? Number(field.value || 0) : field.value; });
+      const payload = {id:employee?.id || null,expected_version:employee?.version || null,values,rule:{rule_type:value('rule_type'),start_month:value('rule_start_month'),end_month:rule?.end_month || '',parameters,note:value('note')}};
+      const message = element.querySelector('[data-message]');
+      try { await api('/api/finance/employees', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}); element.close(); await loadEmployees(); }
+      catch (error) { message.hidden = false; message.textContent = error.message; }
+    });
+  }
+
+  async function loadEmployees() {
+    state.employeeFoundation = await api(`/api/finance/employees?month=${encodeURIComponent(state.month)}`);
+    toolbar.innerHTML = `${monthSelect(state.months, state.month)}<span class="finance-toolbar-spacer"></span><button id="employee-add" class="btn btn-primary"><i class="ti ti-user-plus me-1"></i>新增员工</button>`;
+    toolbar.querySelector('#finance-month').addEventListener('change', async function (event) { setMonth(event.target.value); await loadEmployees(); });
+    toolbar.querySelector('#employee-add').addEventListener('click', function () { showEmployeeDialog(null); });
+    renderEmployees();
   }
 
   function sourceCard(batch) {
@@ -370,6 +605,7 @@
     if (page === 'finance-report') return await loadReport();
     if (page === 'finance-payroll') return await loadPayroll();
     if (page === 'finance-sources') return await loadSources();
+    if (page === 'finance-employees') return await loadEmployees();
     throw new Error('未知财务页面');
   }
 
