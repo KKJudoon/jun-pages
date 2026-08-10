@@ -10,11 +10,11 @@
     ['promise','备注约定发货'],['platform','淘宝最迟发货'],['status','平台与系统状态'],['amount','金额'],
     ['memo','卖家备注'],['buyer','买家'],['logistics','物流'],['times','其他时间'],['audit','审核异常'],
   ];
-  const defaultColumns = ['workflow','order','arranged','items','promise','platform','status','amount','memo'];
+  const defaultColumns = ['workflow','order','items','promise','platform','amount'];
   const state = {
     orders: [], groups: [], filtered: [], presets: [], presetMeta: {}, page: 1,
     pageSize: window.matchMedia('(max-width: 760px)').matches ? 24 : 50,
-    filters: {q:'',stage:'actionable',stock:'all',shop:'all',sort:'promise_asc',columns:[...defaultColumns]},
+    filters: {q:'',orderState:'active',stage:'actionable',stock:'all',shop:'all',sortBy:'promise',sortDir:'asc',columns:[...defaultColumns]},
   };
 
   function escapeHtml(value) {
@@ -47,6 +47,7 @@
   function isArranged(order) { return order.is_arranged === true || order.tag === '已安排' || order.alert === '已安排'; }
   function isShipped(order) { return order.is_shipped === true || order.process_status === '已发货' || Boolean(order.shipped_at); }
   function isClosed(order) { return ['交易关闭','ERP已删除'].includes(order.trade_status); }
+  function isRefund(order) { return order.trade_status === '退款中' || Boolean(String(order.refund_status || '').trim()); }
 
   function remarkShipTime(memo, paidAt) {
     const text = String(memo || '');
@@ -76,6 +77,7 @@
       const arrangedCount = records.filter(isArranged).length;
       const shippedCount = records.filter(isShipped).length;
       const closedCount = records.filter(isClosed).length;
+      const refundCount = records.filter(isRefund).length;
       const paidAt = records.map(function(order){return order.paid_at || '';}).filter(Boolean).sort().at(-1) || '';
       const promises = records.map(function(order){return remarkShipTime(order.seller_memo, order.paid_at || paidAt);});
       let workflowStage = 'unarranged';
@@ -88,7 +90,8 @@
       }).concat(items.map(function(item){return [item.sku,item.sku_full,item.name,item.color,item.size,item.taobao_title,item.taobao_sku_props].join(' ');})).join(' ').toLocaleLowerCase();
       return {
         key:key, records:records, items:items, searchable:searchable, workflowStage:workflowStage,
-        arrangedCount:arrangedCount, shippedCount:shippedCount, closedCount:closedCount,
+        arrangedCount:arrangedCount, shippedCount:shippedCount, closedCount:closedCount, refundCount:refundCount,
+        hasRefund:refundCount > 0, allClosed:closedCount === records.length,
         arrangedState:arrangedCount === records.length ? 'yes' : arrangedCount ? 'partial' : 'no',
         outOfStock:items.some(function(item){return item.out_of_stock;}) || records.some(function(order){return Boolean(order.audit_fail_reason);}),
         amount:records.reduce(function(sum,order){return sum + Number(order.amount || 0);},0),
@@ -109,6 +112,11 @@
     return labels[group.workflowStage] || group.workflowStage;
   }
   function workflowTone(group) { return `is-workflow-${group.workflowStage}`; }
+  function exceptionBadges(group) {
+    const refund = group.hasRefund ? badge(group.refundCount === group.records.length ? '退款 / 售后' : '含退款记录','is-danger') : '';
+    const closed = group.closedCount ? badge(group.allClosed ? '交易关闭' : '含关闭记录','is-closed') : '';
+    return refund + closed;
+  }
 
   function orderIdentity(group, cell) {
     const tag = cell || 'div';
@@ -154,6 +162,9 @@
   function filterGroups() {
     const f=state.filters;
     let rows=state.groups.filter(function(group){
+      if (f.orderState==='active' && (group.hasRefund || group.allClosed)) return false;
+      if (f.orderState==='refund' && !group.hasRefund) return false;
+      if (f.orderState==='closed' && !group.allClosed) return false;
       if (f.stage==='actionable' && ['shipped','closed'].includes(group.workflowStage)) return false;
       if (!['all','actionable'].includes(f.stage) && group.workflowStage!==f.stage) return false;
       if (f.stock==='out'&&!group.outOfStock) return false;
@@ -162,12 +173,19 @@
       return !f.q||group.searchable.includes(f.q.toLocaleLowerCase());
     });
     rows.sort(function(a,b){
-      if(f.sort==='paid_desc')return b.paidAt.localeCompare(a.paidAt);
-      if(f.sort==='paid_asc')return a.paidAt.localeCompare(b.paidAt);
-      if(f.sort==='amount_desc')return b.amount-a.amount;
-      if(f.sort==='deadline_asc')return (a.deadline||'9999').localeCompare(b.deadline||'9999');
-      if(f.sort==='workflow')return ({unarranged:0,partial:1,arranged:2,shipped:3,closed:4}[a.workflowStage]-({unarranged:0,partial:1,arranged:2,shipped:3,closed:4}[b.workflowStage]))||(a.promise.sort.localeCompare(b.promise.sort));
-      return a.promise.sort.localeCompare(b.promise.sort)||(a.deadline||'9999').localeCompare(b.deadline||'9999');
+      const workflowOrder={unarranged:0,partial:1,arranged:2,shipped:3,closed:4};
+      const values=function(group){
+        if(f.sortBy==='amount')return {value:group.amount,missing:false,numeric:true};
+        if(f.sortBy==='workflow')return {value:workflowOrder[group.workflowStage],missing:false,numeric:true};
+        if(f.sortBy==='paid')return {value:group.paidAt,missing:!group.paidAt};
+        if(f.sortBy==='deadline')return {value:group.deadline,missing:!group.deadline};
+        return {value:group.promise.label==='未识别'||group.promise.label==='格式异常'?'':group.promise.sort,missing:group.promise.label==='未识别'||group.promise.label==='格式异常'};
+      };
+      const av=values(a);const bv=values(b);
+      if(av.missing!==bv.missing)return av.missing?1:-1;
+      let compared=av.numeric?av.value-bv.value:String(av.value).localeCompare(String(bv.value));
+      if(f.sortDir==='desc')compared=-compared;
+      return compared||a.key.localeCompare(b.key);
     });
     state.filtered=rows;
     state.page=Math.min(state.page,Math.max(1,Math.ceil(rows.length/state.pageSize)));
@@ -176,38 +194,50 @@
   function normalizedConfig(config){
     const next={...(config||{})};
     if(!next.stage&&next.source)next.stage=next.source==='all'?'all':next.source==='history'?'shipped':'actionable';
-    delete next.source;delete next.arranged;
+    if(next.sort){
+      const legacy={promise_asc:['promise','asc'],deadline_asc:['deadline','asc'],workflow:['workflow','asc'],paid_desc:['paid','desc'],paid_asc:['paid','asc'],amount_desc:['amount','desc']}[next.sort];
+      if(legacy){next.sortBy=legacy[0];next.sortDir=legacy[1];}
+    }
+    if(next.stage==='closed'){next.orderState='closed';next.stage='all';}
+    if(!['active','refund','closed','all'].includes(next.orderState))next.orderState='active';
+    if(!['promise','deadline','workflow','paid','amount'].includes(next.sortBy))next.sortBy='promise';
+    if(!['asc','desc'].includes(next.sortDir))next.sortDir='asc';
+    if(next.orderState!=='active'&&next.stage==='actionable')next.stage='all';
+    delete next.source;delete next.arranged;delete next.sort;
     next.columns=Array.isArray(next.columns)&&next.columns.length?next.columns.filter(function(key){return columns.some(function(item){return item[0]===key;});}):[...defaultColumns];
     return next;
   }
   function applyConfig(config){state.filters={...state.filters,...normalizedConfig(config)};state.page=1;render();}
 
   function renderStats(){
-    const actionable=state.groups.filter(function(g){return !['shipped','closed'].includes(g.workflowStage);}).length;
-    const unarranged=state.groups.filter(function(g){return g.workflowStage==='unarranged';}).length;
-    const arranged=state.groups.filter(function(g){return g.workflowStage==='arranged';}).length;
-    const risk=state.groups.filter(function(g){return g.outOfStock&&!['shipped','closed'].includes(g.workflowStage);}).length;
-    return `<div class="order-stats"><article><span>需要处理</span><strong>${number.format(actionable)}</strong></article><article><span>待安排</span><strong>${number.format(unarranged)}</strong></article><article><span>已安排待发货</span><strong>${number.format(arranged)}</strong></article><article><span>待处理中的缺货 / 异常</span><strong>${number.format(risk)}</strong></article></div>`;
+    const active=state.groups.filter(function(g){return !g.hasRefund&&!g.allClosed;});
+    const actionable=active.filter(function(g){return !['shipped','closed'].includes(g.workflowStage);}).length;
+    const unarranged=active.filter(function(g){return g.workflowStage==='unarranged';}).length;
+    const risk=active.filter(function(g){return g.outOfStock&&!['shipped','closed'].includes(g.workflowStage);}).length;
+    const excluded=state.groups.filter(function(g){return g.hasRefund||g.allClosed;}).length;
+    return `<div class="order-stats"><article><span>正常订单待处理</span><strong>${number.format(actionable)}</strong></article><article><span>正常订单待安排</span><strong>${number.format(unarranged)}</strong></article><article><span>待处理中的缺货 / 异常</span><strong>${number.format(risk)}</strong></article><article><span>售后 / 关闭（默认隐藏）</span><strong>${number.format(excluded)}</strong></article></div>`;
   }
   function renderControls(){
     const shops=[...new Set(state.orders.map(function(order){return order.shop;}).filter(Boolean))].sort();
     const selected=new Set(state.filters.columns);
     const presets=state.presets.map(function(p){return `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}${p.scope==='team'?' · 团队':''}</option>`;}).join('');
-    return `<section class="order-controls"><div class="order-filter-grid"><label class="order-search"><span>搜索</span><input id="order-q" class="form-control" type="search" placeholder="订单号、SKU、备注、买家、物流" value="${escapeHtml(state.filters.q)}"></label><label><span>处理进度</span><select id="order-stage" class="form-select"><option value="actionable">待处理（未全部发货）</option><option value="unarranged">待安排</option><option value="arranged">已安排待发货</option><option value="partial">部分已发货</option><option value="shipped">已发货</option><option value="closed">交易关闭</option><option value="all">全部</option></select></label><label><span>库存风险</span><select id="order-stock" class="form-select"><option value="all">全部</option><option value="out">缺货 / 审核异常</option><option value="ready">无缺货标记</option></select></label><label><span>店铺</span><select id="order-shop" class="form-select"><option value="all">全部店铺</option>${shops.map(function(shop){return `<option value="${escapeHtml(shop)}">${escapeHtml(shop)}</option>`;}).join('')}</select></label><label><span>排序</span><select id="order-sort" class="form-select"><option value="promise_asc">备注约定发货 · 近到远</option><option value="deadline_asc">淘宝最迟发货 · 近到远</option><option value="workflow">处理优先级</option><option value="paid_desc">付款时间 · 新到旧</option><option value="paid_asc">付款时间 · 旧到新</option><option value="amount_desc">金额 · 高到低</option></select></label></div><div class="order-truth-note"><i class="ti ti-info-circle"></i><span>“已安排”只表示管家婆已安排；当前数据没有独立的“生产完成”字段，页面不会自行推断。备注日期与淘宝平台时限分开显示。</span></div><div class="order-preset-row"><label><span>筛选预设</span><select id="order-preset" class="form-select"><option value="">选择预设</option>${presets}</select></label><button class="btn btn-outline-primary" id="order-preset-save">保存当前预设</button><button class="btn btn-outline-secondary" id="order-preset-default" disabled>设为默认</button><button class="btn btn-outline-danger" id="order-preset-delete" disabled>删除</button><details class="order-column-picker"><summary class="btn btn-outline-secondary">显示列 · ${selected.size}</summary><div>${columns.map(function(item){return `<label><input type="checkbox" value="${escapeHtml(item[0])}" ${selected.has(item[0])?'checked':''}>${escapeHtml(item[1])}</label>`;}).join('')}</div></details></div></section>`;
+    return `<section class="order-controls"><div class="order-filter-grid"><label class="order-search"><span>搜索</span><input id="order-q" class="form-control" type="search" placeholder="订单号、SKU、备注、买家、物流" value="${escapeHtml(state.filters.q)}"></label><label><span>订单范围</span><select id="order-state" class="form-select"><option value="active">正常订单（默认）</option><option value="refund">退款 / 售后</option><option value="closed">交易关闭 / ERP 删除</option><option value="all">全部订单</option></select></label><label><span>处理进度</span><select id="order-stage" class="form-select"><option value="actionable">待处理（未全部发货）</option><option value="unarranged">待安排</option><option value="arranged">已安排待发货</option><option value="partial">部分已发货</option><option value="shipped">已发货</option><option value="all">全部进度</option></select></label><label><span>库存风险</span><select id="order-stock" class="form-select"><option value="all">全部</option><option value="out">缺货 / 审核异常</option><option value="ready">无缺货标记</option></select></label><label><span>店铺</span><select id="order-shop" class="form-select"><option value="all">全部店铺</option>${shops.map(function(shop){return `<option value="${escapeHtml(shop)}">${escapeHtml(shop)}</option>`;}).join('')}</select></label><label><span>排序</span><div class="order-sort-control"><select id="order-sort-by" class="form-select"><option value="promise">备注约定发货</option><option value="deadline">淘宝最迟发货</option><option value="workflow">处理优先级</option><option value="paid">付款时间</option><option value="amount">订单金额</option></select><button type="button" class="btn btn-outline-secondary" id="order-sort-dir" aria-label="切换排序方向"><i class="ti ti-sort-${state.filters.sortDir==='asc'?'ascending':'descending'}"></i><span>${state.filters.sortDir==='asc'?'升序':'降序'}</span></button></div></label></div><details class="order-truth-note"><summary><i class="ti ti-info-circle"></i><span>字段口径说明</span></summary><p>“已安排”只表示管家婆已安排；当前数据没有独立的“生产完成”字段，页面不会自行推断。备注日期与淘宝平台时限分开显示。</p></details><div class="order-preset-row"><label><span>筛选预设</span><select id="order-preset" class="form-select"><option value="">选择预设</option>${presets}</select></label><button class="btn btn-outline-primary" id="order-preset-save">保存当前预设</button><button class="btn btn-outline-secondary" id="order-preset-default" disabled>设为默认</button><button class="btn btn-outline-danger" id="order-preset-delete" disabled>删除</button><details class="order-column-picker"><summary class="btn btn-outline-secondary">显示列 · ${selected.size}</summary><div>${columns.map(function(item){return `<label><input type="checkbox" value="${escapeHtml(item[0])}" ${selected.has(item[0])?'checked':''}>${escapeHtml(item[1])}</label>`;}).join('')}</div></details></div></section>`;
   }
   function renderCards(rows){
     return `<div class="order-card-list">${rows.map(function(group){
-      return `<article class="order-card"><header><div>${badge(workflowLabel(group),workflowTone(group))}${badge(group.arrangedState==='no'?'管家婆未安排':group.arrangedState==='partial'?'管家婆部分安排':'管家婆已安排',group.arrangedState==='no'?'is-unarranged':'is-arranged')}</div><strong>¥${money.format(group.amount)}</strong></header>${orderIdentity(group,'div')}<div class="order-card-dates"><div><span>备注约定发货</span><strong>${escapeHtml(group.promise.label)}</strong></div><div><span>淘宝最迟发货</span><strong>${dateTime(group.deadline)}</strong></div></div><section class="order-card-items">${itemsMarkup(group)}</section>${statusMarkup(group)}${unique(group.records,'seller_memo').length?`<div class="order-card-memo"><span>卖家备注</span>${unique(group.records,'seller_memo').map(function(v){return `<p>${escapeHtml(v)}</p>`;}).join('')}</div>`:''}<details><summary>物流、买家和其他信息</summary><dl><dt>物流</dt><dd>${escapeHtml(unique(group.records,'logistics_company').join(' / ')||'暂无')} ${escapeHtml(unique(group.records,'tracking_no').join(' / '))}</dd><dt>买家</dt><dd>${escapeHtml(group.records[0]?.buyer?.name||group.records[0]?.buyer?.account||'-')}</dd><dt>付款</dt><dd>${dateTime(group.paidAt)}</dd><dt>实际发货</dt><dd>${dateTime(group.records.map(function(r){return r.shipped_at;}).filter(Boolean).sort().at(-1))}</dd><dt>审核异常</dt><dd>${escapeHtml(unique(group.records,'audit_fail_reason').join(' / ')||'无')}</dd></dl></details></article>`;
+      return `<article class="order-card"><header><div>${badge(workflowLabel(group),workflowTone(group))}${exceptionBadges(group)}</div><strong>¥${money.format(group.amount)}</strong></header>${orderIdentity(group,'div')}<div class="order-card-dates"><div><span>备注约定发货</span><strong>${escapeHtml(group.promise.label)}</strong></div><div><span>淘宝最迟发货</span><strong>${dateTime(group.deadline)}</strong></div></div><section class="order-card-items">${itemsMarkup(group)}</section><details><summary>状态、备注、物流和买家</summary>${statusMarkup(group)}${unique(group.records,'seller_memo').length?`<div class="order-card-memo"><span>卖家备注</span>${unique(group.records,'seller_memo').map(function(v){return `<p>${escapeHtml(v)}</p>`;}).join('')}</div>`:''}<dl><dt>管家婆安排</dt><dd>${group.arrangedState==='no'?'未安排':group.arrangedState==='partial'?'部分安排':'已安排'}</dd><dt>物流</dt><dd>${escapeHtml(unique(group.records,'logistics_company').join(' / ')||'暂无')} ${escapeHtml(unique(group.records,'tracking_no').join(' / '))}</dd><dt>买家</dt><dd>${escapeHtml(group.records[0]?.buyer?.name||group.records[0]?.buyer?.account||'-')}</dd><dt>付款</dt><dd>${dateTime(group.paidAt)}</dd><dt>实际发货</dt><dd>${dateTime(group.records.map(function(r){return r.shipped_at;}).filter(Boolean).sort().at(-1))}</dd><dt>审核异常</dt><dd>${escapeHtml(unique(group.records,'audit_fail_reason').join(' / ')||'无')}</dd></dl></details></article>`;
     }).join('')||'<div class="order-empty">没有符合当前筛选的订单</div>'}</div>`;
   }
   function renderResults(){
     const start=(state.page-1)*state.pageSize;const rows=state.filtered.slice(start,start+state.pageSize);const selected=columns.filter(function(item){return state.filters.columns.includes(item[0]);});
     const table=`<div class="order-table-wrap"><table class="order-table"><thead><tr>${selected.map(function(item){return `<th class="order-col-${escapeHtml(item[0])}">${escapeHtml(item[1])}</th>`;}).join('')}</tr></thead><tbody>${rows.map(function(group){return `<tr>${selected.map(function(item){return cellRenderers[item[0]](group);}).join('')}</tr>`;}).join('')||`<tr><td colspan="${selected.length}"><div class="order-empty">没有符合当前筛选的订单</div></td></tr>`}</tbody></table></div>`;
     const pages=Math.max(1,Math.ceil(state.filtered.length/state.pageSize));
-    return `<section class="order-results"><header><div><h2>订单处理清单</h2><p>共 ${number.format(state.filtered.length)} 个订单组；一组对应一张手机卡片，同物流单号或同订单分批记录会合并。</p></div><strong>第 ${state.page} / ${pages} 页</strong></header>${table}${renderCards(rows)}<footer><span>显示 ${state.filtered.length?start+1:0}–${Math.min(start+state.pageSize,state.filtered.length)} / ${state.filtered.length}</span><div><button class="btn btn-sm btn-outline-secondary" id="order-prev" ${state.page<=1?'disabled':''}>上一页</button><button class="btn btn-sm btn-outline-secondary" id="order-next" ${state.page>=pages?'disabled':''}>下一页</button></div></footer></section>`;
+    return `<section class="order-results"><header><div><h2>订单处理清单</h2><p>共 ${number.format(state.filtered.length)} 个订单组；退款和关闭订单默认隐藏，可在“订单范围”中查看。</p></div><strong>第 ${state.page} / ${pages} 页</strong></header>${table}${renderCards(rows)}<footer><span>显示 ${state.filtered.length?start+1:0}–${Math.min(start+state.pageSize,state.filtered.length)} / ${state.filtered.length}</span><div><button class="btn btn-sm btn-outline-secondary" id="order-prev" ${state.page<=1?'disabled':''}>上一页</button><button class="btn btn-sm btn-outline-secondary" id="order-next" ${state.page>=pages?'disabled':''}>下一页</button></div></footer></section>`;
   }
   function bindControls(){
-    [['order-stage','stage'],['order-stock','stock'],['order-shop','shop'],['order-sort','sort']].forEach(function(pair){const field=document.getElementById(pair[0]);field.value=state.filters[pair[1]];field.addEventListener('change',function(){state.filters[pair[1]]=field.value;state.page=1;render();});});
+    [['order-stage','stage'],['order-stock','stock'],['order-shop','shop'],['order-sort-by','sortBy']].forEach(function(pair){const field=document.getElementById(pair[0]);field.value=state.filters[pair[1]];field.addEventListener('change',function(){state.filters[pair[1]]=field.value;state.page=1;render();});});
+    const orderState=document.getElementById('order-state');orderState.value=state.filters.orderState;orderState.addEventListener('change',function(){state.filters.orderState=orderState.value;if(orderState.value!=='active'&&state.filters.stage==='actionable')state.filters.stage='all';state.page=1;render();});
+    document.getElementById('order-sort-dir').addEventListener('click',function(){state.filters.sortDir=state.filters.sortDir==='asc'?'desc':'asc';state.page=1;render();});
     let timer;document.getElementById('order-q').addEventListener('input',function(event){clearTimeout(timer);timer=setTimeout(function(){state.filters.q=event.target.value.trim();state.page=1;render();},180);});
     document.querySelectorAll('.order-column-picker input').forEach(function(input){input.addEventListener('change',function(){const checked=[...document.querySelectorAll('.order-column-picker input:checked')].map(function(i){return i.value;});if(!checked.length){input.checked=true;return;}state.filters.columns=checked;render();});});
     const preset=document.getElementById('order-preset');const presetDefault=document.getElementById('order-preset-default');const presetDelete=document.getElementById('order-preset-delete');
