@@ -157,6 +157,43 @@ html.jun-auth-error body::before {
 .jun-avatar-choice:hover { background: #edf4ff; }
 .jun-avatar-choice.active { border-color: #206bc4; background: #e6f0fc; }
 .jun-dialog-body footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
+
+/* Keep every long dialog usable inside the visual viewport, including iOS Safari. */
+:where(.jun-dialog, .finance-dialog, .production-dialog, .spot-dialog) {
+  box-sizing: border-box;
+  max-height: calc(100dvh - 24px);
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+.jun-dialog-card,
+.finance-dialog form {
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 0;
+}
+.production-dialog form,
+.production-dialog-shell {
+  max-height: calc(100dvh - 24px);
+  min-height: 0;
+}
+:where(.jun-dialog-body, .finance-dialog-body, .production-dialog-body) {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+.spot-dialog {
+  overflow: hidden;
+}
+.spot-dialog > .spot-dialog-body {
+  box-sizing: border-box;
+  max-height: calc(100dvh - 24px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+.modal-dialog { max-height: calc(100dvh - 24px); }
+.modal-content { max-height: calc(100dvh - 24px); overflow: hidden; }
+.modal-body { min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; }
 .jun-primary-button,
 .jun-secondary-button { min-height: 40px; padding: 8px 16px; border-radius: 7px; font-weight: 700; cursor: pointer; }
 .jun-primary-button { border: 1px solid #206bc4; background: #206bc4; color: white; }
