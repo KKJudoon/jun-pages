@@ -363,6 +363,15 @@
     return visible.map(function (item) { return `${escapeHtml(item.label)} ${amount(item.amount)}`; }).join(' + ') || escapeHtml(row.calculation || '月度工资');
   }
 
+  function payrollSocialParts(row) {
+    const parts = row.payload?.personal_social_components;
+    return {
+      social: parts && parts.social != null ? Number(parts.social) : '',
+      medical: parts && parts.medical != null ? Number(parts.medical) : '',
+      unemployment: parts && parts.unemployment != null ? Number(parts.unemployment) : '',
+    };
+  }
+
   function showPayrollDetail(rowId) {
     const row = payrollRows().find(function (item) { return item.id === rowId; });
     if (!row) return;
@@ -539,19 +548,39 @@
   }
 
   function exportPayroll() {
-    const headers = ['月份','工号','姓名','部门','职位','应发金额','个税（财务核定）','个人医社保扣除（财务填写）','公司承担医社保','实发金额','电话','身份证号','工资发放方式','工资账号','银行（开户行）','财务备注'];
+    const headers = ['月份','工号','姓名','部门','职位','应发金额','个税（财务核定）','个人社保扣除（财务填写）','个人医保扣除（财务填写）','个人失业扣除（财务填写）','公司承担医社保','实发金额','电话','身份证号','工资发放方式','工资账号','银行（开户行）','财务备注'];
     const rows = payrollSortedRows();
     const values = [headers].concat(rows.map(function (row) {
-      return [state.month,row.employee_no || '',row.employee_name,row.department,row.role_name,row.gross_pay,row.income_tax,row.payload?.has_social_insurance ? row.personal_social_insurance : '',row.payload?.has_social_insurance ? row.employer_social_insurance : '',row.net_pay,row.phone || '',row.identity_no || '','银行转账',row.payment_account,row.payment_bank,row.payload?.finance_note || ''];
+      const parts = payrollSocialParts(row);
+      return [state.month,row.employee_no || '',row.employee_name,row.department,row.role_name,row.gross_pay,row.income_tax,parts.social,parts.medical,parts.unemployment,row.payload?.has_social_insurance ? row.employer_social_insurance : '',row.net_pay,row.phone || '',row.identity_no || '','银行转账',row.payment_account,row.payment_bank,row.payload?.finance_note || ''];
     }));
     const sheet = XLSX.utils.aoa_to_sheet(values);
-    rows.forEach(function (_row, index) {
+    rows.forEach(function (row, index) {
       const excelRow = index + 2;
-      sheet[`K${excelRow}`] = {t: 's', v: String(values[index + 1][10] || '')};
-      sheet[`L${excelRow}`] = {t: 's', v: String(values[index + 1][11] || '')};
+      const netFormula = row.payload?.self_funded_social
+        ? `F${excelRow}-G${excelRow}-H${excelRow}-I${excelRow}-J${excelRow}-K${excelRow}`
+        : `F${excelRow}-G${excelRow}-H${excelRow}-I${excelRow}-J${excelRow}`;
+      sheet[`L${excelRow}`] = {t: 'n', f: netFormula, v: row.net_pay == null ? Number(row.gross_pay || 0) : Number(row.net_pay)};
+      sheet[`M${excelRow}`] = {t: 's', v: String(values[index + 1][12] || '')};
       sheet[`N${excelRow}`] = {t: 's', v: String(values[index + 1][13] || '')};
+      sheet[`P${excelRow}`] = {t: 's', v: String(values[index + 1][15] || '')};
     });
-    sheet['!cols'] = [9,9,12,12,14,12,14,20,16,14,14,22,16,24,22,54].map(function (width) { return {wch: width}; });
+    const totalRow = rows.length + 2;
+    for (let column = 6; column <= 12; column += 1) {
+      const letter = XLSX.utils.encode_col(column - 1);
+      const total = rows.reduce(function (sum, row) {
+        if (letter === 'F') return sum + Number(row.gross_pay || 0);
+        if (letter === 'G') return sum + Number(row.income_tax || 0);
+        if (letter === 'H') return sum + Number(payrollSocialParts(row).social || 0);
+        if (letter === 'I') return sum + Number(payrollSocialParts(row).medical || 0);
+        if (letter === 'J') return sum + Number(payrollSocialParts(row).unemployment || 0);
+        if (letter === 'K') return sum + Number(row.employer_social_insurance || 0);
+        return sum + Number(row.net_pay == null ? row.gross_pay || 0 : row.net_pay);
+      }, 0);
+      sheet[`${letter}${totalRow}`] = {t: 'n', f: `SUM(${letter}2:${letter}${totalRow - 1})`, v: Math.round(total * 100) / 100};
+    }
+    sheet['!ref'] = `A1:R${totalRow}`;
+    sheet['!cols'] = [9.8,13,12.8,13,14.8,12.8,18.25,26.25,13,13,19.625,14.8,13,22.8,16.8,24.8,22.8,54.8].map(function (width) { return {wch: width}; });
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, sheet, '财务发薪表');
     const parts = state.month.split('-');
@@ -569,7 +598,7 @@
       const combinedSocial = numberOrNull(item['个人医社保扣除（财务填写）'] ?? item['个人医社保扣除'], '个人医社保');
       const socialParts = ['个人社保扣除（财务填写）','个人医保扣除（财务填写）','个人失业扣除（财务填写）'].map(function (key) { return numberOrNull(item[key], key.replace('（财务填写）','')); });
       const hasSocialParts = socialParts.some(function (value) { return value != null; });
-      return {employee_no: String(item['工号'] || '').trim(), row_key: `${String(item['姓名']).trim()}-${index + 1}`, employee_name: String(item['姓名']).trim(), gross_pay: numberOrNull(item['应发金额'], '应发金额'), income_tax: tax == null && netPay != null ? 0 : tax, personal_social_insurance: combinedSocial != null ? combinedSocial : hasSocialParts ? socialParts.reduce(function (sum, value) { return sum + Number(value || 0); }, 0) : null, employer_social_insurance: numberOrNull(item['公司承担医社保'], '公司承担医社保'), net_pay: netPay, note: String(item['财务备注'] ?? item['备注'] ?? '').trim()};
+      return {employee_no: String(item['工号'] || '').trim(), row_key: `${String(item['姓名']).trim()}-${index + 1}`, employee_name: String(item['姓名']).trim(), gross_pay: numberOrNull(item['应发金额'], '应发金额'), income_tax: tax == null && netPay != null ? 0 : tax, personal_social_insurance: combinedSocial != null ? combinedSocial : hasSocialParts ? socialParts.reduce(function (sum, value) { return sum + Number(value || 0); }, 0) : null, personal_social_components: hasSocialParts ? {social: socialParts[0], medical: socialParts[1], unemployment: socialParts[2]} : null, employer_social_insurance: numberOrNull(item['公司承担医社保'], '公司承担医社保'), net_pay: netPay, note: String(item['财务备注'] ?? item['备注'] ?? '').trim()};
     });
     if (!rows.length) throw new Error('工资核算表中没有有效人员行');
     const saved = await api(`/api/finance/payroll/${state.month}/import`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({stage: 'finance_return', file_name: file.name, file_sha256: await sha256(file), rows: rows, summary: {row_count: rows.length}})});
