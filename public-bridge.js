@@ -109,8 +109,13 @@
     return 'operations.overview.read';
   }
 
+  function isFinancePath(pathname) {
+    return pathname === `${basePath}/finance` || pathname.startsWith(`${basePath}/finance/`);
+  }
+
   function allowedHome(context) {
     const preferred = String(context.role?.home_path || '/');
+    if (context.profile?.role !== 'admin' && preferred.startsWith('/finance')) return `${basePath}/inventory/`;
     return `${basePath}${preferred === '/' ? '/' : preferred}`;
   }
 
@@ -159,7 +164,8 @@
     document.querySelectorAll('a[href]').forEach(function (anchor) {
       const pathname = new URL(anchor.href, window.location.href).pathname;
       const required = navPermission(pathname);
-      if (required && !permissions.has(required)) {
+      const blockedFinance = isFinancePath(pathname) && context.profile?.role !== 'admin';
+      if (blockedFinance || required && !permissions.has(required)) {
         anchor.hidden = true;
         anchor.setAttribute('aria-hidden', 'true');
       }
@@ -418,7 +424,8 @@
       return null;
     }
     const required = pagePermission(window.location.pathname);
-    if (required && !(context.permissions || []).includes(required)) {
+    const blockedFinance = isFinancePath(window.location.pathname) && context.profile?.role !== 'admin';
+    if (blockedFinance || required && !(context.permissions || []).includes(required)) {
       const target = allowedHome(context);
       if (target !== window.location.pathname) { window.location.replace(target); return null; }
       redirectToLogin('access');
