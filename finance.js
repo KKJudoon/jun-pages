@@ -371,8 +371,11 @@
       return `<li><div><span>${escapeHtml(item.label)}</span><strong>${amount(item.amount)}</strong></div><p>${escapeHtml(item.formula || '按来源原值计入')}</p>${source}</li>`;
     }).join('');
     const insured = row.payload?.has_social_insurance === true;
+    const selfFundedSocial = row.payload?.self_funded_social === true;
     const netFormula = row.net_pay == null
-      ? `<div class="payroll-net-pending"><i class="ti ti-alert-circle"></i>${row.payload?.finance_managed_gross && row.gross_pay == null ? '应发金额等待财务回表核定；' : ''}个税尚未由财务确认${insured ? '，个人医社保也尚未确认' : ''}，因此实发金额待补。</div>`
+      ? `<div class="payroll-net-pending"><i class="ti ti-alert-circle"></i>${row.payload?.finance_managed_gross && row.gross_pay == null ? '应发金额等待财务回表核定；' : ''}个税尚未由财务确认${insured ? `，个人医社保${selfFundedSocial ? '和公司代缴医社保' : ''}也尚未确认` : ''}，因此实发金额待补。</div>`
+      : selfFundedSocial
+        ? `<div class="payroll-net-formula"><span>${amount(row.gross_pay)}</span><i>−</i><span>${amount(row.personal_social_insurance)}</span><i>−</i><span>${amount(row.employer_social_insurance)}</span><i>−</i><span>${amount(row.income_tax)}</span><i>=</i><strong>${amount(row.net_pay)}</strong><small>税前工资　个人医社保　公司代缴医社保　个税　实发</small></div>`
       : insured
         ? `<div class="payroll-net-formula"><span>${amount(row.gross_pay)}</span><i>−</i><span>${amount(row.personal_social_insurance)}</span><i>−</i><span>${amount(row.income_tax)}</span><i>=</i><strong>${amount(row.net_pay)}</strong><small>税前工资　个人医社保　个税　实发</small></div>`
         : `<div class="payroll-net-formula"><span>${amount(row.gross_pay)}</span><i>−</i><span>${amount(row.income_tax)}</span><i>=</i><strong>${amount(row.net_pay)}</strong><small>税前工资　个税　实发（本月无医社保）</small></div>`;
@@ -539,7 +542,7 @@
     const headers = ['月份','工号','姓名','部门','职位','应发金额','个税（财务核定）','个人医社保扣除（财务填写）','公司承担医社保','实发金额','电话','身份证号','工资发放方式','工资账号','银行（开户行）','财务备注'];
     const rows = payrollSortedRows();
     const values = [headers].concat(rows.map(function (row) {
-      return [state.month,row.employee_no || '',row.employee_name,row.department,row.role_name,row.gross_pay,row.income_tax,row.payload?.has_social_insurance ? row.personal_social_insurance : '',row.payload?.employer_social_required ? row.employer_social_insurance : '',row.net_pay,row.phone || '',row.identity_no || '','银行转账',row.payment_account,row.payment_bank,row.payload?.finance_note || ''];
+      return [state.month,row.employee_no || '',row.employee_name,row.department,row.role_name,row.gross_pay,row.income_tax,row.payload?.has_social_insurance ? row.personal_social_insurance : '',row.payload?.has_social_insurance ? row.employer_social_insurance : '',row.net_pay,row.phone || '',row.identity_no || '','银行转账',row.payment_account,row.payment_bank,row.payload?.finance_note || ''];
     }));
     const sheet = XLSX.utils.aoa_to_sheet(values);
     rows.forEach(function (_row, index) {
@@ -564,7 +567,8 @@
       return {employee_no: String(item['工号'] || '').trim(), row_key: `${String(item['姓名']).trim()}-${index + 1}`, employee_name: String(item['姓名']).trim(), gross_pay: numberOrNull(item['应发金额'], '应发金额'), income_tax: numberOrNull(item['个税（财务核定）'] ?? item['个人所得税'], '个税'), personal_social_insurance: numberOrNull(item['个人医社保扣除（财务填写）'] ?? item['个人医社保扣除'], '个人医社保'), employer_social_insurance: numberOrNull(item['公司承担医社保'], '公司承担医社保'), note: String(item['财务备注'] ?? item['备注'] ?? '').trim()};
     });
     if (!rows.length) throw new Error('工资核算表中没有有效人员行');
-    await api(`/api/finance/payroll/${state.month}/import`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({stage: 'finance_return', file_name: file.name, file_sha256: await sha256(file), rows: rows, summary: {row_count: rows.length}})});
+    const saved = await api(`/api/finance/payroll/${state.month}/import`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({stage: 'finance_return', file_name: file.name, file_sha256: await sha256(file), rows: rows, summary: {row_count: rows.length}})});
+    if (saved.ignored_retired_rows?.length) window.alert(`财务回表已导入；${saved.ignored_retired_rows.map(function (row) { return row.employee_name; }).join('、')}已从本月员工中移出，其回表行未计入工资。`);
   }
 
   async function loadPayroll() {
@@ -698,10 +702,20 @@
     return (state.employeeFoundation?.rules || []).find(function (rule) { return rule.employee_id === employeeId; }) || null;
   }
 
+  function employeeActiveForMonth(employee) {
+    if (employee.inactive_from_month && employee.inactive_from_month <= state.month) return false;
+    if (employee.active === false && !employee.inactive_from_month) return false;
+    if (employee.employment_start && employee.employment_start.slice(0, 7) > state.month) return false;
+    if (employee.employment_end && employee.employment_end < `${state.month}-01`) return false;
+    return true;
+  }
+
   function renderEmployees() {
     const employees = state.employeeFoundation?.employees || [];
-    content.innerHTML = `${reportTabs()}<section class="employee-panel"><div class="employee-summary"><div><strong>${employees.filter(function (item) { return item.active; }).length}</strong><span>当前在册</span></div><div><strong>${employees.filter(function (item) { return item.has_social_insurance; }).length}</strong><span>有医社保</span></div><div><strong>${employees.filter(function (item) { return item.included_in_company_report === false; }).length}</strong><span>工资不计经营财报</span></div></div><div class="finance-table-wrap"><table class="finance-table employee-table"><thead><tr><th>工号 / 姓名</th><th>部门 / 职位</th><th>计薪方式</th><th class="number">基础工资</th><th>医社保</th><th>付款资料</th><th>经营财报</th><th></th></tr></thead><tbody>${employees.map(function (employee) {
-      return `<tr class="${employee.active ? '' : 'is-inactive'}"><td><strong>${escapeHtml(employee.employee_no)} · ${escapeHtml(employee.employee_name)}</strong><div class="finance-note">${escapeHtml(employee.nickname || '')}</div></td><td>${escapeHtml(employee.department)}<div class="finance-note">${escapeHtml(employee.role_name)}</div></td><td>${escapeHtml(employee.compensation_method || employeeRule(employee.id)?.rule_type || '-')}</td><td class="number">${amount(employee.base_salary)}</td><td>${employee.has_social_insurance ? '有' : '无'}</td><td>${escapeHtml(employee.payment_bank || '-')}<div class="finance-note">${escapeHtml(maskValue(employee.payment_account, 4, 4))}</div></td><td>${employee.included_in_company_report === false ? '<span class="badge bg-orange-lt">不计入</span>' : '<span class="badge bg-green-lt">计入</span>'}</td><td><button class="finance-icon-button" data-employee="${escapeHtml(employee.id)}" title="查看并编辑员工资料"><i class="ti ti-edit"></i></button></td></tr>`;
+    content.innerHTML = `${reportTabs()}<section class="employee-panel"><div class="employee-summary"><div><strong>${employees.filter(employeeActiveForMonth).length}</strong><span>本月在册</span></div><div><strong>${employees.filter(function (item) { return employeeActiveForMonth(item) && item.has_social_insurance; }).length}</strong><span>本月有医社保</span></div><div><strong>${employees.filter(function (item) { return employeeActiveForMonth(item) && item.included_in_company_report === false; }).length}</strong><span>工资不计经营财报</span></div></div><div class="finance-table-wrap"><table class="finance-table employee-table"><thead><tr><th>工号 / 姓名</th><th>部门 / 职位</th><th>计薪方式</th><th class="number">基础工资</th><th>医社保</th><th>付款资料</th><th>状态</th><th></th></tr></thead><tbody>${employees.map(function (employee) {
+      const activeThisMonth = employeeActiveForMonth(employee);
+      const status = activeThisMonth ? '<span class="badge bg-green-lt">本月在册</span>' : `<span class="badge bg-secondary-lt">已移出</span><div class="finance-note">${employee.inactive_from_month ? `${escapeHtml(employee.inactive_from_month)} 起` : escapeHtml(employee.employment_end || '')}</div>`;
+      return `<tr class="${activeThisMonth ? '' : 'is-inactive'}"><td><strong>${escapeHtml(employee.employee_no)} · ${escapeHtml(employee.employee_name)}</strong><div class="finance-note">${escapeHtml(employee.nickname || '')}</div></td><td>${escapeHtml(employee.department)}<div class="finance-note">${escapeHtml(employee.role_name)}</div></td><td>${escapeHtml(employee.compensation_method || employeeRule(employee.id)?.rule_type || '-')}</td><td class="number">${amount(employee.base_salary)}</td><td>${employee.has_social_insurance ? '有' : '无'}</td><td>${escapeHtml(employee.payment_bank || '-')}<div class="finance-note">${escapeHtml(maskValue(employee.payment_account, 4, 4))}</div></td><td>${status}</td><td><button class="finance-icon-button" data-employee="${escapeHtml(employee.id)}" title="查看并编辑员工资料"><i class="ti ti-edit"></i></button></td></tr>`;
     }).join('') || '<tr><td colspan="8"><div class="finance-empty">员工主档尚未导入</div></td></tr>'}</tbody></table></div></section>`;
     content.querySelectorAll('[data-employee]').forEach(function (button) { button.addEventListener('click', function () { showEmployeeDialog((state.employeeFoundation.employees || []).find(function (item) { return item.id === button.dataset.employee; })); }); });
   }
@@ -715,9 +729,18 @@
     element.querySelector('[name="payment_account"]').inputMode = 'numeric';
     element.querySelector('[name="payment_method"]').value = '银行转账';
     element.querySelector('[name="payment_method"]').readOnly = true;
+    element.querySelector('[name="employment_end"]').readOnly = true;
+    element.querySelector('[name="active"]').disabled = true;
+    if (employee && employeeActiveForMonth(employee)) {
+      const retire = document.createElement('button');
+      retire.type = 'button'; retire.className = 'btn btn-outline-danger me-auto'; retire.dataset.retire = ''; retire.textContent = '删除员工';
+      element.querySelector('footer').prepend(retire);
+    }
     element.querySelector('[name="rule_type"]').value = ruleType;
     const refreshRuleFields = function () { element.querySelector('.employee-rule-fields').innerHTML = ruleFields(element.querySelector('[name="rule_type"]').value, rule?.parameters || {}); };
     element.querySelector('[name="rule_type"]').addEventListener('change', refreshRuleFields); refreshRuleFields();
+    const retireButton = element.querySelector('[data-retire]');
+    if (retireButton) retireButton.addEventListener('click', function () { element.close(); showRetireEmployeeDialog(employee); });
     element.querySelector('[data-save]').addEventListener('click', async function () {
       const value = function (name) { return element.querySelector(`[name="${name}"]`)?.value || ''; };
       const numberValue = function (name) { const raw = value(name); return raw === '' ? 0 : Number(raw); };
@@ -728,6 +751,22 @@
       const message = element.querySelector('[data-message]');
       try { await api('/api/finance/employees', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}); element.close(); await loadEmployees(); }
       catch (error) { message.hidden = false; message.textContent = error.message; }
+    });
+  }
+
+  function showRetireEmployeeDialog(employee) {
+    const element = dialog('finance-employee-retire-dialog', `删除员工 · ${employee.employee_name}`, `<p class="finance-note">员工不会从历史工资中物理删除。所选月份起不再进入工资表、工资发放和月报，并保留操作人、原因及当时员工资料。</p><label>生效月份<input class="form-control" type="month" name="effective_month" value="${escapeHtml(state.month)}"></label><label>删除原因<textarea class="form-control" name="reason" rows="4" required placeholder="例如：年龄原因，自本月起不再列入员工及发薪范围"></textarea></label><div class="finance-error" data-message hidden></div><footer><button class="btn btn-outline-secondary" value="cancel">取消</button><button class="btn btn-danger" type="button" data-confirm-retire>确认删除并留档</button></footer>`);
+    element.querySelector('[data-confirm-retire]').addEventListener('click', async function () {
+      const message = element.querySelector('[data-message]');
+      const effectiveMonth = element.querySelector('[name="effective_month"]').value;
+      const reason = element.querySelector('[name="reason"]').value.trim();
+      if (!effectiveMonth || reason.length < 2) { message.hidden = false; message.textContent = '请选择生效月份并填写具体原因'; return; }
+      try {
+        await api(`/api/finance/employees/${employee.id}/retire`, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({expected_version:employee.version,effective_month:effectiveMonth,reason})});
+        element.close();
+        await api(`/api/finance/payroll/${effectiveMonth}/recalculate`, {method:'POST'});
+        await loadEmployees();
+      } catch (error) { message.hidden = false; message.textContent = error.message; }
     });
   }
 
