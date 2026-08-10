@@ -564,7 +564,12 @@
     const raw = XLSX.utils.sheet_to_json(sheet, {defval: '', raw: false});
     const rows = raw.filter(function (item) { return String(item['姓名'] || '').trim(); }).map(function (item, index) {
       const numberOrNull = function (value, label) { if (value == null || String(value).trim() === '') return null; const parsed = Number(String(value).replace(/,/g, '')); if (!Number.isFinite(parsed)) throw new Error(`${item['姓名'] || `第 ${index + 2} 行`}的${label}不是有效数字`); return parsed; };
-      return {employee_no: String(item['工号'] || '').trim(), row_key: `${String(item['姓名']).trim()}-${index + 1}`, employee_name: String(item['姓名']).trim(), gross_pay: numberOrNull(item['应发金额'], '应发金额'), income_tax: numberOrNull(item['个税（财务核定）'] ?? item['个人所得税'], '个税'), personal_social_insurance: numberOrNull(item['个人医社保扣除（财务填写）'] ?? item['个人医社保扣除'], '个人医社保'), employer_social_insurance: numberOrNull(item['公司承担医社保'], '公司承担医社保'), note: String(item['财务备注'] ?? item['备注'] ?? '').trim()};
+      const netPay = numberOrNull(item['实发金额'], '实发金额');
+      const tax = numberOrNull(item['个税（财务核定）'] ?? item['个人所得税'], '个税');
+      const combinedSocial = numberOrNull(item['个人医社保扣除（财务填写）'] ?? item['个人医社保扣除'], '个人医社保');
+      const socialParts = ['个人社保扣除（财务填写）','个人医保扣除（财务填写）','个人失业扣除（财务填写）'].map(function (key) { return numberOrNull(item[key], key.replace('（财务填写）','')); });
+      const hasSocialParts = socialParts.some(function (value) { return value != null; });
+      return {employee_no: String(item['工号'] || '').trim(), row_key: `${String(item['姓名']).trim()}-${index + 1}`, employee_name: String(item['姓名']).trim(), gross_pay: numberOrNull(item['应发金额'], '应发金额'), income_tax: tax == null && netPay != null ? 0 : tax, personal_social_insurance: combinedSocial != null ? combinedSocial : hasSocialParts ? socialParts.reduce(function (sum, value) { return sum + Number(value || 0); }, 0) : null, employer_social_insurance: numberOrNull(item['公司承担医社保'], '公司承担医社保'), net_pay: netPay, note: String(item['财务备注'] ?? item['备注'] ?? '').trim()};
     });
     if (!rows.length) throw new Error('工资核算表中没有有效人员行');
     const saved = await api(`/api/finance/payroll/${state.month}/import`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({stage: 'finance_return', file_name: file.name, file_sha256: await sha256(file), rows: rows, summary: {row_count: rows.length}})});
