@@ -516,19 +516,19 @@
   }
 
   function exportPayroll() {
-    const headers = ['月份','工号','姓名','部门','职位','工资计算方式','应发金额','个税（财务核定）','个人医社保扣除（财务填写）','公司承担医社保','实发金额（公式）','电话','身份证号','工资发放方式','工资账号','银行（开户行）','计入公司财报','备注'];
+    const headers = ['月份','工号','姓名','部门','职位','应发金额','个税（财务核定）','个人医社保扣除（财务填写）','公司承担医社保','实发金额','电话','身份证号','工资发放方式','工资账号','银行（开户行）','财务备注'];
     const rows = payrollSortedRows();
     const values = [headers].concat(rows.map(function (row) {
-      return [state.month,row.employee_no || '',row.employee_name,row.department,row.role_name,row.compensation_method || row.calculation,row.gross_pay,row.income_tax,row.payload?.has_social_insurance ? row.personal_social_insurance : '',row.payload?.employer_social_required ? row.employer_social_insurance : '',row.net_pay,row.phone || '',row.identity_no || '',row.payment_method || '',row.payment_account,row.payment_bank,row.included_in_company_report === false ? '否' : '是',row.payload?.finance_note || ''];
+      return [state.month,row.employee_no || '',row.employee_name,row.department,row.role_name,row.gross_pay,row.income_tax,row.payload?.has_social_insurance ? row.personal_social_insurance : '',row.payload?.employer_social_required ? row.employer_social_insurance : '',row.net_pay,row.phone || '',row.identity_no || '',row.payment_method || '',row.payment_account,row.payment_bank,row.payload?.finance_note || ''];
     }));
     const sheet = XLSX.utils.aoa_to_sheet(values);
     rows.forEach(function (_row, index) {
       const excelRow = index + 2;
-      sheet[`K${excelRow}`] = {t: 'n', f: `G${excelRow}-H${excelRow}-I${excelRow}`};
-      sheet[`O${excelRow}`] = {t: 's', v: String(values[index + 1][14] || '')};
-      sheet[`M${excelRow}`] = {t: 's', v: String(values[index + 1][12] || '')};
+      sheet[`K${excelRow}`] = {t: 's', v: String(values[index + 1][10] || '')};
+      sheet[`L${excelRow}`] = {t: 's', v: String(values[index + 1][11] || '')};
+      sheet[`N${excelRow}`] = {t: 's', v: String(values[index + 1][13] || '')};
     });
-    sheet['!cols'] = [9,9,12,12,14,30,12,14,20,16,16,14,22,16,24,22,14,42].map(function (width) { return {wch: width}; });
+    sheet['!cols'] = [9,9,12,12,14,12,14,20,16,14,14,22,16,24,22,54].map(function (width) { return {wch: width}; });
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, sheet, '财务发薪表');
     const parts = state.month.split('-');
@@ -541,7 +541,7 @@
     const raw = XLSX.utils.sheet_to_json(sheet, {defval: '', raw: false});
     const rows = raw.filter(function (item) { return String(item['姓名'] || '').trim(); }).map(function (item, index) {
       const numberOrNull = function (value, label) { if (value == null || String(value).trim() === '') return null; const parsed = Number(String(value).replace(/,/g, '')); if (!Number.isFinite(parsed)) throw new Error(`${item['姓名'] || `第 ${index + 2} 行`}的${label}不是有效数字`); return parsed; };
-      return {employee_no: String(item['工号'] || '').trim(), row_key: `${String(item['姓名']).trim()}-${index + 1}`, employee_name: String(item['姓名']).trim(), gross_pay: numberOrNull(item['应发金额'], '应发金额'), income_tax: numberOrNull(item['个税（财务核定）'] ?? item['个人所得税'], '个税'), personal_social_insurance: numberOrNull(item['个人医社保扣除（财务填写）'] ?? item['个人医社保扣除'], '个人医社保'), employer_social_insurance: numberOrNull(item['公司承担医社保'], '公司承担医社保'), note: String(item['备注'] || '').trim()};
+      return {employee_no: String(item['工号'] || '').trim(), row_key: `${String(item['姓名']).trim()}-${index + 1}`, employee_name: String(item['姓名']).trim(), gross_pay: numberOrNull(item['应发金额'], '应发金额'), income_tax: numberOrNull(item['个税（财务核定）'] ?? item['个人所得税'], '个税'), personal_social_insurance: numberOrNull(item['个人医社保扣除（财务填写）'] ?? item['个人医社保扣除'], '个人医社保'), employer_social_insurance: numberOrNull(item['公司承担医社保'], '公司承担医社保'), note: String(item['财务备注'] ?? item['备注'] ?? '').trim()};
     });
     if (!rows.length) throw new Error('工资核算表中没有有效人员行');
     await api(`/api/finance/payroll/${state.month}/import`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({stage: 'finance_return', file_name: file.name, file_sha256: await sha256(file), rows: rows, summary: {row_count: rows.length}})});
