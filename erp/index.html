@@ -6,39 +6,7 @@
   <title>订单审核 — 生意中台</title>
   <link rel="stylesheet" href="/jun-pages/vendor/tabler.min.css"/>
   <link rel="stylesheet" href="/jun-pages/vendor/tabler-icons.min.css"/>
-  <style>
-    .nav-link.active { background: rgba(32,107,196,.15) !important; font-weight: 600; border-left: 3px solid #206bc4; }
-    .nav-section-label {
-      padding: .9rem 1rem .3rem; color: rgba(255,255,255,.48);
-      font-size: .68rem; font-weight: 700; text-transform: none;
-    }
-    .stat-card { transition: transform .15s; }
-    .stat-card:hover { transform: translateY(-2px); }
-
-    /* Mobile bottom tab bar */
-    .bottom-tab-bar {
-      display: none;
-      position: fixed; bottom: 0; left: 0; right: 0;
-      background: #fff; border-top: 1px solid #e6e8eb;
-      z-index: 1050; padding: 4px 0 env(safe-area-inset-bottom, 4px);
-    }
-    .bottom-tab-bar .tab-items {
-      display: flex; justify-content: space-around; align-items: center;
-    }
-    .bottom-tab-bar .tab-item {
-      display: flex; flex-direction: column; align-items: center;
-      text-decoration: none; color: #667; font-size: .7rem; padding: 4px 8px;
-      transition: color .15s;
-    }
-    .bottom-tab-bar .tab-item i { font-size: 1.3rem; margin-bottom: 2px; }
-    .bottom-tab-bar .tab-item.active { color: #206bc4; font-weight: 600; }
-    .bottom-tab-bar .tab-item:hover { color: #206bc4; }
-
-    @media (max-width: 991px) {
-      .bottom-tab-bar { display: block; }
-      .page-body { padding-bottom: 70px; }
-    }
-  </style>
+  <link rel="stylesheet" href="/jun-pages/erp/orders.css?v=20260810-1"/>
 
   <link rel="stylesheet" href="/jun-pages/auth-gate.css?v=20260810-4">
   <link rel="icon" type="image/png" sizes="32x32" href="/jun-pages/assets/jun-icon-32.png">
@@ -52,7 +20,7 @@
   <script src="/jun-pages/device.js"></script>
   <script src="/jun-pages/public-bridge.js?v=20260810-2"></script>
 </head>
-<body class="layout-fluid">
+<body class="layout-fluid" data-jun-page="erp-orders">
   <div class="page">
 
     <!-- Sidebar -->
@@ -185,186 +153,29 @@
       <div class="page-body">
         <div class="container-xl">
           <nav class="nav nav-tabs mb-3" aria-label="ERP 数据模块">
-  <a class="nav-link active" href="/jun-pages/erp/"><i class="ti ti-clipboard-check me-2"></i>订单审核</a>
-  <a class="nav-link" href="/jun-pages/inventory/"><i class="ti ti-building-warehouse me-2"></i>库存明细</a>
-</nav>
-
-<!-- ERP 同步状态 -->
-<div id="sync-bar" class="mb-3"></div>
-
-<!-- ERP 订单看板 -->
-<div id="erp-app">
-  <p class="text-secondary">加载中...</p>
-</div>
-
-<script>
-// Sync status bar
-(async function(){
-  const bar = document.getElementById('sync-bar');
-  try {
-    const r = await fetch('/api/erp/sync-status');
-    const s = await r.json();
-    const alive = s.process_alive;
-    const stale = s.stale;
-    const ok = alive && !stale && s.status === 'ok';
-    const color = ok ? 'success' : (!alive ? 'danger' : (stale ? 'warning' : 'info'));
-    const icon = ok ? 'circle-check' : (!alive ? 'alert-circle' : 'clock');
-    const statusText = !alive ? '同步进程未运行' :
-      (s.status !== 'ok' ? '同步异常: ' + s.status :
-      (stale ? '数据可能过期' : '运行中'));
-    const age = s.age_minutes != null ? (s.age_minutes < 1 ? '刚刚' : Math.round(s.age_minutes) + '分钟前') : '未知';
-
-    bar.innerHTML = `
-      <div class="alert alert-${color} d-flex align-items-center py-2" role="alert">
-        <i class="ti ti-${icon} me-2"></i>
-        <div class="flex-fill">
-          <strong>ERP 同步</strong>: ${statusText}
-          <span class="text-secondary ms-2">|</span>
-          <span class="ms-2">最近拉取: ${s.synced_at || '从未'} (${age})</span>
-          <span class="text-secondary ms-2">|</span>
-          <span class="ms-2">待审核 ${s.pending_count} 单 / 历史 ${s.history_count} 单</span>
-          ${alive ? '<span class="text-secondary ms-2">| PID ' + s.process_pid + '</span>' : ''}
-        </div>
-      </div>
-    `;
-  } catch(e) {
-    bar.innerHTML = '<div class="alert alert-secondary py-2">同步状态获取失败</div>';
-  }
-})();
-
-document.addEventListener('DOMContentLoaded', async () => {
-  const app = document.getElementById('erp-app');
-  try {
-    const res = await fetch('/api/erp/orders');
-    const data = await res.json();
-    const orders = data.orders || [];
-    const pending = orders.filter(o => o.source === 'pending');
-    const history = orders.filter(o => o.source === 'history');
-
-    function badge(status) {
-      const map = {
-        '已付款': 'bg-warning', '部分发货': 'bg-info',
-        '已发货': 'bg-success', '交易成功': 'bg-green',
-        '交易关闭': 'bg-secondary', '退款中': 'bg-danger',
-      };
-      return `<span class="badge ${map[status] || 'bg-secondary'}">${status}</span>`;
-    }
-
-    function alertBadge(alert) {
-      if (alert === '缺') return '<span class="badge bg-red-lt">缺货</span>';
-      if (alert === '退中') return '<span class="badge bg-orange-lt">退款中</span>';
-      return '';
-    }
-
-    function renderOrderRow(o, showLogistics) {
-      const items = o.items || [];
-      const itemSummary = items.map(i =>
-        `<span class="text-primary">${i.sku || ''}</span>` +
-        (i.color ? `/${i.color}` : '') +
-        (i.size ? `/${i.size}` : '') +
-        ` x${i.qty || 1}`
-      ).join(', ') || o.item_summary || '';
-
-      return `
-        <tr>
-          <td>
-            <div class="fw-bold" style="font-size:0.75rem">${o.id || ''}</div>
-            <div class="text-secondary small">${o.paid_at || ''}</div>
-          </td>
-          <td>${badge(o.trade_status || '')} ${alertBadge(o.alert || '')}</td>
-          <td><div class="small">${itemSummary}</div></td>
-          <td class="fw-bold">&yen;${parseFloat(o.amount || 0).toLocaleString()}</td>
-          <td>
-            <div>${o.buyer.name || ''}</div>
-            <div class="text-secondary small">${o.buyer.province || ''}${o.buyer.city || ''}</div>
-          </td>
-          ${showLogistics ? `<td class="small">${o.logistics_company || ''}<br/>${o.tracking_no || ''}</td>` : ''}
-          <td class="small text-secondary">${o.seller_memo || ''}</td>
-        </tr>
-      `;
-    }
-
-    app.innerHTML = `
-      <!-- Tab 切换 -->
-      <ul class="nav nav-tabs mb-3" role="tablist">
-        <li class="nav-item">
-          <a class="nav-link active" data-bs-toggle="tab" href="#tab-pending">
-            待审核 <span class="badge bg-red ms-1">${pending.length}</span>
-          </a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link" data-bs-toggle="tab" href="#tab-history">
-            已发货 <span class="badge bg-green ms-1">${history.length}</span>
-          </a>
-        </li>
-      </ul>
-
-      <div class="tab-content">
-        <!-- 待审核 -->
-        <div class="tab-pane active show" id="tab-pending">
-          <div class="card">
-            <div class="table-responsive">
-              <table class="table table-vcenter table-hover table-sm">
-                <thead>
-                  <tr>
-                    <th style="min-width:160px">订单编号</th>
-                    <th>状态</th>
-                    <th style="min-width:200px">商品</th>
-                    <th>金额</th>
-                    <th>买家</th>
-                    <th>备注</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${pending.map(o => renderOrderRow(o, false)).join('')}
-                </tbody>
-              </table>
-            </div>
-            <div class="card-footer text-secondary">
-              共 ${pending.length} 单，合计 &yen;${pending.reduce((s,o) => s + parseFloat(o.amount||0), 0).toLocaleString()}
-            </div>
-          </div>
-        </div>
-
-        <!-- 已发货 -->
-        <div class="tab-pane" id="tab-history">
-          <div class="card">
-            <div class="table-responsive">
-              <table class="table table-vcenter table-hover table-sm">
-                <thead>
-                  <tr>
-                    <th style="min-width:160px">订单编号</th>
-                    <th>状态</th>
-                    <th style="min-width:200px">商品</th>
-                    <th>金额</th>
-                    <th>买家</th>
-                    <th>物流</th>
-                    <th>备注</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${history.map(o => renderOrderRow(o, true)).join('')}
-                </tbody>
-              </table>
-            </div>
-            <div class="card-footer text-secondary">
-              共 ${history.length} 单，合计 &yen;${history.reduce((s,o) => s + parseFloat(o.amount||0), 0).toLocaleString()}
-            </div>
-          </div>
-        </div>
-      </div>
-    `;
-  } catch(e) {
-    app.innerHTML = '<div class="alert alert-danger">加载失败: '+e.message+'</div>';
-  }
-});
-</script>
+            <a class="nav-link active" href="/jun-pages/erp/"><i class="ti ti-clipboard-check me-2"></i>订单审核</a>
+            <a class="nav-link" href="/jun-pages/inventory/"><i class="ti ti-building-warehouse me-2"></i>库存明细</a>
+            <a class="nav-link" href="/jun-pages/erp/shipments/"><i class="ti ti-truck-delivery me-2"></i>发货情况</a>
+          </nav>
+          <div id="sync-bar" class="mb-3"></div>
+          <div id="erp-app"><p class="text-secondary">正在读取订单与 SKU 图片...</p></div>
 
         </div>
       </div>
     </div>
 
   </div>
+
+  <dialog id="order-preset-dialog">
+    <form method="dialog">
+      <h3>保存订单筛选预设</h3>
+      <label>预设名称<input class="form-control" name="name" maxlength="60" placeholder="例如：待安排缺货单"></label>
+      <label class="form-check"><input class="form-check-input" type="checkbox" name="team"><span>保存为团队预设</span></label>
+      <label class="form-check"><input class="form-check-input" type="checkbox" name="default"><span>设为我的默认视图</span></label>
+      <div data-error hidden></div>
+      <footer><button class="btn btn-outline-secondary" type="button" data-cancel>取消</button><button class="btn btn-primary" type="button" data-save>保存</button></footer>
+    </form>
+  </dialog>
 
   <!-- Mobile bottom tab bar -->
   <nav class="bottom-tab-bar">
@@ -389,6 +200,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   </nav>
 
   <script src="/jun-pages/vendor/tabler.min.js"></script>
+  <script src="/jun-pages/erp/orders.js?v=20260810-1"></script>
 
 </body>
 </html>
