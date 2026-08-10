@@ -30,6 +30,27 @@
     return payload;
   }
 
+  async function copyText(value) {
+    const text = String(value || '');
+    if (!text) return false;
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+        return true;
+      }
+    } catch (_error) {}
+    const input = document.createElement('textarea');
+    input.value = text;
+    input.setAttribute('readonly', '');
+    input.style.position = 'fixed';
+    input.style.opacity = '0';
+    document.body.appendChild(input);
+    input.select();
+    const copied = document.execCommand('copy');
+    input.remove();
+    return copied;
+  }
+
   function dateTime(value) {
     if (!value) return '-';
     const parsed = new Date(String(value).replace(' ', 'T'));
@@ -138,6 +159,26 @@
       return `<article class="order-item ${item.out_of_stock?'is-out':''}">${image}<div><div><strong>${escapeHtml(item.sku || item.name || '-')}</strong>${item.out_of_stock?badge('缺货','is-danger'):''}</div><span>${escapeHtml(item.sku_full || item.taobao_sku_code || '')}</span><small>${escapeHtml(spec || item.taobao_title || item.name || '')}</small><small>${escapeHtml(prices)}</small></div></article>`;
     }).join('') || '<span class="text-secondary">无商品明细</span>';
   }
+  function compactItemSpec(item) {
+    const props=String(item.taobao_sku_props||'').split(/[；;]/).map(function(value){return value.replace(/^.*?[：:]/,'').trim();}).filter(Boolean);
+    const fallback=[item.color,item.size].filter(Boolean).map(String);
+    const values=props.length?props:fallback.length?fallback:[item.sku_full].filter(Boolean);
+    return [...new Set(values)].join(' / ');
+  }
+  function mobileItemsMarkup(group) {
+    return group.items.map(function(item){
+      const image=item.image_url?`<img src="${escapeHtml(item.image_url)}" loading="lazy" alt="${escapeHtml(item.sku||item.name||'商品')}">`:'';
+      return `<article class="order-mobile-item ${item.out_of_stock?'is-out':''} ${image?'has-image':''}">${image}<div><header><div><strong>${escapeHtml(item.sku||item.name||'-')}</strong>${item.out_of_stock?badge('缺货','is-danger'):''}</div><b>× ${number.format(Number(item.qty||1))}</b></header><p>${escapeHtml(item.name||'')}</p><small>${escapeHtml(compactItemSpec(item))}</small></div></article>`;
+    }).join('')||'<span class="text-secondary">无商品明细</span>';
+  }
+  function mobileOrderIds(group) {
+    const ids=[...new Set(group.records.map(function(order){return String(order.id||'').trim();}).filter(Boolean))];
+    return `<div class="order-card-identities">${ids.map(function(id){return `<button type="button" class="order-copy-id" data-copy-order-id="${escapeHtml(id)}" aria-label="复制订单编号 ${escapeHtml(id)}"><span>订单</span><strong>${escapeHtml(id)}</strong><i class="ti ti-copy"></i><em data-copy-label>复制</em></button>`;}).join('')}</div>`;
+  }
+  function platformEarlierThanPromise(group) {
+    if (!group.deadline||!group.promise?.sort||group.promise.sort.startsWith('9999')) return false;
+    return String(group.deadline).slice(0,10)<group.promise.sort;
+  }
   function renderItemsCell(group) { return `<td class="order-col-items">${itemsMarkup(group)}</td>`; }
   function statusMarkup(group) {
     const line = function(label, field, tone){const values=unique(group.records,field);return `<div><span>${label}</span><strong>${values.map(function(value){return badge(value,tone);}).join('') || '-'}</strong></div>`;};
@@ -225,7 +266,9 @@
   }
   function renderCards(rows){
     return `<div class="order-card-list">${rows.map(function(group){
-      return `<article class="order-card"><header><div>${badge(workflowLabel(group),workflowTone(group))}${exceptionBadges(group)}</div><strong>¥${money.format(group.amount)}</strong></header>${orderIdentity(group,'div')}<div class="order-card-dates"><div><span>备注约定发货</span><strong>${escapeHtml(group.promise.label)}</strong></div><div><span>淘宝最迟发货</span><strong>${dateTime(group.deadline)}</strong></div></div><section class="order-card-items">${itemsMarkup(group)}</section><details><summary>状态、备注、物流和买家</summary>${statusMarkup(group)}${unique(group.records,'seller_memo').length?`<div class="order-card-memo"><span>卖家备注</span>${unique(group.records,'seller_memo').map(function(v){return `<p>${escapeHtml(v)}</p>`;}).join('')}</div>`:''}<dl><dt>管家婆安排</dt><dd>${group.arrangedState==='no'?'未安排':group.arrangedState==='partial'?'部分安排':'已安排'}</dd><dt>物流</dt><dd>${escapeHtml(unique(group.records,'logistics_company').join(' / ')||'暂无')} ${escapeHtml(unique(group.records,'tracking_no').join(' / '))}</dd><dt>买家</dt><dd>${escapeHtml(group.records[0]?.buyer?.name||group.records[0]?.buyer?.account||'-')}</dd><dt>付款</dt><dd>${dateTime(group.paidAt)}</dd><dt>实际发货</dt><dd>${dateTime(group.records.map(function(r){return r.shipped_at;}).filter(Boolean).sort().at(-1))}</dd><dt>审核异常</dt><dd>${escapeHtml(unique(group.records,'audit_fail_reason').join(' / ')||'无')}</dd></dl></details></article>`;
+      const memos=unique(group.records,'seller_memo');
+      const deadlineWarning=platformEarlierThanPromise(group);
+      return `<article class="order-card"><header class="order-card-priority"><div>${badge(workflowLabel(group),workflowTone(group))}${exceptionBadges(group)}${group.outOfStock?badge('缺货 / 异常','is-danger'):''}</div><div class="order-card-promise"><span>约定发货</span><strong>${escapeHtml(group.promise.label==='未识别'?'日期待补':group.promise.label)}</strong></div></header>${mobileOrderIds(group)}<section class="order-card-items">${mobileItemsMarkup(group)}</section>${memos.length?`<div class="order-card-memo"><span>操作备注</span>${memos.map(function(v){return `<p>${escapeHtml(v)}</p>`;}).join('')}</div>`:''}<div class="order-card-secondary"><div class="${deadlineWarning?'is-warning':''}"><span>平台最迟</span><strong>${dateTime(group.deadline)}</strong>${deadlineWarning?'<small>早于约定日期</small>':''}</div><div><span>订单金额</span><strong>¥${money.format(group.amount)}</strong></div></div><details><summary>更多信息</summary>${statusMarkup(group)}<dl><dt>管家婆单据</dt><dd>${escapeHtml(unique(group.records,'vchcode').join(' / ')||'-')}</dd><dt>管家婆安排</dt><dd>${group.arrangedState==='no'?'未安排':group.arrangedState==='partial'?'部分安排':'已安排'}</dd><dt>物流</dt><dd>${escapeHtml(unique(group.records,'logistics_company').join(' / ')||'暂无')} ${escapeHtml(unique(group.records,'tracking_no').join(' / '))}</dd><dt>买家</dt><dd>${escapeHtml(group.records[0]?.buyer?.name||group.records[0]?.buyer?.account||'-')}</dd><dt>付款</dt><dd>${dateTime(group.paidAt)}</dd><dt>实际发货</dt><dd>${dateTime(group.records.map(function(r){return r.shipped_at;}).filter(Boolean).sort().at(-1))}</dd><dt>审核异常</dt><dd>${escapeHtml(unique(group.records,'audit_fail_reason').join(' / ')||'无')}</dd></dl></details></article>`;
     }).join('')||'<div class="order-empty">没有符合当前筛选的订单</div>'}</div>`;
   }
   function renderResults(){
@@ -238,6 +281,7 @@
     [['order-stage','stage'],['order-stock','stock'],['order-shop','shop'],['order-sort-by','sortBy']].forEach(function(pair){const field=document.getElementById(pair[0]);field.value=state.filters[pair[1]];field.addEventListener('change',function(){state.filters[pair[1]]=field.value;state.page=1;render();});});
     const orderState=document.getElementById('order-state');orderState.value=state.filters.orderState;orderState.addEventListener('change',function(){state.filters.orderState=orderState.value;if(orderState.value!=='active'&&state.filters.stage==='actionable')state.filters.stage='all';state.page=1;render();});
     document.getElementById('order-sort-dir').addEventListener('click',function(){state.filters.sortDir=state.filters.sortDir==='asc'?'desc':'asc';state.page=1;render();});
+    document.querySelectorAll('[data-copy-order-id]').forEach(function(button){button.addEventListener('click',async function(){const copied=await copyText(button.dataset.copyOrderId);if(!copied)return;button.classList.add('is-copied');button.querySelector('i').className='ti ti-check';button.querySelector('[data-copy-label]').textContent='已复制';window.setTimeout(function(){if(!button.isConnected)return;button.classList.remove('is-copied');button.querySelector('i').className='ti ti-copy';button.querySelector('[data-copy-label]').textContent='复制';},1600);});});
     let timer;document.getElementById('order-q').addEventListener('input',function(event){clearTimeout(timer);timer=setTimeout(function(){state.filters.q=event.target.value.trim();state.page=1;render();},180);});
     document.querySelectorAll('.order-column-picker input').forEach(function(input){input.addEventListener('change',function(){const checked=[...document.querySelectorAll('.order-column-picker input:checked')].map(function(i){return i.value;});if(!checked.length){input.checked=true;return;}state.filters.columns=checked;render();});});
     const preset=document.getElementById('order-preset');const presetDefault=document.getElementById('order-preset-default');const presetDelete=document.getElementById('order-preset-delete');

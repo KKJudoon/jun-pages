@@ -76,6 +76,12 @@
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   }
 
+  function currentBusinessMonth() {
+    const parts = new Intl.DateTimeFormat('en-US', {timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit'}).formatToParts(new Date());
+    const value = Object.fromEntries(parts.map(function (part) { return [part.type, part.value]; }));
+    return `${value.year}-${value.month}`;
+  }
+
   function rollingMonths() {
     const result = [];
     const cursor = new Date();
@@ -616,16 +622,29 @@
 
   async function loadCompanyPayroll() {
     if (!has('finance.payroll.manage') && !has('finance.manage')) throw new Error('没有查看公司工资表的权限');
-    state.data = await api(`/api/finance/months/${state.month}`);
+    state.data = await api(`/api/finance/months/${state.month}?prepare_payroll=1`);
     const snapshot = state.data.payroll_snapshot;
     const canManagePayroll = has('finance.payroll.manage') || has('finance.manage');
-    toolbar.innerHTML = `${monthSelect(state.months, state.month)}${snapshot ? `<span class="finance-status ${snapshot.status === 'final' ? 'is-ready' : 'is-missing'}">${snapshot.status === 'final' ? '财务已核定' : snapshot.status === 'awaiting_finance' ? '待财务核定' : '工资草稿'}</span>` : '<span class="finance-status is-missing">尚未核算</span>'}<span class="finance-toolbar-spacer"></span>${has('finance.manage') && state.data.month.status === 'open' ? '<button id="payroll-recalculate" class="btn btn-outline-primary"><i class="ti ti-calculator me-1"></i>重新核算</button>' : ''}${canManagePayroll ? `<button id="payroll-export" class="btn btn-outline-primary" ${payrollRows().length ? '' : 'disabled'}><i class="ti ti-file-export me-1"></i>导出给财务</button>` : ''}${canManagePayroll && payrollRows().length ? '<label class="btn btn-primary mb-0"><i class="ti ti-file-import me-1"></i>导入财务回表<input id="payroll-import" type="file" accept=".xlsx,.xls" hidden></label>' : ''}`;
+    const businessMonth = currentBusinessMonth();
+    const currentMonthOpened = state.months.some(function (item) { return item.month === businessMonth; });
+    const openCurrentMonth = has('finance.manage') && !currentMonthOpened ? `<button id="payroll-open-current-month" class="btn btn-primary"><i class="ti ti-calendar-plus me-1"></i>提前打开 ${businessMonth.replace('-', '年')}月工资表</button>` : '';
+    toolbar.innerHTML = `${monthSelect(state.months, state.month)}${snapshot ? `<span class="finance-status ${snapshot.status === 'final' ? 'is-ready' : 'is-missing'}">${snapshot.status === 'final' ? '财务已核定' : snapshot.status === 'awaiting_finance' ? '待财务核定' : '工资草稿'}</span>` : '<span class="finance-status is-missing">尚未核算</span>'}<span class="finance-toolbar-spacer"></span>${openCurrentMonth}${has('finance.manage') && state.data.month.status === 'open' ? '<button id="payroll-recalculate" class="btn btn-outline-primary"><i class="ti ti-calculator me-1"></i>重新核算</button>' : ''}${canManagePayroll ? `<button id="payroll-export" class="btn btn-outline-primary" ${payrollRows().length ? '' : 'disabled'}><i class="ti ti-file-export me-1"></i>导出给财务</button>` : ''}${canManagePayroll && payrollRows().length ? '<label class="btn btn-primary mb-0"><i class="ti ti-file-import me-1"></i>导入财务回表<input id="payroll-import" type="file" accept=".xlsx,.xls" hidden></label>' : ''}`;
     toolbar.querySelector('#finance-month').addEventListener('change', async function (event) { setMonth(event.target.value); state.companyPayrollModule = 'all'; await loadCompanyPayroll(); });
     toolbar.querySelector('#payroll-export')?.addEventListener('click', exportPayroll);
     toolbar.querySelector('#payroll-recalculate')?.addEventListener('click', async function (event) {
       event.currentTarget.disabled = true;
       try { await api(`/api/finance/payroll/${state.month}/recalculate`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'}); await loadCompanyPayroll(); }
       catch (error) { renderError(error); }
+    });
+    toolbar.querySelector('#payroll-open-current-month')?.addEventListener('click', async function (event) {
+      event.currentTarget.disabled = true;
+      try {
+        await api('/api/finance/months/current/open', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'});
+        await loadFinanceMonths();
+        setMonth(businessMonth);
+        state.companyPayrollModule = 'all';
+        await loadCompanyPayroll();
+      } catch (error) { renderError(error); }
     });
     toolbar.querySelector('#payroll-import')?.addEventListener('change', async function (event) {
       const file = event.target.files[0];
