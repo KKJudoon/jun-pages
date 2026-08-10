@@ -487,16 +487,23 @@
     return `<span class="company-payroll-status ${kind}">${escapeHtml(payrollStatus(row))}</span>`;
   }
 
+  function companyPayrollMonthNote(row) {
+    const note = row.payload?.month_note || row.note || '';
+    const editable = has('finance.manage') && state.data.month.status === 'open';
+    if (!editable) return `<span title="${escapeHtml(note)}">${escapeHtml(note || '-')}</span>`;
+    return `<button type="button" class="company-payroll-note-button" data-payroll-month-note="${escapeHtml(row.employee_id)}" title="编辑只适用于本月的备注"><span>${escapeHtml(note || '填写当月备注')}</span><i class="ti ti-pencil"></i></button>`;
+  }
+
   function renderCompanyPayrollTable(module) {
     const gross = module.rows.reduce(function(sum,row){return sum + Number(row.gross_pay || 0);},0);
     const columns = module.columns.map(function(column){return `<th class="number">${escapeHtml(column[1])}</th>`;}).join('');
     return `<section class="company-payroll-module" data-company-payroll-section="${escapeHtml(module.key)}">
       <header><div><h2>${escapeHtml(module.title)}</h2><span>${module.rows.length} 人</span></div><strong>${amount(gross)}</strong></header>
-      <div class="company-payroll-table-wrap"><table class="company-payroll-table"><thead><tr><th class="company-payroll-name">姓名</th>${columns}<th class="number total">税前工资</th><th class="number">个人医社保</th><th class="number">个税</th><th class="number total">实发金额</th><th>状态</th><th>固定备注</th></tr></thead><tbody>${module.rows.map(function(row){
+      <div class="company-payroll-table-wrap"><table class="company-payroll-table"><thead><tr><th class="company-payroll-name">姓名</th>${columns}<th class="number total">税前工资</th><th class="number">个人医社保</th><th class="number">个税</th><th class="number total">实发金额</th><th>状态</th><th>当月备注</th><th>固定备注</th></tr></thead><tbody>${module.rows.map(function(row){
         return `<tr class="${row.calculation_status === 'missing_input' ? 'is-missing' : row.calculation_status === 'source_pending' ? 'is-pending' : ''}">
           <td class="company-payroll-name" id="payroll-row-${escapeHtml(row.employee_id)}"><strong>${escapeHtml(row.employee_name)}</strong><span>${escapeHtml(row.role_name || '')}</span></td>
           ${module.columns.map(function(column){return `<td class="number">${payrollCell(row,column[0])}</td>`;}).join('')}
-          <td class="number total"><button type="button" class="company-payroll-total-link" data-payroll-detail="${escapeHtml(row.id)}">${amount(row.gross_pay)}</button></td><td class="number">${row.payload?.has_social_insurance ? `<button type="button" class="company-payroll-total-link" data-payroll-detail="${escapeHtml(row.id)}">${amount(row.personal_social_insurance)}</button>` : '<span class="company-payroll-na">不适用</span>'}</td><td class="number"><button type="button" class="company-payroll-total-link" data-payroll-detail="${escapeHtml(row.id)}">${amount(row.income_tax)}</button></td><td class="number total"><button type="button" class="company-payroll-total-link is-net" data-payroll-detail="${escapeHtml(row.id)}">${amount(row.net_pay)}</button></td><td>${companyPayrollStatus(row)}</td><td class="company-payroll-note" title="${escapeHtml(row.payload?.finance_note || '')}">${escapeHtml(row.payload?.finance_note || '-')}</td>
+          <td class="number total"><button type="button" class="company-payroll-total-link" data-payroll-detail="${escapeHtml(row.id)}">${amount(row.gross_pay)}</button></td><td class="number">${row.payload?.has_social_insurance ? `<button type="button" class="company-payroll-total-link" data-payroll-detail="${escapeHtml(row.id)}">${amount(row.personal_social_insurance)}</button>` : '<span class="company-payroll-na">不适用</span>'}</td><td class="number"><button type="button" class="company-payroll-total-link" data-payroll-detail="${escapeHtml(row.id)}">${amount(row.income_tax)}</button></td><td class="number total"><button type="button" class="company-payroll-total-link is-net" data-payroll-detail="${escapeHtml(row.id)}">${amount(row.net_pay)}</button></td><td>${companyPayrollStatus(row)}</td><td class="company-payroll-note">${companyPayrollMonthNote(row)}</td><td class="company-payroll-note" title="${escapeHtml(row.payload?.finance_note || '')}">${escapeHtml(row.payload?.finance_note || '-')}</td>
         </tr>`;
       }).join('')}</tbody></table></div>
     </section>`;
@@ -524,6 +531,7 @@
       else showPayrollComponent(row, button.dataset.componentKey);
     });});
     content.querySelectorAll('[data-payroll-detail]').forEach(function(button){button.addEventListener('click',function(){showPayrollDetail(button.dataset.payrollDetail);});});
+    content.querySelectorAll('[data-payroll-month-note]').forEach(function(button){button.addEventListener('click',function(){showPayrollMonthNote(button.dataset.payrollMonthNote);});});
     applyCompanyPayrollFilter();
   }
 
@@ -643,6 +651,28 @@
         await api(`/api/finance/payroll/${state.month}/recalculate`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'});
         element.close(); await loadCompanyPayroll();
       } catch (error) { message.hidden = false; message.textContent = error.message; }
+    });
+  }
+
+  async function showPayrollMonthNote(employeeId) {
+    const row = payrollRows().find(function (item) { return item.employee_id === employeeId; });
+    if (!row) return;
+    const current = row.payload?.month_note || row.note || '';
+    const element = dialog('finance-payroll-note-dialog', `${row.employee_name} · ${state.month} 当月备注`, `<p class="finance-note">当月备注只适用于本月，修改会保留版本记录；它不参与工资公式，也不会导给财务。每月都要让财务看到的固定核算事项，请到员工信息修改“固定备注”。</p><label>当月备注<textarea class="form-control" rows="5" maxlength="1500" name="month_note" placeholder="例如：本月有临时调整，待与本人确认">${escapeHtml(current)}</textarea></label><p class="finance-note">当前源数据版本：${escapeHtml(row.payload?.month_input_version || '尚未建立')}</p><div class="finance-error" data-message hidden></div><footer><button class="btn btn-outline-secondary" value="cancel">取消</button><button class="btn btn-primary" type="button" data-save>保存当月备注</button></footer>`);
+    element.querySelector('[name="month_note"]')?.focus();
+    element.querySelector('[data-save]').addEventListener('click', async function (event) {
+      const message = element.querySelector('[data-message]');
+      event.currentTarget.disabled = true;
+      try {
+        await api(`/api/finance/payroll/${state.month}/notes/${employeeId}`, {method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({month_note: element.querySelector('[name="month_note"]').value, expected_version: row.payload?.month_input_version || null})});
+        await api(`/api/finance/payroll/${state.month}/recalculate`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'});
+        element.close();
+        await loadCompanyPayroll();
+      } catch (error) {
+        event.currentTarget.disabled = false;
+        message.hidden = false;
+        message.textContent = error.message;
+      }
     });
   }
 

@@ -256,6 +256,9 @@ th.company-payroll-name { z-index: 5 !important; background: #f6f8fb !important;
 .company-payroll-name strong, .company-payroll-name span { display: block; }
 .company-payroll-name span { color: var(--finance-muted); font-size: 10px; }
 .company-payroll-note { max-width: 220px; overflow: hidden; color: var(--finance-muted); text-overflow: ellipsis; }
+.company-payroll-note-button { display: inline-flex; max-width: 210px; gap: 6px; align-items: center; padding: 0; border: 0; border-bottom: 1px dashed #8ca6c0; background: transparent; color: #315f8c; font: inherit; text-align: left; }
+.company-payroll-note-button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.company-payroll-note-button i { flex: 0 0 auto; }
 .company-payroll-value { display: inline-flex; gap: 4px; align-items: center; padding: 3px 5px; border: 0; border-radius: 4px; background: transparent; color: inherit; font: inherit; font-variant-numeric: tabular-nums; }
 .company-payroll-value.is-manual-source { background: #fff7df; color: #8a5b00; box-shadow: inset 0 0 0 1px #eed08a; }
 .company-payroll-value.is-linked-source { color: #3b5f87; }

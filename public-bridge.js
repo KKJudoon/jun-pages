@@ -330,13 +330,28 @@
       });
     }
     feedbackDialog.querySelector('[data-submit-feedback]').addEventListener('click', async function () {
+      const submitButton = feedbackDialog.querySelector('[data-submit-feedback]');
+      if (submitButton.dataset.submitting === 'true') return;
       const suggestion = feedbackDialog.querySelector('[name="suggestion"]').value.trim();
       const message = feedbackDialog.querySelector('.jun-form-message');
       if (suggestion.length < 3) { message.textContent='请至少写 3 个字'; return; }
-      const response = await window.fetch('/api/feedback',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({module_key:feedbackDialog.querySelector('[name="module_key"]').value,page_path:`${window.location.pathname}${window.location.search}`,suggestion:suggestion})});
-      const payload = await response.json().catch(function () { return {}; });
-      if (!response.ok) { message.textContent=payload.detail||'提交失败'; return; }
-      feedbackDialog.querySelector('[name="suggestion"]').value=''; message.classList.add('success'); message.textContent='已提交并记录'; await loadFeedback();
+      submitButton.dataset.submitting = 'true';
+      submitButton.disabled = true;
+      const originalText = submitButton.textContent;
+      submitButton.textContent = '提交中…';
+      try {
+        const response = await window.fetch('/api/feedback',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({module_key:feedbackDialog.querySelector('[name="module_key"]').value,page_path:`${window.location.pathname}${window.location.search}`,suggestion:suggestion})});
+        const payload = await response.json().catch(function () { return {}; });
+        if (!response.ok) { message.textContent=payload.detail||'提交失败'; return; }
+        feedbackDialog.querySelector('[name="suggestion"]').value=''; message.classList.add('success'); message.textContent=payload.deduplicated?'已记录，无需重复提交':'已提交并记录'; await loadFeedback();
+      } catch (_error) {
+        message.classList.remove('success');
+        message.textContent = '网络异常，提交失败，请稍后重试';
+      } finally {
+        submitButton.dataset.submitting = 'false';
+        submitButton.disabled = false;
+        submitButton.textContent = originalText;
+      }
     });
     async function showDevices() {
       deviceDialog.showModal();
