@@ -14,7 +14,7 @@
   const state = {
     orders: [], groups: [], filtered: [], presets: [], presetMeta: {}, page: 1,
     pageSize: window.matchMedia('(max-width: 760px)').matches ? 24 : 50,
-    filters: {q:'',orderState:'active',stage:'actionable',stock:'all',shop:'all',sortBy:'promise',sortDir:'asc',columns:[...defaultColumns]},
+    filters: {q:'',closure:'open',refund:'all',tags:[],stage:'actionable',stock:'all',shop:'all',sortBy:'promise',sortDir:'asc',columns:[...defaultColumns]},
   };
 
   function escapeHtml(value) {
@@ -136,6 +136,9 @@
 
   function badge(text, tone) { return text ? `<span class="order-badge ${tone || ''}">${escapeHtml(text)}</span>` : ''; }
   function unique(records, field) { return [...new Set(records.map(function(row){return row[field];}).filter(Boolean))]; }
+  function availableOrderTags() {
+    return [...new Set(state.orders.flatMap(function(order){return [order.tag,order.alert];}).concat(state.filters.tags||[]).map(function(value){return String(value||'').trim();}).filter(Boolean))].sort(function(a,b){return a.localeCompare(b,'zh-CN');});
+  }
   function workflowLabel(group) {
     const labels = {unarranged:'待安排',arranged:'已安排待发货',partial:`部分已发货 ${group.shippedCount}/${group.records.length}`,shipped:'已发货',closed:'交易关闭'};
     return labels[group.workflowStage] || group.workflowStage;
@@ -229,9 +232,11 @@
   function filterGroups() {
     const f=state.filters;
     let rows=state.groups.filter(function(group){
-      if (f.orderState==='active' && (group.hasRefund || group.allClosed)) return false;
-      if (f.orderState==='refund' && !group.hasRefund) return false;
-      if (f.orderState==='closed' && !group.allClosed) return false;
+      if (f.closure==='open' && group.allClosed) return false;
+      if (f.closure==='closed' && !group.allClosed) return false;
+      if (f.refund==='yes' && !group.hasRefund) return false;
+      if (f.refund==='no' && group.hasRefund) return false;
+      if (f.tags.length&&!group.records.some(function(order){return f.tags.includes(String(order.tag||'').trim())||f.tags.includes(String(order.alert||'').trim());})) return false;
       if (f.stage==='actionable' && ['shipped','closed'].includes(group.workflowStage)) return false;
       if (!['all','actionable'].includes(f.stage) && group.workflowStage!==f.stage) return false;
       if (f.stock==='out'&&!group.outOfStock) return false;
@@ -265,12 +270,18 @@
       const legacy={promise_asc:['promise','asc'],deadline_asc:['deadline','asc'],workflow:['workflow','asc'],paid_desc:['paid','desc'],paid_asc:['paid','asc'],amount_desc:['amount','desc']}[next.sort];
       if(legacy){next.sortBy=legacy[0];next.sortDir=legacy[1];}
     }
-    if(next.stage==='closed'){next.orderState='closed';next.stage='all';}
-    if(!['active','refund','closed','all'].includes(next.orderState))next.orderState='active';
+    if(next.stage==='closed'){next.closure='closed';next.stage='all';}
+    if(!next.closure||!next.refund){
+      const legacyRange={active:['open','no'],refund:['all','yes'],closed:['closed','all'],all:['all','all']}[next.orderState];
+      if(legacyRange){if(!next.closure)next.closure=legacyRange[0];if(!next.refund)next.refund=legacyRange[1];}
+    }
+    if(!['open','closed','all'].includes(next.closure))next.closure='open';
+    if(!['all','yes','no'].includes(next.refund))next.refund='all';
+    next.tags=Array.isArray(next.tags)?[...new Set(next.tags.map(function(value){return String(value||'').trim();}).filter(Boolean))]:[];
     if(!['promise','deadline','workflow','paid','amount'].includes(next.sortBy))next.sortBy='promise';
     if(!['asc','desc'].includes(next.sortDir))next.sortDir='asc';
-    if(next.orderState!=='active'&&next.stage==='actionable')next.stage='all';
-    delete next.source;delete next.arranged;delete next.sort;
+    if(next.closure==='closed'&&next.stage==='actionable')next.stage='all';
+    delete next.source;delete next.arranged;delete next.sort;delete next.orderState;
     const validColumns=Array.isArray(next.columns)?next.columns.filter(function(key){return columns.some(function(item){return item[0]===key;});}):[];
     next.columns=validColumns.length?validColumns:[...defaultColumns];
     return next;
@@ -283,13 +294,15 @@
     const unarranged=active.filter(function(g){return g.workflowStage==='unarranged';}).length;
     const risk=active.filter(function(g){return g.outOfStock&&!['shipped','closed'].includes(g.workflowStage);}).length;
     const excluded=state.groups.filter(function(g){return g.hasRefund||g.allClosed;}).length;
-    return `<div class="order-stats"><article><span>正常订单待处理</span><strong>${number.format(actionable)}</strong></article><article><span>正常订单待安排</span><strong>${number.format(unarranged)}</strong></article><article><span>待处理中的缺货 / 异常</span><strong>${number.format(risk)}</strong></article><article><span>售后 / 关闭（默认隐藏）</span><strong>${number.format(excluded)}</strong></article></div>`;
+    return `<div class="order-stats"><article><span>正常订单待处理</span><strong>${number.format(actionable)}</strong></article><article><span>正常订单待安排</span><strong>${number.format(unarranged)}</strong></article><article><span>待处理中的缺货 / 异常</span><strong>${number.format(risk)}</strong></article><article><span>含退款 / 已关闭</span><strong>${number.format(excluded)}</strong></article></div>`;
   }
   function renderControls(){
     const shops=[...new Set(state.orders.map(function(order){return order.shop;}).filter(Boolean))].sort();
+    const tags=availableOrderTags();
+    const selectedTags=new Set(state.filters.tags);
     const selected=new Set(state.filters.columns);
     const presets=state.presets.map(function(p){return `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}${p.scope==='team'?' · 团队':''}</option>`;}).join('');
-    return `<section class="order-controls"><div class="order-filter-grid"><label class="order-search"><span>搜索</span><input id="order-q" class="form-control" type="search" placeholder="订单号、SKU、备注、买家、物流" value="${escapeHtml(state.filters.q)}"></label><label><span>订单范围</span><select id="order-state" class="form-select"><option value="active">正常订单（默认）</option><option value="refund">退款 / 售后</option><option value="closed">交易关闭 / ERP 删除</option><option value="all">全部订单</option></select></label><label><span>处理进度</span><select id="order-stage" class="form-select"><option value="actionable">待处理（未全部发货）</option><option value="unarranged">待安排</option><option value="arranged">已安排待发货</option><option value="partial">部分已发货</option><option value="shipped">已发货</option><option value="all">全部进度</option></select></label><label><span>库存风险</span><select id="order-stock" class="form-select"><option value="all">全部</option><option value="out">缺货 / 审核异常</option><option value="ready">无缺货标记</option></select></label><label><span>店铺</span><select id="order-shop" class="form-select"><option value="all">全部店铺</option>${shops.map(function(shop){return `<option value="${escapeHtml(shop)}">${escapeHtml(shop)}</option>`;}).join('')}</select></label><label><span>排序</span><div class="order-sort-control"><select id="order-sort-by" class="form-select"><option value="promise">备注约定发货</option><option value="deadline">淘宝最迟发货</option><option value="workflow">处理优先级</option><option value="paid">付款时间</option><option value="amount">订单金额</option></select><button type="button" class="btn btn-outline-secondary" id="order-sort-dir" aria-label="切换排序方向"><i class="ti ti-sort-${state.filters.sortDir==='asc'?'ascending':'descending'}"></i><span>${state.filters.sortDir==='asc'?'升序':'降序'}</span></button></div></label></div><details class="order-truth-note"><summary><i class="ti ti-info-circle"></i><span>字段口径说明</span></summary><p>“已安排”只表示管家婆已安排；当前数据没有独立的“生产完成”字段，页面不会自行推断。备注日期与淘宝平台时限分开显示。</p></details><div class="order-preset-row"><label><span>筛选预设</span><select id="order-preset" class="form-select"><option value="">选择预设</option>${presets}</select></label><button class="btn btn-outline-primary" id="order-preset-save">保存当前预设</button><button class="btn btn-outline-secondary" id="order-preset-default" disabled>设为默认</button><button class="btn btn-outline-danger" id="order-preset-delete" disabled>删除</button><details class="order-column-picker"><summary class="btn btn-outline-secondary">显示列 · ${selected.size}</summary><div>${columns.map(function(item){return `<label><input type="checkbox" value="${escapeHtml(item[0])}" ${selected.has(item[0])?'checked':''}>${escapeHtml(item[1])}</label>`;}).join('')}</div></details></div></section>`;
+    return `<section class="order-controls"><div class="order-filter-grid"><label class="order-search"><span>搜索</span><input id="order-q" class="form-control" type="search" placeholder="订单号、SKU、备注、买家、物流" value="${escapeHtml(state.filters.q)}"></label><label><span>交易范围</span><select id="order-closure" class="form-select"><option value="open">未关闭（默认）</option><option value="closed">仅已关闭 / ERP 删除</option><option value="all">全部交易</option></select></label><label><span>退款情况</span><select id="order-refund" class="form-select"><option value="all">全部退款状态</option><option value="yes">有退款 / 售后</option><option value="no">无退款</option></select></label><details class="order-tag-filter"><summary><span>管家婆标签</span><strong>${selectedTags.size?`已选 ${selectedTags.size} 项`:'全部标签'}</strong></summary><div>${tags.map(function(tag){return `<label><input type="checkbox" value="${escapeHtml(tag)}" ${selectedTags.has(tag)?'checked':''}><span>${escapeHtml(tag)}</span></label>`;}).join('')||'<p>当前没有标签</p>'}<footer><button type="button" class="btn btn-sm btn-outline-secondary" data-tags-clear>清空</button><button type="button" class="btn btn-sm btn-primary" data-tags-apply>应用</button></footer></div></details><label><span>处理进度</span><select id="order-stage" class="form-select"><option value="actionable">待处理（未全部发货）</option><option value="unarranged">待安排</option><option value="arranged">已安排待发货</option><option value="partial">部分已发货</option><option value="shipped">已发货</option><option value="all">全部进度</option></select></label><label><span>库存风险</span><select id="order-stock" class="form-select"><option value="all">全部</option><option value="out">缺货 / 审核异常</option><option value="ready">无缺货标记</option></select></label><label><span>店铺</span><select id="order-shop" class="form-select"><option value="all">全部店铺</option>${shops.map(function(shop){return `<option value="${escapeHtml(shop)}">${escapeHtml(shop)}</option>`;}).join('')}</select></label><label><span>排序</span><div class="order-sort-control"><select id="order-sort-by" class="form-select"><option value="promise">备注约定发货</option><option value="deadline">淘宝最迟发货</option><option value="workflow">处理优先级</option><option value="paid">付款时间</option><option value="amount">订单金额</option></select><button type="button" class="btn btn-outline-secondary" id="order-sort-dir" aria-label="切换排序方向"><i class="ti ti-sort-${state.filters.sortDir==='asc'?'ascending':'descending'}"></i><span>${state.filters.sortDir==='asc'?'升序':'降序'}</span></button></div></label></div><details class="order-truth-note"><summary><i class="ti ti-info-circle"></i><span>字段口径说明</span></summary><p>交易关闭与退款是两个独立条件，可以组合筛选“未关闭 + 有退款”。管家婆标签支持多选；这些条件都会随筛选预设一起保存。“已安排”只表示管家婆已安排，页面不会自行推断生产完成。</p></details><div class="order-preset-row"><label><span>筛选预设</span><select id="order-preset" class="form-select"><option value="">选择预设</option>${presets}</select></label><button class="btn btn-outline-primary" id="order-preset-save">保存当前预设</button><button class="btn btn-outline-secondary" id="order-preset-default" disabled>设为默认</button><button class="btn btn-outline-danger" id="order-preset-delete" disabled>删除</button><details class="order-column-picker"><summary class="btn btn-outline-secondary">显示列 · ${selected.size}</summary><div>${columns.map(function(item){return `<label><input type="checkbox" value="${escapeHtml(item[0])}" ${selected.has(item[0])?'checked':''}>${escapeHtml(item[1])}</label>`;}).join('')}</div></details></div></section>`;
   }
   function renderCards(rows){
     return `<div class="order-card-list">${rows.map(function(group){
@@ -302,11 +315,12 @@
     const start=(state.page-1)*state.pageSize;const rows=state.filtered.slice(start,start+state.pageSize);const selected=columns.filter(function(item){return state.filters.columns.includes(item[0]);});
     const table=`<div class="order-table-wrap"><table class="order-table"><thead><tr>${selected.map(function(item){return `<th class="order-col-${escapeHtml(item[0])}">${escapeHtml(item[1])}</th>`;}).join('')}</tr></thead><tbody>${rows.map(function(group){return `<tr>${selected.map(function(item){return cellRenderers[item[0]](group);}).join('')}</tr>`;}).join('')||`<tr><td colspan="${selected.length}"><div class="order-empty">没有符合当前筛选的订单</div></td></tr>`}</tbody></table></div>`;
     const pages=Math.max(1,Math.ceil(state.filtered.length/state.pageSize));
-    return `<section class="order-results"><header><div><h2>订单处理清单</h2><p>共 ${number.format(state.filtered.length)} 个订单组；退款和关闭订单默认隐藏，可在“订单范围”中查看。</p></div><strong>第 ${state.page} / ${pages} 页</strong></header>${table}${renderCards(rows)}<footer><span>显示 ${state.filtered.length?start+1:0}–${Math.min(start+state.pageSize,state.filtered.length)} / ${state.filtered.length}</span><div><button class="btn btn-sm btn-outline-secondary" id="order-prev" ${state.page<=1?'disabled':''}>上一页</button><button class="btn btn-sm btn-outline-secondary" id="order-next" ${state.page>=pages?'disabled':''}>下一页</button></div></footer></section>`;
+    return `<section class="order-results"><header><div><h2>订单处理清单</h2><p>共 ${number.format(state.filtered.length)} 个订单组；交易范围、退款情况和管家婆标签可独立组合并保存为预设。</p></div><strong>第 ${state.page} / ${pages} 页</strong></header>${table}${renderCards(rows)}<footer><span>显示 ${state.filtered.length?start+1:0}–${Math.min(start+state.pageSize,state.filtered.length)} / ${state.filtered.length}</span><div><button class="btn btn-sm btn-outline-secondary" id="order-prev" ${state.page<=1?'disabled':''}>上一页</button><button class="btn btn-sm btn-outline-secondary" id="order-next" ${state.page>=pages?'disabled':''}>下一页</button></div></footer></section>`;
   }
   function bindControls(){
-    [['order-stage','stage'],['order-stock','stock'],['order-shop','shop'],['order-sort-by','sortBy']].forEach(function(pair){const field=document.getElementById(pair[0]);field.value=state.filters[pair[1]];field.addEventListener('change',function(){state.filters[pair[1]]=field.value;state.page=1;render();});});
-    const orderState=document.getElementById('order-state');orderState.value=state.filters.orderState;orderState.addEventListener('change',function(){state.filters.orderState=orderState.value;if(orderState.value!=='active'&&state.filters.stage==='actionable')state.filters.stage='all';state.page=1;render();});
+    [['order-closure','closure'],['order-refund','refund'],['order-stage','stage'],['order-stock','stock'],['order-shop','shop'],['order-sort-by','sortBy']].forEach(function(pair){const field=document.getElementById(pair[0]);field.value=state.filters[pair[1]];field.addEventListener('change',function(){state.filters[pair[1]]=field.value;if(pair[1]==='closure'&&field.value==='closed'&&state.filters.stage==='actionable')state.filters.stage='all';state.page=1;render();});});
+    document.querySelector('[data-tags-clear]').addEventListener('click',function(){state.filters.tags=[];state.page=1;render();});
+    document.querySelector('[data-tags-apply]').addEventListener('click',function(){state.filters.tags=[...document.querySelectorAll('.order-tag-filter input:checked')].map(function(input){return input.value;});state.page=1;render();});
     document.getElementById('order-sort-dir').addEventListener('click',function(){state.filters.sortDir=state.filters.sortDir==='asc'?'desc':'asc';state.page=1;render();});
     document.querySelectorAll('[data-copy-order-id]').forEach(function(button){button.addEventListener('click',async function(){const copied=await copyText(button.dataset.copyOrderId);if(!copied)return;button.classList.add('is-copied');button.querySelector('i').className='ti ti-check';button.querySelector('[data-copy-label]').textContent='已复制';window.setTimeout(function(){if(!button.isConnected)return;button.classList.remove('is-copied');button.querySelector('i').className='ti ti-copy';button.querySelector('[data-copy-label]').textContent='复制';},1600);});});
     let timer;document.getElementById('order-q').addEventListener('input',function(event){clearTimeout(timer);timer=setTimeout(function(){state.filters.q=event.target.value.trim();state.page=1;render();},180);});

@@ -15,6 +15,18 @@
 .order-controls label > span { display: block; margin-bottom: 4px; color: #667085; font-size: 11px; font-weight: 600; }
 .order-sort-control { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 6px; }
 .order-sort-control .btn { display: inline-flex; gap: 4px; align-items: center; white-space: nowrap; }
+.order-tag-filter { position: relative; min-width: 0; }
+.order-tag-filter > summary { display: grid; min-height: 38px; padding: 5px 34px 5px 12px; border: 1px solid #d8dce3; border-radius: 4px; background: #fff; cursor: pointer; list-style: none; }
+.order-tag-filter > summary::-webkit-details-marker { display: none; }
+.order-tag-filter > summary::after { position: absolute; top: 13px; right: 12px; width: 7px; height: 7px; border-right: 1.5px solid #8291a3; border-bottom: 1.5px solid #8291a3; content: ''; transform: rotate(45deg); }
+.order-tag-filter[open] > summary::after { top: 16px; transform: rotate(225deg); }
+.order-tag-filter > summary span { color: #667085; font-size: 9px; line-height: 1.1; }
+.order-tag-filter > summary strong { overflow: hidden; color: #1f2937; font-size: 12px; font-weight: 400; text-overflow: ellipsis; white-space: nowrap; }
+.order-tag-filter > div { position: absolute; left: 0; z-index: 25; display: grid; gap: 8px; width: min(310px,calc(100vw - 48px)); margin-top: 5px; padding: 12px; border: 1px solid #d9e0e8; border-radius: 7px; background: #fff; box-shadow: 0 12px 34px rgba(15,23,42,.18); }
+.order-tag-filter > div > label { display: flex; gap: 8px; align-items: center; margin: 0; font-size: 12px; }
+.order-tag-filter > div > label span { margin: 0; color: #344054; font-size: 12px; font-weight: 400; }
+.order-tag-filter > div > p { margin: 0; color: #667085; font-size: 11px; }
+.order-tag-filter footer { display: flex; gap: 7px; justify-content: flex-end; padding-top: 4px; border-top: 1px solid #edf0f4; }
 .order-preset-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; margin-top: 12px; padding-top: 12px; border-top: 1px solid #edf0f4; }
 .order-truth-note { margin-top: 10px; color: #526174; font-size: 11px; line-height: 1.5; }
 .order-truth-note summary { display: inline-flex; gap: 5px; align-items: center; color: #315f8c; cursor: pointer; }
