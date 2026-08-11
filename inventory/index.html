@@ -238,6 +238,10 @@
   .spot-advanced-items { display:grid; grid-template-columns:repeat(4,minmax(10rem,1fr)); gap:.75rem; }
   .spot-range { display:grid; grid-template-columns:1fr 1fr; gap:.35rem; }
   .spot-filter-actions { margin-left:auto; display:flex; gap:.5rem; }
+  .spot-preferences-page-status {
+    align-self:center; min-width:7rem; max-width:15rem;
+    overflow-wrap:anywhere; text-align:right;
+  }
   .spot-config-gear {
     display:inline-flex; align-items:center; justify-content:center;
     flex:0 0 44px; width:44px; min-width:44px; height:44px; padding:0;
@@ -507,6 +511,7 @@
     .spot-filter-actions { flex-wrap:wrap; }
     .spot-filter-actions .btn,
     .spot-filter-actions > .spot-multiselect { flex:1 1 calc(50% - .375rem); min-width:0; }
+    .spot-preferences-page-status { flex:1 1 100%; max-width:none; text-align:left; }
     .spot-filter-actions > .spot-multiselect > summary { box-sizing:border-box; width:100%; white-space:nowrap; text-align:center; }
     .spot-advanced-items { grid-template-columns:repeat(2,minmax(0,1fr)); }
     .spot-filter-menu {
@@ -657,6 +662,7 @@
         <button id="spot-advanced-toggle" class="btn btn-outline-secondary" type="button" aria-expanded="false" aria-controls="spot-advanced"><i class="ti ti-filter me-1"></i>筛选条件</button>
         <button id="spot-column-picker" class="btn btn-outline-secondary spot-column-picker-button" type="button"
           aria-haspopup="dialog" aria-controls="spot-column-dialog" aria-expanded="false"><i class="ti ti-columns-3"></i>列配置</button>
+        <span id="spot-preferences-page-status" class="spot-preferences-page-status text-secondary small" aria-live="polite"></span>
       </div>
     </div>
     <div id="spot-advanced" class="spot-advanced d-none">
@@ -1168,21 +1174,27 @@ function saveLocalSpotInventoryPreferences() {
 }
 
 function setSpotInventorySaveStatus(state, detail='') {
-  const target = document.getElementById('spot-preferences-save-status');
-  if (!target) return;
+  const targets = [
+    document.getElementById('spot-preferences-save-status'),
+    document.getElementById('spot-preferences-page-status')
+  ].filter(Boolean);
+  if (!targets.length) return;
+  let tone = 'text-secondary';
+  let message = detail;
   if (state === 'saving') {
-    target.className = 'text-secondary small me-auto';
-    target.textContent = '正在保存到云端…';
+    message = '正在保存到云端…';
   } else if (state === 'saved') {
-    target.className = 'text-success small me-auto';
-    target.textContent = detail || '已保存到云端';
+    tone = 'text-success';
+    message = detail || '已保存到云端';
   } else if (state === 'error') {
-    target.className = 'text-danger small me-auto';
-    target.textContent = detail || '云端保存失败，已保留本地缓存';
-  } else {
-    target.className = 'text-secondary small me-auto';
-    target.textContent = detail;
+    tone = 'text-danger';
+    message = detail || '云端保存失败，已保留本地缓存';
   }
+  targets.forEach(target => {
+    target.classList.remove('text-secondary', 'text-success', 'text-danger');
+    target.classList.add(tone);
+    target.textContent = message;
+  });
 }
 
 async function writeSpotInventoryPreferences(preferences=currentSpotInventoryPreferences()) {
@@ -1265,7 +1277,10 @@ async function loadSpotInventoryPreferences() {
   ].some(key => Object.prototype.hasOwnProperty.call(serverPreferences, key));
   if (hasServerPreferences && !spotInventoryPreferencesDirty) {
     applySpotInventoryPreferences(serverPreferences);
-    setSpotInventorySaveStatus('saved', '已从云端载入');
+    setSpotInventorySaveStatus(
+      'saved',
+      payload.meta?.inherited_from ? '已继承云端配置 · 修改后保存到当前账号' : '已从当前账号云端载入'
+    );
   }
   spotInventoryPreferencesReady = true;
   saveLocalSpotInventoryPreferences();
