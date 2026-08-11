@@ -6,11 +6,11 @@
   const money = new Intl.NumberFormat('zh-CN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
   const number = new Intl.NumberFormat('zh-CN', {maximumFractionDigits: 2});
   const columns = [
-    ['workflow','处理进度'],['order','订单 / 管家婆单据'],['arranged','管家婆安排'],['items','SKU 商品'],
+    ['workflow','SKU / 处理进度'],['order','订单 / 管家婆单据'],['arranged','管家婆安排'],
     ['promise','备注约定发货'],['platform','淘宝最迟发货'],['status','平台与系统状态'],['amount','金额'],
     ['memo','卖家备注'],['buyer','买家'],['logistics','物流'],['times','其他时间'],['audit','审核异常'],
   ];
-  const defaultColumns = ['workflow','order','items','promise','platform','amount'];
+  const defaultColumns = ['workflow','order','promise','platform','amount'];
   const state = {
     orders: [], groups: [], filtered: [], presets: [], presetMeta: {}, page: 1,
     pageSize: window.matchMedia('(max-width: 760px)').matches ? 24 : 50,
@@ -159,34 +159,15 @@
     const label = group.arrangedState === 'yes' ? '已安排' : group.arrangedState === 'partial' ? `部分已安排 ${group.arrangedCount}/${group.records.length}` : '未安排';
     return `<td>${badge(label,group.arrangedState==='yes'?'is-arranged':group.arrangedState==='partial'?'is-partial':'is-unarranged')}<div class="order-cell-notes">${unique(group.records,'tag').concat(unique(group.records,'alert')).filter(function(value,index,array){return array.indexOf(value)===index;}).map(escapeHtml).join(' · ') || '管家婆暂无标记'}</div></td>`;
   }
-  function itemsMarkup(group) {
-    return group.items.map(function(item){
-      const image = item.image_url ? `<img src="${escapeHtml(item.image_url)}" loading="lazy" alt="${escapeHtml(item.sku || item.name || '商品')}">` : '<span class="order-image-empty"><i class="ti ti-photo-off"></i></span>';
-      const spec = [item.color,item.size,item.taobao_sku_props].filter(Boolean).join(' / ');
-      const prices = [`× ${number.format(Number(item.qty || 1))}`,item.unit_price!=null?`单价 ¥${money.format(Number(item.unit_price))}`:'',item.amount!=null?`小计 ¥${money.format(Number(item.amount))}`:''].filter(Boolean).join(' · ');
-      return `<article class="order-item ${item.out_of_stock?'is-out':''}">${image}<div><div><strong>${escapeHtml(item.sku || item.name || '-')}</strong>${item.out_of_stock?badge('缺货','is-danger'):''}</div><span>${escapeHtml(item.sku_full || item.taobao_sku_code || '')}</span><small>${escapeHtml(spec || item.taobao_title || item.name || '')}</small><small>${escapeHtml(prices)}</small></div></article>`;
-    }).join('') || '<span class="text-secondary">无商品明细</span>';
-  }
   function compactItemSpec(item) {
     const props=String(item.taobao_sku_props||'').split(/[；;]/).map(function(value){return value.replace(/^.*?[：:]/,'').trim();}).filter(Boolean);
     const fallback=[item.color,item.size].filter(Boolean).map(String);
     const values=props.length?props:fallback.length?fallback:[item.sku_full].filter(Boolean);
     return [...new Set(values)].join(' / ');
   }
-  function mobileItemsMarkup(group) {
-    return group.items.map(function(item){
-      const image=item.image_url?`<img src="${escapeHtml(item.image_url)}" loading="lazy" alt="${escapeHtml(item.sku||item.name||'商品')}">`:'';
-      return `<article class="order-mobile-item ${item.out_of_stock?'is-out':''} ${image?'has-image':''}">${image}<div><header><div><strong>${escapeHtml(item.sku||item.name||'-')}</strong>${item.out_of_stock?badge('缺货','is-danger'):''}</div><b>× ${number.format(Number(item.qty||1))}</b></header><p>${escapeHtml(item.name||'')}</p><small>${escapeHtml(compactItemSpec(item))}</small></div></article>`;
-    }).join('')||'<span class="text-secondary">无商品明细</span>';
-  }
   function mobileOrderIds(group) {
     const ids=[...new Set(group.records.map(function(order){return String(order.id||'').trim();}).filter(Boolean))];
     return `<div class="order-card-identities">${ids.map(function(id){return `<button type="button" class="order-copy-id" data-copy-order-id="${escapeHtml(id)}" aria-label="复制订单编号 ${escapeHtml(id)}"><span>订单</span><strong>${escapeHtml(id)}</strong><i class="ti ti-copy"></i><em data-copy-label>复制</em></button>`;}).join('')}</div>`;
-  }
-  function itemTrackLabel(track) {
-    const item=track.item||{};
-    const spec=compactItemSpec(item);
-    return [item.sku||item.name||'商品',spec].filter(Boolean).join(' · ');
   }
   function isReadyStockTrack(track) {
     return /现货/.test(String(track.order?.seller_memo||'')) && track.item?.in_stock_sku === true;
@@ -207,7 +188,12 @@
         : progressStep('裁','is-unlinked','待关联')+progressStep('制','is-unlinked','待关联')+progressStep('手','is-unlinked','待关联');
     const stages=progressStep('订','is-done',orderedAt)+middle+progressStep('发',shipped?'is-done':'is-next',shippedAt);
     const routeLabel=direct?'现货直发':kind==='headwear'?'头饰手工':kind==='apparel'?'服装制作':'直接发货';
-    return `<article class="order-item-progress ${direct||kind==='direct'?'is-direct':''} ${mode==='table'?'is-table':''}"><header><strong>${escapeHtml(itemTrackLabel(track))}</strong><span>× ${number.format(Number(track.item?.qty||1))}</span>${badge(routeLabel,direct?'is-arranged':'is-process')}</header><ol>${stages}</ol></article>`;
+    const item=track.item||{};
+    const image=item.image_url?`<img src="${escapeHtml(item.image_url)}" loading="lazy" alt="${escapeHtml(item.sku||item.name||'商品')}">`:'<span class="order-progress-image-empty"><i class="ti ti-photo-off"></i></span>';
+    const sku=item.sku||item.name||'-';
+    const name=item.name&&item.name!==sku?item.name:'';
+    const spec=compactItemSpec(item);
+    return `<article class="order-item-progress ${item.out_of_stock?'is-out':''} ${direct||kind==='direct'?'is-direct':''} ${mode==='table'?'is-table':''}"><header class="order-progress-product">${image}<div><div class="order-progress-product-title"><strong>${escapeHtml(sku)}</strong><span>${item.out_of_stock?badge('缺货','is-danger'):''}${badge(routeLabel,direct?'is-arranged':'is-process')}<b>× ${number.format(Number(item.qty||1))}</b></span></div>${name?`<p>${escapeHtml(name)}</p>`:''}${spec?`<small>${escapeHtml(spec)}</small>`:''}</div></header><ol>${stages}</ol></article>`;
   }
   function orderProgressMarkup(group,mode) {
     const tracks=group.itemTracks||[];
@@ -220,7 +206,6 @@
     if (!group.deadline||!group.promise?.sort||group.promise.sort.startsWith('9999')) return false;
     return String(group.deadline).slice(0,10)<group.promise.sort;
   }
-  function renderItemsCell(group) { return `<td class="order-col-items">${itemsMarkup(group)}</td>`; }
   function statusMarkup(group) {
     const line = function(label, field, tone){const values=unique(group.records,field);return `<div><span>${label}</span><strong>${values.map(function(value){return badge(value,tone);}).join('') || '-'}</strong></div>`;};
     return `<div class="order-status-lines">${line('淘宝订单','trade_status','is-taobao')}${line('管家婆处理','process_status','is-process')}${line('同步','sync_status','is-sync')}${line('退款','refund_status','is-danger')}</div>`;
@@ -237,7 +222,7 @@
   function renderTimesCell(group) { return `<td><dl class="order-mini-dl"><dt>付款</dt><dd>${dateTime(group.paidAt)}</dd><dt>实际发货</dt><dd>${dateTime(group.records.map(function(row){return row.shipped_at;}).filter(Boolean).sort().at(-1))}</dd><dt>更新</dt><dd>${dateTime(group.records.map(function(row){return row.modified_at;}).filter(Boolean).sort().at(-1))}</dd></dl></td>`; }
   function textCell(group, field, className) { const values=unique(group.records,field);return `<td class="${className||'order-long-text'}">${values.map(function(value){return `<p>${escapeHtml(value)}</p>`;}).join('')||'<span class="text-secondary">-</span>'}</td>`; }
   const cellRenderers = {
-    workflow:renderWorkflowCell,order:renderOrderCell,arranged:renderArrangedCell,items:renderItemsCell,promise:renderPromiseCell,platform:renderPlatformCell,status:renderStatusCell,amount:renderAmountCell,buyer:renderBuyerCell,logistics:renderLogisticsCell,times:renderTimesCell,
+    workflow:renderWorkflowCell,order:renderOrderCell,arranged:renderArrangedCell,promise:renderPromiseCell,platform:renderPlatformCell,status:renderStatusCell,amount:renderAmountCell,buyer:renderBuyerCell,logistics:renderLogisticsCell,times:renderTimesCell,
     memo:function(group){return textCell(group,'seller_memo','order-long-text');},audit:function(group){return textCell(group,'audit_fail_reason','order-long-text order-audit');},
   };
 
@@ -286,7 +271,8 @@
     if(!['asc','desc'].includes(next.sortDir))next.sortDir='asc';
     if(next.orderState!=='active'&&next.stage==='actionable')next.stage='all';
     delete next.source;delete next.arranged;delete next.sort;
-    next.columns=Array.isArray(next.columns)&&next.columns.length?next.columns.filter(function(key){return columns.some(function(item){return item[0]===key;});}):[...defaultColumns];
+    const validColumns=Array.isArray(next.columns)?next.columns.filter(function(key){return columns.some(function(item){return item[0]===key;});}):[];
+    next.columns=validColumns.length?validColumns:[...defaultColumns];
     return next;
   }
   function applyConfig(config){state.filters={...state.filters,...normalizedConfig(config)};state.page=1;render();}
@@ -309,7 +295,7 @@
     return `<div class="order-card-list">${rows.map(function(group){
       const memos=unique(group.records,'seller_memo');
       const deadlineWarning=platformEarlierThanPromise(group);
-      return `<article class="order-card"><header class="order-card-priority"><div>${badge(workflowLabel(group),workflowTone(group))}${exceptionBadges(group)}${group.outOfStock?badge('缺货 / 异常','is-danger'):''}</div><div class="order-card-promise"><span>约定发货</span><strong>${escapeHtml(group.promise.label==='未识别'?'日期待补':group.promise.label)}</strong></div></header>${mobileOrderIds(group)}${orderProgressMarkup(group,'card')}<section class="order-card-items">${mobileItemsMarkup(group)}</section>${memos.length?`<div class="order-card-memo"><span>操作备注</span>${memos.map(function(v){return `<p>${escapeHtml(v)}</p>`;}).join('')}</div>`:''}<div class="order-card-secondary"><div class="${deadlineWarning?'is-warning':''}"><span>平台最迟</span><strong>${dateTime(group.deadline)}</strong>${deadlineWarning?'<small>早于约定日期</small>':''}</div><div><span>订单金额</span><strong>¥${money.format(group.amount)}</strong></div></div><details><summary>更多信息</summary>${statusMarkup(group)}<dl><dt>管家婆单据</dt><dd>${escapeHtml(unique(group.records,'vchcode').join(' / ')||'-')}</dd><dt>管家婆安排</dt><dd>${group.arrangedState==='no'?'未安排':group.arrangedState==='partial'?'部分安排':'已安排'}</dd><dt>物流</dt><dd>${escapeHtml(unique(group.records,'logistics_company').join(' / ')||'暂无')} ${escapeHtml(unique(group.records,'tracking_no').join(' / '))}</dd><dt>买家</dt><dd>${escapeHtml(group.records[0]?.buyer?.name||group.records[0]?.buyer?.account||'-')}</dd><dt>付款</dt><dd>${dateTime(group.paidAt)}</dd><dt>实际发货</dt><dd>${dateTime(group.records.map(function(r){return r.shipped_at;}).filter(Boolean).sort().at(-1))}</dd><dt>审核异常</dt><dd>${escapeHtml(unique(group.records,'audit_fail_reason').join(' / ')||'无')}</dd></dl></details></article>`;
+      return `<article class="order-card"><header class="order-card-priority"><div>${badge(workflowLabel(group),workflowTone(group))}${exceptionBadges(group)}${group.outOfStock?badge('缺货 / 异常','is-danger'):''}</div><div class="order-card-promise"><span>约定发货</span><strong>${escapeHtml(group.promise.label==='未识别'?'日期待补':group.promise.label)}</strong></div></header>${mobileOrderIds(group)}${orderProgressMarkup(group,'card')}${memos.length?`<div class="order-card-memo"><span>操作备注</span>${memos.map(function(v){return `<p>${escapeHtml(v)}</p>`;}).join('')}</div>`:''}<div class="order-card-secondary"><div class="${deadlineWarning?'is-warning':''}"><span>平台最迟</span><strong>${dateTime(group.deadline)}</strong>${deadlineWarning?'<small>早于约定日期</small>':''}</div><div><span>订单金额</span><strong>¥${money.format(group.amount)}</strong></div></div><details><summary>更多信息</summary>${statusMarkup(group)}<dl><dt>管家婆单据</dt><dd>${escapeHtml(unique(group.records,'vchcode').join(' / ')||'-')}</dd><dt>管家婆安排</dt><dd>${group.arrangedState==='no'?'未安排':group.arrangedState==='partial'?'部分安排':'已安排'}</dd><dt>物流</dt><dd>${escapeHtml(unique(group.records,'logistics_company').join(' / ')||'暂无')} ${escapeHtml(unique(group.records,'tracking_no').join(' / '))}</dd><dt>买家</dt><dd>${escapeHtml(group.records[0]?.buyer?.name||group.records[0]?.buyer?.account||'-')}</dd><dt>付款</dt><dd>${dateTime(group.paidAt)}</dd><dt>实际发货</dt><dd>${dateTime(group.records.map(function(r){return r.shipped_at;}).filter(Boolean).sort().at(-1))}</dd><dt>审核异常</dt><dd>${escapeHtml(unique(group.records,'audit_fail_reason').join(' / ')||'无')}</dd></dl></details></article>`;
     }).join('')||'<div class="order-empty">没有符合当前筛选的订单</div>'}</div>`;
   }
   function renderResults(){

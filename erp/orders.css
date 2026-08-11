@@ -76,13 +76,6 @@ th.order-col-order { z-index: 5; background: #f5f7fa; }
 .order-badge.is-workflow-shipped { background: #e9edf2; color: #4e5b6a; }
 .order-badge.is-workflow-closed { background: #f1f1f1; color: #777; }
 .order-cell-notes { margin-top: 5px; color: #667085; font-size: 10px; }
-.order-item { display: grid; grid-template-columns: 48px minmax(0,1fr); gap: 8px; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px dashed #e6e9ee; }
-.order-item:last-child { margin-bottom: 0; padding-bottom: 0; border-bottom: 0; }
-.order-item img, .order-image-empty { width: 48px; height: 48px; border: 1px solid #e1e5ea; border-radius: 5px; background: #f5f7fa; object-fit: cover; }
-.order-image-empty { display: grid; place-items: center; color: #98a2b3; font-size: 18px; }
-.order-item > div > div { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
-.order-item > div > span { display: block; color: #315f8c; font-size: 10px; }
-.order-item.is-out { padding: 6px; border: 1px solid #ffd3ce; border-radius: 6px; background: #fff8f7; }
 .order-number { text-align: right; font-variant-numeric: tabular-nums; }
 .order-number strong { color: #172b4d; font-size: 13px; }
 .order-mini-dl { display: grid; grid-template-columns: auto 1fr; gap: 3px 6px; margin: 0; }
@@ -98,9 +91,16 @@ th.order-col-order { z-index: 5; background: #f5f7fa; }
 .order-card-list { display: none; }
 .order-progress-list { display: grid; gap: 7px; margin: 8px 0; }
 .order-item-progress { min-width: 250px; padding: 8px; border: 1px solid #e3e8ef; border-radius: 7px; background: #fbfcfe; }
-.order-item-progress > header { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; margin-bottom: 7px; }
-.order-item-progress > header strong { min-width: 0; overflow: hidden; color: #263b50; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
-.order-item-progress > header > span { margin-left: auto; color: #526174; font-size: 9px; }
+.order-item-progress.is-out { border-color: #ffc9c3; background: #fff8f7; }
+.order-progress-product { display: grid; grid-template-columns: 44px minmax(0,1fr); gap: 8px; align-items: start; margin-bottom: 8px; }
+.order-progress-product > img, .order-progress-image-empty { display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid #e1e5ea; border-radius: 6px; background: #f2f4f7; object-fit: cover; }
+.order-progress-image-empty { color: #98a2b3; }
+.order-progress-product-title { display: flex; gap: 7px; align-items: flex-start; justify-content: space-between; }
+.order-progress-product-title > strong { min-width: 0; color: #263b50; font-size: 12px; overflow-wrap: anywhere; }
+.order-progress-product-title > span { display: flex; flex: 0 0 auto; flex-wrap: wrap; gap: 4px; align-items: center; justify-content: flex-end; }
+.order-progress-product-title b { color: #173e67; font-size: 10px; white-space: nowrap; }
+.order-progress-product p { margin: 2px 0 0; color: #475467; font-size: 10px; line-height: 1.35; }
+.order-progress-product small { display: block; margin-top: 2px; color: #667085; font-size: 9px; line-height: 1.35; overflow-wrap: anywhere; }
 .order-item-progress ol { display: flex; margin: 0; padding: 0; list-style: none; }
 .order-item-progress li { position: relative; display: grid; flex: 1 1 0; justify-items: center; min-width: 38px; color: #98a2b3; text-align: center; }
 .order-item-progress li:not(:last-child)::after { position: absolute; top: 8px; left: calc(50% + 9px); width: calc(100% - 18px); height: 2px; background: #dfe4ea; content: ''; }
@@ -116,7 +116,9 @@ th.order-col-order { z-index: 5; background: #f5f7fa; }
 .order-item-progress li.is-unlinked { color: #8a94a2; }
 .order-item-progress.is-direct ol { max-width: 210px; margin-inline: auto; }
 .order-item-progress.is-table { min-width: 230px; padding: 6px; }
-.order-item-progress.is-table > header, .order-item-progress.is-table li small { display: none; }
+.order-item-progress.is-table .order-progress-product { grid-template-columns: 36px minmax(0,1fr); }
+.order-item-progress.is-table .order-progress-product > img, .order-item-progress.is-table .order-progress-image-empty { width: 36px; height: 36px; }
+.order-item-progress.is-table li small { display: none; }
 .order-progress-empty { margin: 0; color: #7b8796; font-size: 9px; }
 .order-refund-progress { margin: 8px 0; border: 1px dashed #e1b7b1; border-radius: 7px; background: #fffafa; }
 .order-refund-progress > summary { padding: 7px 9px; color: #934238; font-size: 10px; cursor: pointer; }
@@ -154,20 +156,13 @@ th.order-col-order { z-index: 5; background: #f5f7fa; }
   .order-copy-id i { font-size: 14px; }
   .order-copy-id em { font-size: 10px; font-style: normal; }
   .order-copy-id.is-copied { border-color: #8bc9a7; background: #eef9f2; color: #187446; }
-  .order-card-items { display: grid; gap: 7px; margin-bottom: 10px; }
   .order-card > .order-progress-list { margin: 0 0 10px; }
   .order-card .order-item-progress { padding: 9px; }
-  .order-card .order-item-progress > header strong { font-size: 11px; }
-  .order-mobile-item { min-width: 0; padding: 9px; border: 1px solid #e4e8ee; border-radius: 7px; }
-  .order-mobile-item.has-image { display: grid; grid-template-columns: 48px minmax(0,1fr); gap: 8px; }
-  .order-mobile-item > img { width: 48px; height: 48px; border: 1px solid #e1e5ea; border-radius: 5px; object-fit: cover; }
-  .order-mobile-item header { display: flex; gap: 8px; align-items: center; justify-content: space-between; }
-  .order-mobile-item header > div { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
-  .order-mobile-item header strong { color: #172b4d; font-size: 13px; }
-  .order-mobile-item header b { color: #173e67; font-size: 12px; white-space: nowrap; }
-  .order-mobile-item p { margin: 3px 0 0; color: #475467; font-size: 11px; }
-  .order-mobile-item small { display: block; margin-top: 2px; color: #667085; font-size: 10px; }
-  .order-mobile-item.is-out { border-color: #ffc9c3; background: #fff8f7; }
+  .order-card .order-progress-product { grid-template-columns: 52px minmax(0,1fr); gap: 9px; }
+  .order-card .order-progress-product > img, .order-card .order-progress-image-empty { width: 52px; height: 52px; }
+  .order-card .order-progress-product-title > strong { font-size: 13px; }
+  .order-card .order-progress-product p { font-size: 11px; }
+  .order-card .order-progress-product small { font-size: 10px; }
   .order-card details .order-status-lines { margin: 10px 0; padding: 9px; border-radius: 7px; background: #fafbfc; }
   .order-card-memo { margin-bottom: 10px; padding: 9px 10px; border-left: 3px solid #6f9cca; border-radius: 0 6px 6px 0; background: #f5f8fc; }
   .order-card-memo > span { color: #526b84; font-size: 9px; font-weight: 650; }
