@@ -99,6 +99,7 @@
 
   function pagePermission(pathname) {
     if (pathname.startsWith(`${basePath}/admin/users`)) return 'users.manage';
+    if (pathname.startsWith(`${basePath}/finance/payroll`)) return null;
     if (pathname.startsWith(`${basePath}/finance/sources`)) return 'finance.sources.read';
     if (pathname.startsWith(`${basePath}/finance`)) return 'finance.read';
     if (pathname.startsWith(`${basePath}/production`)) return 'production.read';
@@ -113,9 +114,13 @@
     return pathname === `${basePath}/finance` || pathname.startsWith(`${basePath}/finance/`);
   }
 
+  function isPayrollSlipPath(pathname) {
+    return pathname === `${basePath}/finance/payroll` || pathname.startsWith(`${basePath}/finance/payroll/`);
+  }
+
   function allowedHome(context) {
     const preferred = String(context.role?.home_path || '/');
-    if (context.profile?.role !== 'admin' && preferred.startsWith('/finance')) return `${basePath}/inventory/`;
+    if (context.profile?.role !== 'admin' && preferred.startsWith('/finance') && !preferred.startsWith('/finance/payroll')) return `${basePath}/inventory/`;
     return `${basePath}${preferred === '/' ? '/' : preferred}`;
   }
 
@@ -137,7 +142,7 @@
     ['sycm','生意参谋','/sycm/'],['marketing','营销安全','/marketing-safety/'],['production','生产记工','/production/'],
     ['production_manual','手工审批','/production/manual/'],['production_pattern','制版审批','/production/pattern/'],
     ['finance_report','财务月报','/finance/'],['finance_company_payroll','公司工资表','/finance/company-payroll/'],
-    ['finance_payroll','工资发放','/finance/payroll/'],['finance_sources','财务数据源','/finance/sources/'],
+    ['finance_payroll','工资条','/finance/payroll/'],['finance_sources','财务数据源','/finance/sources/'],
     ['finance_employees','员工信息','/finance/employees/'],['admin_users','用户与安全','/admin/users/'],['account','账号与登录','/account/'],['other','其他','/other/'],
   ];
 
@@ -148,6 +153,7 @@
   }
 
   function navPermission(pathname) {
+    if (pathname.startsWith(`${basePath}/finance/payroll`)) return null;
     if (pathname.startsWith(`${basePath}/finance/sources`)) return 'finance.sources.read';
     if (pathname.startsWith(`${basePath}/finance`)) return 'finance.read';
     if (pathname.startsWith(`${basePath}/production`)) return 'production.read';
@@ -161,10 +167,22 @@
 
   function applyPermissionNavigation(context) {
     const permissions = new Set(context.permissions || []);
+    if (context.profile?.role !== 'admin') {
+      document.querySelectorAll('.bottom-tab-bar a[href]').forEach(function (anchor) {
+        const pathname = new URL(anchor.href, window.location.href).pathname.replace(/\/$/, '');
+        if (pathname === `${basePath}/finance`) {
+          anchor.href = `${basePath}/finance/payroll/`;
+          const label = anchor.querySelector('span');
+          if (label) label.textContent = '工资条';
+          const icon = anchor.querySelector('i');
+          if (icon) icon.className = 'ti ti-cash-banknote';
+        }
+      });
+    }
     document.querySelectorAll('a[href]').forEach(function (anchor) {
       const pathname = new URL(anchor.href, window.location.href).pathname;
       const required = navPermission(pathname);
-      const blockedFinance = isFinancePath(pathname) && context.profile?.role !== 'admin';
+      const blockedFinance = isFinancePath(pathname) && !isPayrollSlipPath(pathname) && context.profile?.role !== 'admin';
       if (blockedFinance || required && !permissions.has(required)) {
         anchor.hidden = true;
         anchor.setAttribute('aria-hidden', 'true');
@@ -424,7 +442,7 @@
       return null;
     }
     const required = pagePermission(window.location.pathname);
-    const blockedFinance = isFinancePath(window.location.pathname) && context.profile?.role !== 'admin';
+    const blockedFinance = isFinancePath(window.location.pathname) && !isPayrollSlipPath(window.location.pathname) && context.profile?.role !== 'admin';
     if (blockedFinance || required && !(context.permissions || []).includes(required)) {
       const target = allowedHome(context);
       if (target !== window.location.pathname) { window.location.replace(target); return null; }

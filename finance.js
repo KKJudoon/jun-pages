@@ -40,7 +40,7 @@
     software:'软件费用',finance_fee:'财务费用',
   };
   const sectionOrder = ['income','product_cost','platform_operations','logistics','customer_service','rent_food_equipment','design','factory_manager','business_show','company_social','software','finance_fee'];
-  const state = {months: [], month: '', data: null, sourceType: 'taobao_income_order', offset: 0, limit: 100, sourceTotal: 0, companyPayrollModule: 'all', shipmentCompare: ''};
+  const state = {months: [], month: '', data: null, sourceType: 'taobao_income_order', offset: 0, limit: 100, sourceTotal: 0, companyPayrollModule: 'all', shipmentCompare: '', payrollBinding: null, payrollSelfService: false};
 
   function escapeHtml(value) {
     return String(value == null ? '' : value).replace(/[&<>"']/g, function (character) {
@@ -151,17 +151,20 @@
   }
 
   async function loadFinanceMonths() {
-    const payload = await api('/api/finance/months');
+    state.payrollSelfService = page === 'finance-payroll' && window.JUN_CONTEXT?.profile?.role !== 'admin';
+    const payload = await api(state.payrollSelfService ? '/api/payroll-slips/months' : '/api/finance/months');
     state.months = payload.months || [];
+    state.payrollBinding = payload.binding || null;
     const fallback = state.months[0]?.month || monthBeforeNow();
     state.month = selectedMonthFromUrl(fallback);
   }
 
   function reportTabs() {
+    if (state.payrollSelfService) return '<nav class="finance-tabs" aria-label="工资条"><a href="/jun-pages/finance/payroll/" class="active">工资条</a></nav>';
     const companyPayroll = has('finance.payroll.manage') || has('finance.manage')
       ? `<a href="/jun-pages/finance/company-payroll/" ${page === 'finance-company-payroll' ? 'class="active"' : ''}>公司工资表</a>`
       : '';
-    return `<nav class="finance-tabs" aria-label="财务模块"><a href="/jun-pages/finance/" ${page === 'finance-report' ? 'class="active"' : ''}>财务月报</a>${companyPayroll}<a href="/jun-pages/finance/payroll/" ${page === 'finance-payroll' ? 'class="active"' : ''}>工资发放</a><a href="/jun-pages/finance/sources/" ${page === 'finance-sources' ? 'class="active"' : ''}>财务数据源</a>${has('finance.employees.manage') ? `<a href="/jun-pages/finance/employees/" ${page === 'finance-employees' ? 'class="active"' : ''}>员工信息</a>` : ''}</nav>`;
+    return `<nav class="finance-tabs" aria-label="财务模块"><a href="/jun-pages/finance/" ${page === 'finance-report' ? 'class="active"' : ''}>财务月报</a>${companyPayroll}<a href="/jun-pages/finance/payroll/" ${page === 'finance-payroll' ? 'class="active"' : ''}>工资条</a><a href="/jun-pages/finance/sources/" ${page === 'finance-sources' ? 'class="active"' : ''}>财务数据源</a>${has('finance.employees.manage') ? `<a href="/jun-pages/finance/employees/" ${page === 'finance-employees' ? 'class="active"' : ''}>员工信息</a>` : ''}</nav>`;
   }
 
   function reportMetric(key, fallback) {
@@ -420,9 +423,13 @@
     const grossTotal = rows.reduce(function (sum, row) { return sum + Number(row.gross_pay || 0); }, 0);
     const netValues = rows.map(function (row) { return numeric(row.net_pay); });
     const netTotal = netValues.some(function (value) { return value == null; }) ? null : netValues.reduce(function (sum, value) { return sum + value; }, 0);
+    const title = state.payrollSelfService ? `${state.payrollBinding?.employee_name || '我的'} · ${escapeHtml(state.month.replace('-', '年'))}月工资条` : `${escapeHtml(state.month.replace('-', '年'))}月 工资条`;
+    const totalBand = state.payrollSelfService
+      ? `<div class="payroll-total-band"><span>${escapeHtml(state.payrollBinding?.role_name || state.payrollBinding?.department || '本人')}</span><strong>实发 ${amount(netTotal)}</strong><em>税前 ${amount(grossTotal)}</em></div>`
+      : `<div class="payroll-total-band"><span>${rows.length} 人</span><strong>实发合计 ${amount(netTotal)}</strong><em>税前合计 ${amount(grossTotal)}</em></div>`;
     content.innerHTML = `${reportTabs()}<div class="payroll-sheet">
-      <header class="payroll-title"><h1>${escapeHtml(state.month.replace('-', '年'))}月 工资发放单</h1></header>
-      <div class="payroll-total-band"><span>${rows.length} 人</span><strong>实发合计 ${amount(netTotal)}</strong><em>税前合计 ${amount(grossTotal)}</em></div>
+      <header class="payroll-title"><h1>${title}</h1></header>
+      ${totalBand}
       <div class="payroll-payment-list">${rows.map(function (row) {
         const statusClass = row.calculation_status === 'missing_input' ? 'is-missing' : row.calculation_status === 'source_pending' ? 'is-pending' : 'is-ready';
         const paymentReady = state.data.payroll_snapshot?.status === 'final' && row.net_pay != null;
@@ -612,9 +619,19 @@
   }
 
   async function loadPayroll() {
-    state.data = await api(`/api/finance/months/${state.month}`);
+    if (state.payrollSelfService && !state.payrollBinding) {
+      toolbar.innerHTML = '<span class="finance-status is-missing">尚未绑定员工</span>';
+      content.innerHTML = `${reportTabs()}<div class="finance-empty"><strong>账号尚未绑定员工信息</strong><p>请联系管理员在“员工信息”中完成工资条账号绑定。绑定后这里只会显示你本人的工资条。</p></div>`;
+      return;
+    }
+    if (state.payrollSelfService && !state.months.length) {
+      toolbar.innerHTML = `<span class="finance-status">${escapeHtml(state.payrollBinding.employee_name)}</span>`;
+      content.innerHTML = `${reportTabs()}<div class="finance-empty"><strong>暂时没有可查看的工资条</strong><p>财务核算生成后会按月份显示在这里。</p></div>`;
+      return;
+    }
+    state.data = await api(state.payrollSelfService ? `/api/payroll-slips/${state.month}` : `/api/finance/months/${state.month}`);
     const snapshot = state.data.payroll_snapshot;
-    toolbar.innerHTML = `${monthSelect(state.months, state.month)}${snapshot ? `<span class="finance-status ${snapshot.status === 'final' ? 'is-ready' : 'is-missing'}">${snapshot.status === 'final' ? '财务已核定' : snapshot.status === 'awaiting_finance' ? '待财务核定' : '工资草稿'}</span>` : '<span class="finance-status is-missing">尚未核算</span>'}<span class="finance-toolbar-spacer"></span><button id="payroll-print" class="btn btn-outline-secondary"><i class="ti ti-printer me-1"></i>打印</button>`;
+    toolbar.innerHTML = `${monthSelect(state.months, state.month)}${snapshot ? `<span class="finance-status ${snapshot.status === 'final' ? 'is-ready' : 'is-missing'}">${snapshot.status === 'final' ? '财务已核定' : snapshot.status === 'awaiting_finance' ? '待财务核定' : '工资草稿'}</span>` : '<span class="finance-status is-missing">尚未核算</span>'}<span class="finance-toolbar-spacer"></span><button id="payroll-print" class="btn btn-outline-secondary"><i class="ti ti-printer me-1"></i>打印工资条</button>`;
     toolbar.querySelector('#finance-month').addEventListener('change', async function (event) { setMonth(event.target.value); await loadPayroll(); });
     toolbar.querySelector('#payroll-print').addEventListener('click', function () { window.print(); });
     renderPayroll();
@@ -755,6 +772,23 @@
     return (state.employeeFoundation?.rules || []).find(function (rule) { return rule.employee_id === employeeId; }) || null;
   }
 
+  function employeeProfileLink(employeeId) {
+    return (state.employeeFoundation?.profile_links || []).find(function (link) { return link.employee_id === employeeId; }) || null;
+  }
+
+  function payrollProfile(profileId) {
+    return (state.employeeFoundation?.payroll_profiles || []).find(function (profile) { return profile.id === profileId; }) || null;
+  }
+
+  function payrollProfileOptions(employee) {
+    const currentLink = employee ? employeeProfileLink(employee.id) : null;
+    return `<option value="">未绑定</option>${(state.employeeFoundation?.payroll_profiles || []).map(function (profile) {
+      const usedByOther = profile.employee_id && profile.employee_id !== employee?.id;
+      const label = `${profile.display_name || profile.username}（${profile.username}）${usedByOther ? ' · 已绑定其他员工' : ''}`;
+      return `<option value="${escapeHtml(profile.id)}" ${profile.id === currentLink?.profile_id ? 'selected' : ''} ${usedByOther ? 'disabled' : ''}>${escapeHtml(label)}</option>`;
+    }).join('')}`;
+  }
+
   function employeeActiveForMonth(employee) {
     if (employee.inactive_from_month && employee.inactive_from_month <= state.month) return false;
     if (employee.active === false && !employee.inactive_from_month) return false;
@@ -765,18 +799,20 @@
 
   function renderEmployees() {
     const employees = state.employeeFoundation?.employees || [];
-    content.innerHTML = `${reportTabs()}<section class="employee-panel"><div class="employee-summary"><div><strong>${employees.filter(employeeActiveForMonth).length}</strong><span>本月在册</span></div><div><strong>${employees.filter(function (item) { return employeeActiveForMonth(item) && item.has_social_insurance; }).length}</strong><span>本月有医社保</span></div><div><strong>${employees.filter(function (item) { return employeeActiveForMonth(item) && item.included_in_company_report === false; }).length}</strong><span>工资不计经营财报</span></div></div><div class="finance-table-wrap"><table class="finance-table employee-table"><thead><tr><th>工号 / 姓名</th><th>部门 / 职位</th><th>计薪方式</th><th class="number">基础工资</th><th>医社保</th><th>付款资料</th><th>状态</th><th></th></tr></thead><tbody>${employees.map(function (employee) {
+    content.innerHTML = `${reportTabs()}<section class="employee-panel"><div class="employee-summary"><div><strong>${employees.filter(employeeActiveForMonth).length}</strong><span>本月在册</span></div><div><strong>${employees.filter(function (item) { return employeeActiveForMonth(item) && item.has_social_insurance; }).length}</strong><span>本月有医社保</span></div><div><strong>${employees.filter(function (item) { return employeeActiveForMonth(item) && item.included_in_company_report === false; }).length}</strong><span>工资不计经营财报</span></div></div><div class="finance-table-wrap"><table class="finance-table employee-table"><thead><tr><th>工号 / 姓名</th><th>部门 / 职位</th><th>计薪方式</th><th class="number">基础工资</th><th>医社保</th><th>工资条账号</th><th>付款资料</th><th>状态</th><th></th></tr></thead><tbody>${employees.map(function (employee) {
       const activeThisMonth = employeeActiveForMonth(employee);
+      const link = employeeProfileLink(employee.id);
+      const profile = link ? payrollProfile(link.profile_id) : null;
       const status = activeThisMonth ? '<span class="badge bg-green-lt">本月在册</span>' : `<span class="badge bg-secondary-lt">已移出</span><div class="finance-note">${employee.inactive_from_month ? `${escapeHtml(employee.inactive_from_month)} 起` : escapeHtml(employee.employment_end || '')}</div>`;
-      return `<tr class="${activeThisMonth ? '' : 'is-inactive'}"><td><strong>${escapeHtml(employee.employee_no)} · ${escapeHtml(employee.employee_name)}</strong><div class="finance-note">${escapeHtml(employee.nickname || '')}</div></td><td>${escapeHtml(employee.department)}<div class="finance-note">${escapeHtml(employee.role_name)}</div></td><td>${escapeHtml(employee.compensation_method || employeeRule(employee.id)?.rule_type || '-')}</td><td class="number">${amount(employee.base_salary)}</td><td>${employee.has_social_insurance ? '有' : '无'}</td><td>${escapeHtml(employee.payment_bank || '-')}<div class="finance-note">${escapeHtml(maskValue(employee.payment_account, 4, 4))}</div></td><td>${status}</td><td><button class="finance-icon-button" data-employee="${escapeHtml(employee.id)}" title="查看并编辑员工资料"><i class="ti ti-edit"></i></button></td></tr>`;
-    }).join('') || '<tr><td colspan="8"><div class="finance-empty">员工主档尚未导入</div></td></tr>'}</tbody></table></div></section>`;
+      return `<tr class="${activeThisMonth ? '' : 'is-inactive'}"><td><strong>${escapeHtml(employee.employee_no)} · ${escapeHtml(employee.employee_name)}</strong><div class="finance-note">${escapeHtml(employee.nickname || '')}</div></td><td>${escapeHtml(employee.department)}<div class="finance-note">${escapeHtml(employee.role_name)}</div></td><td>${escapeHtml(employee.compensation_method || employeeRule(employee.id)?.rule_type || '-')}</td><td class="number">${amount(employee.base_salary)}</td><td>${employee.has_social_insurance ? '有' : '无'}</td><td>${profile ? `<strong>${escapeHtml(profile.display_name || profile.username)}</strong><div class="finance-note">${escapeHtml(profile.username)}</div>` : '<span class="finance-note">未绑定</span>'}</td><td>${escapeHtml(employee.payment_bank || '-')}<div class="finance-note">${escapeHtml(maskValue(employee.payment_account, 4, 4))}</div></td><td>${status}</td><td><button class="finance-icon-button" data-employee="${escapeHtml(employee.id)}" title="查看并编辑员工资料"><i class="ti ti-edit"></i></button></td></tr>`;
+    }).join('') || '<tr><td colspan="9"><div class="finance-empty">员工主档尚未导入</div></td></tr>'}</tbody></table></div></section>`;
     content.querySelectorAll('[data-employee]').forEach(function (button) { button.addEventListener('click', function () { showEmployeeDialog((state.employeeFoundation.employees || []).find(function (item) { return item.id === button.dataset.employee; })); }); });
   }
 
   function showEmployeeDialog(employee) {
     const rule = employee ? employeeRule(employee.id) : null;
     const ruleType = rule?.rule_type || 'fixed';
-    const element = dialog('finance-employee-dialog', employee ? `员工资料 · ${employee.employee_name}` : '新增员工', `<div class="employee-form-grid"><label>工号<input class="form-control" name="employee_no" required value="${escapeHtml(employee?.employee_no || '')}"></label><label>姓名<input class="form-control" name="employee_name" required value="${escapeHtml(employee?.employee_name || '')}"></label><label>称呼<input class="form-control" name="nickname" value="${escapeHtml(employee?.nickname || '')}"></label><label>性别<select class="form-select" name="gender"><option value="">未填</option><option value="男">男</option><option value="女">女</option></select></label><label>出生日期<input class="form-control" type="date" name="birth_date" value="${escapeHtml(employee?.birth_date || '')}"></label><label>手机号<input class="form-control" name="phone" value="${escapeHtml(employee?.phone || '')}"></label><label>身份证号<input class="form-control" name="identity_no" value="${escapeHtml(employee?.identity_no || '')}"></label><label class="span-2">身份证地址<input class="form-control" name="identity_address" value="${escapeHtml(employee?.identity_address || '')}"></label><label>部门<input class="form-control" name="department" value="${escapeHtml(employee?.department || '')}"></label><label>职位<input class="form-control" name="role_name" value="${escapeHtml(employee?.role_name || '')}"></label><label class="span-2">工资计算方式<input class="form-control" name="compensation_method" value="${escapeHtml(employee?.compensation_method || '')}"></label><label>基础工资<input class="form-control" type="number" min="0" step="0.01" name="base_salary" value="${escapeHtml(employee?.base_salary ?? 0)}"></label><label>餐补基数<input class="form-control" type="number" min="0" step="0.01" name="meal_allowance_rate" value="${escapeHtml(employee?.meal_allowance_rate ?? 0)}"></label><label>工龄补贴<input class="form-control" type="number" min="0" step="0.01" name="seniority_allowance" value="${escapeHtml(employee?.seniority_allowance ?? 0)}"></label><label>其他固定补贴<input class="form-control" type="number" min="0" step="0.01" name="fixed_allowance" value="${escapeHtml(employee?.fixed_allowance ?? 0)}"></label><label>发放方式<input class="form-control" name="payment_method" value="${escapeHtml(employee?.payment_method || '')}"></label><label>工资账号<input class="form-control" name="payment_account" value="${escapeHtml(employee?.payment_account || '')}"></label><label class="span-2">开户行<input class="form-control" name="payment_bank" value="${escapeHtml(employee?.payment_bank || '')}"></label><label>入职日期<input class="form-control" type="date" name="employment_start" value="${escapeHtml(employee?.employment_start || '')}"></label><label>离职日期<input class="form-control" type="date" name="employment_end" value="${escapeHtml(employee?.employment_end || '')}"></label></div><div class="employee-checks"><label class="form-check"><input class="form-check-input" type="checkbox" name="has_social_insurance" ${employee?.has_social_insurance ? 'checked' : ''}><span>有医社保</span></label><label class="form-check"><input class="form-check-input" type="checkbox" name="finance_managed_gross" ${employee?.finance_managed_gross ? 'checked' : ''}><span>应发由财务回表核定</span></label><label class="form-check"><input class="form-check-input" type="checkbox" name="included_in_company_report" ${employee?.included_in_company_report === false ? '' : 'checked'}><span>计入公司经营财报</span></label><label class="form-check"><input class="form-check-input" type="checkbox" name="active" ${employee?.active === false ? '' : 'checked'}><span>当前在册</span></label></div><hr><div class="employee-form-grid"><label>计薪规则<select class="form-select" name="rule_type"><option value="fixed">固定工资</option><option value="production_worker">生产车工</option><option value="production_manager">生产负责人</option><option value="warehouse">仓管</option><option value="pattern_points">制版积分</option><option value="planning_submission">企划提报</option><option value="design_submission">设计提报</option></select></label><label>规则开始月份<input class="form-control" type="month" name="rule_start_month" value="${escapeHtml(rule?.start_month || state.month)}"></label><div class="span-2 employee-rule-fields"></div><label class="form-check span-2"><input class="form-check-input" type="checkbox" name="self_funded_social" ${rule?.parameters?.self_funded_social ? 'checked' : ''}><span>医社保全部从个人工资扣回</span></label><label class="span-2">内部备注（不导给财务）<textarea class="form-control" name="note" rows="3">${escapeHtml(employee?.note || '')}</textarea></label><label class="span-2">固定备注（工资表只读、每次导给财务）<textarea class="form-control" name="finance_note" rows="3" placeholder="只写每月都需要财务知道的固定核算事项">${escapeHtml(employee?.finance_note || '')}</textarea></label></div><div class="finance-error" data-message hidden></div><footer><button class="btn btn-outline-secondary" value="cancel">取消</button><button class="btn btn-primary" type="button" data-save>保存</button></footer>`);
+    const element = dialog('finance-employee-dialog', employee ? `员工资料 · ${employee.employee_name}` : '新增员工', `<div class="employee-form-grid"><label>工号<input class="form-control" name="employee_no" required value="${escapeHtml(employee?.employee_no || '')}"></label><label>姓名<input class="form-control" name="employee_name" required value="${escapeHtml(employee?.employee_name || '')}"></label><label>称呼<input class="form-control" name="nickname" value="${escapeHtml(employee?.nickname || '')}"></label><label>工资条绑定账号<select class="form-select" name="payroll_profile_id">${payrollProfileOptions(employee)}</select></label><label>性别<select class="form-select" name="gender"><option value="">未填</option><option value="男">男</option><option value="女">女</option></select></label><label>出生日期<input class="form-control" type="date" name="birth_date" value="${escapeHtml(employee?.birth_date || '')}"></label><label>手机号<input class="form-control" name="phone" value="${escapeHtml(employee?.phone || '')}"></label><label>身份证号<input class="form-control" name="identity_no" value="${escapeHtml(employee?.identity_no || '')}"></label><label class="span-2">身份证地址<input class="form-control" name="identity_address" value="${escapeHtml(employee?.identity_address || '')}"></label><label>部门<input class="form-control" name="department" value="${escapeHtml(employee?.department || '')}"></label><label>职位<input class="form-control" name="role_name" value="${escapeHtml(employee?.role_name || '')}"></label><label class="span-2">工资计算方式<input class="form-control" name="compensation_method" value="${escapeHtml(employee?.compensation_method || '')}"></label><label>基础工资<input class="form-control" type="number" min="0" step="0.01" name="base_salary" value="${escapeHtml(employee?.base_salary ?? 0)}"></label><label>餐补基数<input class="form-control" type="number" min="0" step="0.01" name="meal_allowance_rate" value="${escapeHtml(employee?.meal_allowance_rate ?? 0)}"></label><label>工龄补贴<input class="form-control" type="number" min="0" step="0.01" name="seniority_allowance" value="${escapeHtml(employee?.seniority_allowance ?? 0)}"></label><label>其他固定补贴<input class="form-control" type="number" min="0" step="0.01" name="fixed_allowance" value="${escapeHtml(employee?.fixed_allowance ?? 0)}"></label><label>发放方式<input class="form-control" name="payment_method" value="${escapeHtml(employee?.payment_method || '')}"></label><label>工资账号<input class="form-control" name="payment_account" value="${escapeHtml(employee?.payment_account || '')}"></label><label class="span-2">开户行<input class="form-control" name="payment_bank" value="${escapeHtml(employee?.payment_bank || '')}"></label><label>入职日期<input class="form-control" type="date" name="employment_start" value="${escapeHtml(employee?.employment_start || '')}"></label><label>离职日期<input class="form-control" type="date" name="employment_end" value="${escapeHtml(employee?.employment_end || '')}"></label></div><p class="finance-note">工资条绑定只决定该账号能查看哪一位员工的工资条；不会开放月报、公司工资表、员工备注或财务数据。</p><div class="employee-checks"><label class="form-check"><input class="form-check-input" type="checkbox" name="has_social_insurance" ${employee?.has_social_insurance ? 'checked' : ''}><span>有医社保</span></label><label class="form-check"><input class="form-check-input" type="checkbox" name="finance_managed_gross" ${employee?.finance_managed_gross ? 'checked' : ''}><span>应发由财务回表核定</span></label><label class="form-check"><input class="form-check-input" type="checkbox" name="included_in_company_report" ${employee?.included_in_company_report === false ? '' : 'checked'}><span>计入公司经营财报</span></label><label class="form-check"><input class="form-check-input" type="checkbox" name="active" ${employee?.active === false ? '' : 'checked'}><span>当前在册</span></label></div><hr><div class="employee-form-grid"><label>计薪规则<select class="form-select" name="rule_type"><option value="fixed">固定工资</option><option value="production_worker">生产车工</option><option value="production_manager">生产负责人</option><option value="warehouse">仓管</option><option value="pattern_points">制版积分</option><option value="planning_submission">企划提报</option><option value="design_submission">设计提报</option></select></label><label>规则开始月份<input class="form-control" type="month" name="rule_start_month" value="${escapeHtml(rule?.start_month || state.month)}"></label><div class="span-2 employee-rule-fields"></div><label class="form-check span-2"><input class="form-check-input" type="checkbox" name="self_funded_social" ${rule?.parameters?.self_funded_social ? 'checked' : ''}><span>医社保全部从个人工资扣回</span></label><label class="span-2">内部备注（不导给财务）<textarea class="form-control" name="note" rows="3">${escapeHtml(employee?.note || '')}</textarea></label><label class="span-2">固定备注（工资表只读、每次导给财务）<textarea class="form-control" name="finance_note" rows="3" placeholder="只写每月都需要财务知道的固定核算事项">${escapeHtml(employee?.finance_note || '')}</textarea></label></div><div class="finance-error" data-message hidden></div><footer><button class="btn btn-outline-secondary" value="cancel">取消</button><button class="btn btn-primary" type="button" data-save>保存</button></footer>`);
     element.querySelector('[name="gender"]').value = employee?.gender || '';
     element.querySelector('[name="phone"]').inputMode = 'tel';
     element.querySelector('[name="payment_account"]').inputMode = 'numeric';
@@ -802,13 +838,21 @@
       element.querySelectorAll('.employee-rule-fields [name]').forEach(function (field) { const key = field.name.replace('rule_',''); parameters[key] = field.type === 'number' ? Number(field.value || 0) : field.value; });
       const payload = {id:employee?.id || null,expected_version:employee?.version || null,values,rule:{rule_type:value('rule_type'),start_month:value('rule_start_month'),end_month:rule?.end_month || '',parameters,note:value('note')}};
       const message = element.querySelector('[data-message]');
-      try { await api('/api/finance/employees', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}); element.close(); await loadEmployees(); }
+      try {
+        const saved = await api('/api/finance/employees', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+        const previousLink = employee ? employeeProfileLink(employee.id) : null;
+        const selectedProfile = value('payroll_profile_id') || null;
+        if ((previousLink?.profile_id || null) !== selectedProfile) {
+          await api(`/api/finance/employees/${saved.id}/profile-link`, {method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({profile_id:selectedProfile,expected_version:previousLink?.version || null})});
+        }
+        element.close(); await loadEmployees();
+      }
       catch (error) { message.hidden = false; message.textContent = error.message; }
     });
   }
 
   function showRetireEmployeeDialog(employee) {
-    const element = dialog('finance-employee-retire-dialog', `删除员工 · ${employee.employee_name}`, `<p class="finance-note">员工不会从历史工资中物理删除。所选月份起不再进入工资表、工资发放和月报，并保留操作人、原因及当时员工资料。</p><label>生效月份<input class="form-control" type="month" name="effective_month" value="${escapeHtml(state.month)}"></label><label>删除原因<textarea class="form-control" name="reason" rows="4" required placeholder="例如：年龄原因，自本月起不再列入员工及发薪范围"></textarea></label><div class="finance-error" data-message hidden></div><footer><button class="btn btn-outline-secondary" value="cancel">取消</button><button class="btn btn-danger" type="button" data-confirm-retire>确认删除并留档</button></footer>`);
+    const element = dialog('finance-employee-retire-dialog', `删除员工 · ${employee.employee_name}`, `<p class="finance-note">员工不会从历史工资中物理删除。所选月份起不再进入工资表、工资条和月报，并保留操作人、原因及当时员工资料。</p><label>生效月份<input class="form-control" type="month" name="effective_month" value="${escapeHtml(state.month)}"></label><label>删除原因<textarea class="form-control" name="reason" rows="4" required placeholder="例如：年龄原因，自本月起不再列入员工及发薪范围"></textarea></label><div class="finance-error" data-message hidden></div><footer><button class="btn btn-outline-secondary" value="cancel">取消</button><button class="btn btn-danger" type="button" data-confirm-retire>确认删除并留档</button></footer>`);
     element.querySelector('[data-confirm-retire]').addEventListener('click', async function () {
       const message = element.querySelector('[data-message]');
       const effectiveMonth = element.querySelector('[name="effective_month"]').value;

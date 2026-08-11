@@ -58,6 +58,13 @@
     return parsed.toLocaleString('zh-CN', {hour12:false,month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
   }
 
+  function shortDateTime(value) {
+    if (!value) return '待完成';
+    const parsed = new Date(String(value).replace(' ', 'T'));
+    if (Number.isNaN(parsed.getTime())) return escapeHtml(value);
+    return parsed.toLocaleString('zh-CN', {hour12:false,month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+  }
+
   function baseOrderId(value) { return String(value || '').replace(/(-\d+)+$/, ''); }
   function orderGroupKey(order) {
     const tracking = String(order.tracking_no || '').trim();
@@ -94,7 +101,8 @@
     return [...byKey.entries()].map(function(entry){
       const key = entry[0];
       const records = entry[1];
-      const items = records.flatMap(function(order){return order.items || [];});
+      const itemTracks = records.flatMap(function(order){return (order.items || []).map(function(item){return {item:item,order:order};});});
+      const items = itemTracks.map(function(track){return track.item;});
       const arrangedCount = records.filter(isArranged).length;
       const shippedCount = records.filter(isShipped).length;
       const closedCount = records.filter(isClosed).length;
@@ -110,7 +118,7 @@
         return [order.id,order.vchcode,order.shop,order.tag,order.alert,order.trade_status,order.process_status,order.sync_status,order.refund_status,order.tracking_no,order.logistics_company,order.warehouse,order.operator,order.seller_memo,order.buyer_message,order.audit_fail_reason,order.summary,order.buyer?.name,order.buyer?.account,order.buyer?.province,order.buyer?.city].join(' ');
       }).concat(items.map(function(item){return [item.sku,item.sku_full,item.name,item.color,item.size,item.taobao_title,item.taobao_sku_props].join(' ');})).join(' ').toLocaleLowerCase();
       return {
-        key:key, records:records, items:items, searchable:searchable, workflowStage:workflowStage,
+        key:key, records:records, items:items, itemTracks:itemTracks, searchable:searchable, workflowStage:workflowStage,
         arrangedCount:arrangedCount, shippedCount:shippedCount, closedCount:closedCount, refundCount:refundCount,
         hasRefund:refundCount > 0, allClosed:closedCount === records.length,
         arrangedState:arrangedCount === records.length ? 'yes' : arrangedCount ? 'partial' : 'no',
@@ -141,12 +149,12 @@
 
   function orderIdentity(group, cell) {
     const tag = cell || 'div';
-    const ids = group.records.map(function(order){return `<span class="order-id">${escapeHtml(order.id)}</span>`;}).join('');
+    const ids = group.records.map(function(order){return `<button type="button" class="order-id order-id-copy" data-copy-order-id="${escapeHtml(order.id)}" aria-label="复制订单编号 ${escapeHtml(order.id)}"><span>${escapeHtml(order.id)}</span><i class="ti ti-copy"></i><em data-copy-label>复制</em></button>`;}).join('');
     const docs = unique(group.records,'vchcode').map(function(value){return `<small>管家婆 ${escapeHtml(value)}</small>`;}).join('');
     return `<${tag} class="order-col-order"><div class="order-group-label">${group.merged?badge(`合并发货 · ${group.records.length} 单`,'is-merge'):group.split?badge(`分批记录 · ${group.records.length} 条`,'is-split'):''}${badge(group.shop,'is-shop')}</div><div class="order-ids">${ids}</div>${docs}<small>${escapeHtml(group.records[0]?.summary || '')}</small></${tag}>`;
   }
   function renderOrderCell(group) { return orderIdentity(group,'td'); }
-  function renderWorkflowCell(group) { return `<td>${badge(workflowLabel(group),workflowTone(group))}<small>${group.workflowStage==='arranged'?'已进入管家婆安排，尚无实际发货记录':group.workflowStage==='unarranged'?'管家婆尚未标记已安排':''}</small></td>`; }
+  function renderWorkflowCell(group) { return `<td>${badge(workflowLabel(group),workflowTone(group))}${orderProgressMarkup(group,'table')}<small>${group.workflowStage==='arranged'?'已进入管家婆安排，尚无实际发货记录':group.workflowStage==='unarranged'?'管家婆尚未标记已安排':''}</small></td>`; }
   function renderArrangedCell(group) {
     const label = group.arrangedState === 'yes' ? '已安排' : group.arrangedState === 'partial' ? `部分已安排 ${group.arrangedCount}/${group.records.length}` : '未安排';
     return `<td>${badge(label,group.arrangedState==='yes'?'is-arranged':group.arrangedState==='partial'?'is-partial':'is-unarranged')}<div class="order-cell-notes">${unique(group.records,'tag').concat(unique(group.records,'alert')).filter(function(value,index,array){return array.indexOf(value)===index;}).map(escapeHtml).join(' · ') || '管家婆暂无标记'}</div></td>`;
@@ -174,6 +182,34 @@
   function mobileOrderIds(group) {
     const ids=[...new Set(group.records.map(function(order){return String(order.id||'').trim();}).filter(Boolean))];
     return `<div class="order-card-identities">${ids.map(function(id){return `<button type="button" class="order-copy-id" data-copy-order-id="${escapeHtml(id)}" aria-label="复制订单编号 ${escapeHtml(id)}"><span>订单</span><strong>${escapeHtml(id)}</strong><i class="ti ti-copy"></i><em data-copy-label>复制</em></button>`;}).join('')}</div>`;
+  }
+  function itemTrackLabel(track) {
+    const item=track.item||{};
+    const spec=compactItemSpec(item);
+    return [item.sku||item.name||'商品',spec].filter(Boolean).join(' · ');
+  }
+  function isReadyStockTrack(track) {
+    return /现货/.test(String(track.order?.seller_memo||'')) && track.item?.in_stock_sku === true;
+  }
+  function progressStep(label,state,time) {
+    return `<li class="${escapeHtml(state)}"><span class="order-progress-dot"><i class="ti ti-${state==='is-done'?'check':'point'}"></i></span><strong>${escapeHtml(label)}</strong><small>${escapeHtml(time||'待关联')}</small></li>`;
+  }
+  function itemProgressMarkup(track,mode) {
+    const direct=isReadyStockTrack(track);
+    const shipped=isShipped(track.order||{});
+    const orderedAt=shortDateTime(track.order?.paid_at);
+    const shippedAt=shortDateTime(track.order?.shipped_at);
+    const stages=direct
+      ? progressStep('订','is-done',orderedAt)+progressStep('发',shipped?'is-done':'is-next',shippedAt)
+      : progressStep('订','is-done',orderedAt)+progressStep('裁','is-unlinked','待关联')+progressStep('制','is-unlinked','待关联')+progressStep('手','is-unlinked','待关联')+progressStep('发',shipped?'is-done':'is-next',shippedAt);
+    return `<article class="order-item-progress ${direct?'is-direct':''} ${mode==='table'?'is-table':''}"><header><strong>${escapeHtml(itemTrackLabel(track))}</strong><span>× ${number.format(Number(track.item?.qty||1))}</span>${direct?badge('现货直发','is-arranged'):''}</header><ol>${stages}</ol></article>`;
+  }
+  function orderProgressMarkup(group,mode) {
+    const tracks=(group.itemTracks||[]).filter(function(track){return track.item?.is_clothing!==false;});
+    const body=tracks.length?tracks.map(function(track){return itemProgressMarkup(track,mode);}).join(''):'<p class="order-progress-empty">商品明细尚未同步，暂不能建立逐件进度。</p>';
+    if(group.hasRefund && mode!=='table')return `<details class="order-refund-progress"><summary><i class="ti ti-history"></i>查看退款 / 售后订单原进度${tracks.length?` · ${tracks.length} 件`:''}</summary><div class="order-progress-list">${body}</div></details>`;
+    if(group.hasRefund && mode==='table')return `<details class="order-refund-progress is-table"><summary>查看原进度${tracks.length?` · ${tracks.length} 件`:''}</summary><div class="order-progress-list">${body}</div></details>`;
+    return `<section class="order-progress-list" aria-label="逐件订单进度">${body}</section>`;
   }
   function platformEarlierThanPromise(group) {
     if (!group.deadline||!group.promise?.sort||group.promise.sort.startsWith('9999')) return false;
@@ -268,7 +304,7 @@
     return `<div class="order-card-list">${rows.map(function(group){
       const memos=unique(group.records,'seller_memo');
       const deadlineWarning=platformEarlierThanPromise(group);
-      return `<article class="order-card"><header class="order-card-priority"><div>${badge(workflowLabel(group),workflowTone(group))}${exceptionBadges(group)}${group.outOfStock?badge('缺货 / 异常','is-danger'):''}</div><div class="order-card-promise"><span>约定发货</span><strong>${escapeHtml(group.promise.label==='未识别'?'日期待补':group.promise.label)}</strong></div></header>${mobileOrderIds(group)}<section class="order-card-items">${mobileItemsMarkup(group)}</section>${memos.length?`<div class="order-card-memo"><span>操作备注</span>${memos.map(function(v){return `<p>${escapeHtml(v)}</p>`;}).join('')}</div>`:''}<div class="order-card-secondary"><div class="${deadlineWarning?'is-warning':''}"><span>平台最迟</span><strong>${dateTime(group.deadline)}</strong>${deadlineWarning?'<small>早于约定日期</small>':''}</div><div><span>订单金额</span><strong>¥${money.format(group.amount)}</strong></div></div><details><summary>更多信息</summary>${statusMarkup(group)}<dl><dt>管家婆单据</dt><dd>${escapeHtml(unique(group.records,'vchcode').join(' / ')||'-')}</dd><dt>管家婆安排</dt><dd>${group.arrangedState==='no'?'未安排':group.arrangedState==='partial'?'部分安排':'已安排'}</dd><dt>物流</dt><dd>${escapeHtml(unique(group.records,'logistics_company').join(' / ')||'暂无')} ${escapeHtml(unique(group.records,'tracking_no').join(' / '))}</dd><dt>买家</dt><dd>${escapeHtml(group.records[0]?.buyer?.name||group.records[0]?.buyer?.account||'-')}</dd><dt>付款</dt><dd>${dateTime(group.paidAt)}</dd><dt>实际发货</dt><dd>${dateTime(group.records.map(function(r){return r.shipped_at;}).filter(Boolean).sort().at(-1))}</dd><dt>审核异常</dt><dd>${escapeHtml(unique(group.records,'audit_fail_reason').join(' / ')||'无')}</dd></dl></details></article>`;
+      return `<article class="order-card"><header class="order-card-priority"><div>${badge(workflowLabel(group),workflowTone(group))}${exceptionBadges(group)}${group.outOfStock?badge('缺货 / 异常','is-danger'):''}</div><div class="order-card-promise"><span>约定发货</span><strong>${escapeHtml(group.promise.label==='未识别'?'日期待补':group.promise.label)}</strong></div></header>${mobileOrderIds(group)}${orderProgressMarkup(group,'card')}<section class="order-card-items">${mobileItemsMarkup(group)}</section>${memos.length?`<div class="order-card-memo"><span>操作备注</span>${memos.map(function(v){return `<p>${escapeHtml(v)}</p>`;}).join('')}</div>`:''}<div class="order-card-secondary"><div class="${deadlineWarning?'is-warning':''}"><span>平台最迟</span><strong>${dateTime(group.deadline)}</strong>${deadlineWarning?'<small>早于约定日期</small>':''}</div><div><span>订单金额</span><strong>¥${money.format(group.amount)}</strong></div></div><details><summary>更多信息</summary>${statusMarkup(group)}<dl><dt>管家婆单据</dt><dd>${escapeHtml(unique(group.records,'vchcode').join(' / ')||'-')}</dd><dt>管家婆安排</dt><dd>${group.arrangedState==='no'?'未安排':group.arrangedState==='partial'?'部分安排':'已安排'}</dd><dt>物流</dt><dd>${escapeHtml(unique(group.records,'logistics_company').join(' / ')||'暂无')} ${escapeHtml(unique(group.records,'tracking_no').join(' / '))}</dd><dt>买家</dt><dd>${escapeHtml(group.records[0]?.buyer?.name||group.records[0]?.buyer?.account||'-')}</dd><dt>付款</dt><dd>${dateTime(group.paidAt)}</dd><dt>实际发货</dt><dd>${dateTime(group.records.map(function(r){return r.shipped_at;}).filter(Boolean).sort().at(-1))}</dd><dt>审核异常</dt><dd>${escapeHtml(unique(group.records,'audit_fail_reason').join(' / ')||'无')}</dd></dl></details></article>`;
     }).join('')||'<div class="order-empty">没有符合当前筛选的订单</div>'}</div>`;
   }
   function renderResults(){
