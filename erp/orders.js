@@ -199,13 +199,18 @@
     const shipped=isShipped(track.order||{});
     const orderedAt=shortDateTime(track.order?.paid_at);
     const shippedAt=shortDateTime(track.order?.shipped_at);
-    const stages=direct
-      ? progressStep('订','is-done',orderedAt)+progressStep('发',shipped?'is-done':'is-next',shippedAt)
-      : progressStep('订','is-done',orderedAt)+progressStep('裁','is-unlinked','待关联')+progressStep('制','is-unlinked','待关联')+progressStep('手','is-unlinked','待关联')+progressStep('发',shipped?'is-done':'is-next',shippedAt);
-    return `<article class="order-item-progress ${direct?'is-direct':''} ${mode==='table'?'is-table':''}"><header><strong>${escapeHtml(itemTrackLabel(track))}</strong><span>× ${number.format(Number(track.item?.qty||1))}</span>${direct?badge('现货直发','is-arranged'):''}</header><ol>${stages}</ol></article>`;
+    const kind=String(track.item?.workflow_kind||'direct');
+    const middle=direct||kind==='direct'
+      ? ''
+      : kind==='headwear'
+        ? progressStep('手','is-unlinked','待关联')
+        : progressStep('裁','is-unlinked','待关联')+progressStep('制','is-unlinked','待关联')+progressStep('手','is-unlinked','待关联');
+    const stages=progressStep('订','is-done',orderedAt)+middle+progressStep('发',shipped?'is-done':'is-next',shippedAt);
+    const routeLabel=direct?'现货直发':kind==='headwear'?'头饰手工':kind==='apparel'?'服装制作':'直接发货';
+    return `<article class="order-item-progress ${direct||kind==='direct'?'is-direct':''} ${mode==='table'?'is-table':''}"><header><strong>${escapeHtml(itemTrackLabel(track))}</strong><span>× ${number.format(Number(track.item?.qty||1))}</span>${badge(routeLabel,direct?'is-arranged':'is-process')}</header><ol>${stages}</ol></article>`;
   }
   function orderProgressMarkup(group,mode) {
-    const tracks=(group.itemTracks||[]).filter(function(track){return track.item?.is_clothing!==false;});
+    const tracks=group.itemTracks||[];
     const body=tracks.length?tracks.map(function(track){return itemProgressMarkup(track,mode);}).join(''):'<p class="order-progress-empty">商品明细尚未同步，暂不能建立逐件进度。</p>';
     if(group.hasRefund && mode!=='table')return `<details class="order-refund-progress"><summary><i class="ti ti-history"></i>查看退款 / 售后订单原进度${tracks.length?` · ${tracks.length} 件`:''}</summary><div class="order-progress-list">${body}</div></details>`;
     if(group.hasRefund && mode==='table')return `<details class="order-refund-progress is-table"><summary>查看原进度${tracks.length?` · ${tracks.length} 件`:''}</summary><div class="order-progress-list">${body}</div></details>`;
