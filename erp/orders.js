@@ -103,15 +103,16 @@
       const records = entry[1];
       const itemTracks = records.flatMap(function(order){return (order.items || []).map(function(item){return {item:item,order:order};});});
       const items = itemTracks.map(function(track){return track.item;});
-      const arrangedCount = records.filter(isArranged).length;
-      const shippedCount = records.filter(isShipped).length;
       const closedCount = records.filter(isClosed).length;
+      const activeRecords = records.filter(function(order){return !isClosed(order);});
+      const arrangedCount = activeRecords.filter(isArranged).length;
+      const shippedCount = activeRecords.filter(isShipped).length;
       const refundCount = records.filter(isRefund).length;
       const paidAt = records.map(function(order){return order.paid_at || '';}).filter(Boolean).sort().at(-1) || '';
       const promises = records.map(function(order){return remarkShipTime(order.seller_memo, order.paid_at || paidAt);});
       let workflowStage = 'unarranged';
-      if (closedCount === records.length) workflowStage = 'closed';
-      else if (shippedCount === records.length) workflowStage = 'shipped';
+      if (!activeRecords.length) workflowStage = 'closed';
+      else if (shippedCount === activeRecords.length) workflowStage = 'shipped';
       else if (shippedCount) workflowStage = 'partial';
       else if (arrangedCount) workflowStage = 'arranged';
       const searchable = records.map(function(order){
@@ -119,9 +120,9 @@
       }).concat(items.map(function(item){return [item.sku,item.sku_full,item.name,item.color,item.size,item.taobao_title,item.taobao_sku_props].join(' ');})).join(' ').toLocaleLowerCase();
       return {
         key:key, records:records, items:items, itemTracks:itemTracks, searchable:searchable, workflowStage:workflowStage,
-        arrangedCount:arrangedCount, shippedCount:shippedCount, closedCount:closedCount, refundCount:refundCount,
+        activeCount:activeRecords.length, arrangedCount:arrangedCount, shippedCount:shippedCount, closedCount:closedCount, refundCount:refundCount,
         hasRefund:refundCount > 0, allClosed:closedCount === records.length,
-        arrangedState:arrangedCount === records.length ? 'yes' : arrangedCount ? 'partial' : 'no',
+        arrangedState:!activeRecords.length ? 'no' : arrangedCount === activeRecords.length ? 'yes' : arrangedCount ? 'partial' : 'no',
         outOfStock:items.some(function(item){return item.out_of_stock;}) || records.some(function(order){return Boolean(order.audit_fail_reason);}),
         amount:records.reduce(function(sum,order){return sum + Number(order.amount || 0);},0),
         shop:[...new Set(records.map(function(order){return order.shop;}).filter(Boolean))].join(' / '),
@@ -140,7 +141,7 @@
     return [...new Set(state.orders.flatMap(function(order){return [order.tag,order.alert];}).concat(state.filters.tags||[]).map(function(value){return String(value||'').trim();}).filter(Boolean))].sort(function(a,b){return a.localeCompare(b,'zh-CN');});
   }
   function workflowLabel(group) {
-    const labels = {unarranged:'待安排',arranged:'已安排待发货',partial:`部分已发货 ${group.shippedCount}/${group.records.length}`,shipped:'已发货',closed:'交易关闭'};
+    const labels = {unarranged:'待安排',arranged:'已安排待发货',partial:`部分已发货 ${group.shippedCount}/${group.activeCount}`,shipped:'已发货',closed:'交易关闭'};
     return labels[group.workflowStage] || group.workflowStage;
   }
   function workflowTone(group) { return `is-workflow-${group.workflowStage}`; }
@@ -159,7 +160,7 @@
   function renderOrderCell(group) { return orderIdentity(group,'td'); }
   function renderWorkflowCell(group) { return `<td>${badge(workflowLabel(group),workflowTone(group))}${orderProgressMarkup(group,'table')}<small>${group.workflowStage==='arranged'?'已进入管家婆安排，尚无实际发货记录':group.workflowStage==='unarranged'?'管家婆尚未标记已安排':''}</small></td>`; }
   function renderArrangedCell(group) {
-    const label = group.arrangedState === 'yes' ? '已安排' : group.arrangedState === 'partial' ? `部分已安排 ${group.arrangedCount}/${group.records.length}` : '未安排';
+    const label = group.arrangedState === 'yes' ? '已安排' : group.arrangedState === 'partial' ? `部分已安排 ${group.arrangedCount}/${group.activeCount}` : '未安排';
     return `<td>${badge(label,group.arrangedState==='yes'?'is-arranged':group.arrangedState==='partial'?'is-partial':'is-unarranged')}<div class="order-cell-notes">${unique(group.records,'tag').concat(unique(group.records,'alert')).filter(function(value,index,array){return array.indexOf(value)===index;}).map(escapeHtml).join(' · ') || '管家婆暂无标记'}</div></td>`;
   }
   function compactItemSpec(item) {
