@@ -40,7 +40,7 @@
     software:'软件费用',finance_fee:'财务费用',
   };
   const sectionOrder = ['income','product_cost','platform_operations','logistics','customer_service','rent_food_equipment','design','factory_manager','business_show','company_social','software','finance_fee'];
-  const state = {months: [], month: '', data: null, analysisItems: [], analysisDefinition: null, sourceType: 'taobao_income_order', offset: 0, limit: 100, sourceTotal: 0, companyPayrollModule: 'all', shipmentCompare: '', payrollBinding: null, payrollSelfService: false};
+  const state = {months: [], month: '', data: null, analysisItems: [], analysisDefinition: null, analysisFreshness: null, analysisComparable: null, analysisExcluded: [], sourceType: 'taobao_income_order', offset: 0, limit: 100, sourceTotal: 0, companyPayrollModule: 'all', shipmentCompare: '', payrollBinding: null, payrollSelfService: false};
 
   function escapeHtml(value) {
     return String(value == null ? '' : value).replace(/[&<>"']/g, function (character) {
@@ -170,10 +170,10 @@
   function reportAnalysisNav() {
     const active = page === 'finance-operating-analysis';
     return `<section class="finance-analysis-region" aria-labelledby="finance-analysis-title">
-      <div class="finance-analysis-region-head"><div><span class="finance-analysis-eyebrow">月报子页面</span><h2 id="finance-analysis-title">经营分析</h2></div><span>从月报唯一来源自动生成</span></div>
+      <div class="finance-analysis-region-head"><div><span class="finance-analysis-eyebrow">月报子页面</span><h2 id="finance-analysis-title">经营分析</h2></div><span>经营与结算口径分开</span></div>
       <a class="finance-analysis-link ${active ? 'active' : ''}" href="/jun-pages/finance/analysis/operating-expense/">
         <span class="finance-analysis-link-icon"><i class="ti ti-chart-line"></i></span>
-        <span><strong>运营费用率</strong><small>按月比较运营费用占收入比例，并对齐各年同月份</small></span>
+        <span><strong>店铺运营效率</strong><small>支付、退款、推广费率、全店净 MER 与平台经营费率</small></span>
         <i class="ti ti-chevron-right"></i>
       </a>
     </section>`;
@@ -197,138 +197,156 @@
     return value == null || !Number.isFinite(Number(value)) ? '待补' : `${Number(value).toFixed(2)}%`;
   }
 
+  function analysisMultiple(value) {
+    return value == null || !Number.isFinite(Number(value)) ? '待补' : `${Number(value).toFixed(2)}×`;
+  }
+
   function analysisValue(item, field, display) {
     return `<button class="finance-analysis-value" type="button" data-analysis-month="${escapeHtml(item.month)}" data-analysis-field="${escapeHtml(field)}">${display}</button>`;
   }
 
-  function renderRatioChart(items, years) {
-    const width = 1080;
-    const height = 390;
-    const left = 66;
-    const right = 28;
-    const top = 38;
-    const bottom = 58;
-    const plotWidth = width - left - right;
-    const plotHeight = height - top - bottom;
-    const complete = items.filter(function (item) { return item.ratio_percent != null; });
-    const maxRatio = Math.max.apply(null, complete.map(function (item) { return Number(item.ratio_percent); }).concat([10]));
-    const axisMax = Math.max(10, Math.ceil((maxRatio + 2) / 5) * 5);
-    const colors = ['#1f6feb','#f08c2e','#2b8a3e','#8b5cf6','#d9485f'];
-    const x = function (monthIndex) { return left + monthIndex * plotWidth / 11; };
-    const y = function (value) { return top + plotHeight - Number(value) / axisMax * plotHeight; };
-    const grids = Array.from({length: 6}, function (_, index) {
-      const value = axisMax * index / 5;
-      const pos = y(value);
-      return `<line x1="${left}" y1="${pos.toFixed(1)}" x2="${width - right}" y2="${pos.toFixed(1)}" stroke="#e7ebf0"/><text x="${left - 10}" y="${(pos + 4).toFixed(1)}" text-anchor="end" fill="#7b8794" font-size="11">${value.toFixed(0)}%</text>`;
-    }).join('');
-    const monthLabels = Array.from({length: 12}, function (_, index) {
-      return `<text x="${x(index).toFixed(1)}" y="${height - 24}" text-anchor="middle" fill="#687482" font-size="11">${index + 1}月</text>`;
-    }).join('');
-    const series = years.map(function (year, yearIndex) {
-      const values = items.filter(function (item) { return item.month.startsWith(`${year}-`) && item.ratio_percent != null; });
-      const points = values.map(function (item) {
-        const monthIndex = Number(item.month.slice(5)) - 1;
-        return `${x(monthIndex).toFixed(1)},${y(item.ratio_percent).toFixed(1)}`;
-      }).join(' ');
-      const dots = values.map(function (item) {
-        const monthIndex = Number(item.month.slice(5)) - 1;
-        return `<circle cx="${x(monthIndex).toFixed(1)}" cy="${y(item.ratio_percent).toFixed(1)}" r="5" fill="#fff" stroke="${colors[yearIndex % colors.length]}" stroke-width="3"><title>${escapeHtml(item.month)} ${analysisRatio(item.ratio_percent)}</title></circle>`;
-      }).join('');
-      return `${values.length > 1 ? `<polyline points="${points}" fill="none" stroke="${colors[yearIndex % colors.length]}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>` : ''}${dots}`;
-    }).join('');
-    const legend = years.map(function (year, index) {
-      return `<span><i style="background:${colors[index % colors.length]}"></i>${escapeHtml(year)} 年</span>`;
-    }).join('');
-    return `<div class="finance-analysis-legend">${legend}</div><div class="finance-chart-scroll"><svg class="finance-ratio-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="各年每月运营费用率折线图">${grids}${monthLabels}${series}</svg></div>`;
+  function coverageBadge(item) {
+    const labels = {complete: item.period_type === 'month_to_date' ? '当月截至日完整' : '整月完整', partial: '缺日', missing: '无数据'};
+    return `<span class="analysis-coverage ${escapeHtml(item.coverage_status || 'missing')}">${labels[item.coverage_status] || '待核对'} · ${Number(item.captured_days || 0)}/${Number(item.expected_days || 0)} 天</span>`;
   }
 
-  function renderAmountChart(items) {
-    const values = items.filter(function (item) { return item.complete === true; }).slice(-12);
-    if (!values.length) return '<div class="finance-analysis-empty">暂无完整金额</div>';
-    const width = Math.max(980, values.length * 82 + 100);
-    const height = 350;
-    const left = 64;
-    const right = 24;
-    const top = 24;
-    const bottom = 64;
-    const plotHeight = height - top - bottom;
-    const plotWidth = width - left - right;
-    const maxValue = Math.max.apply(null, values.map(function (item) { return Number(item.revenue); }).concat([1]));
-    const groupWidth = plotWidth / values.length;
-    const barWidth = Math.min(22, groupWidth * .26);
-    const y = function (value) { return top + plotHeight - Number(value) / maxValue * plotHeight; };
+  function renderSalesChart(items) {
+    const values = items.filter(function (item) { return item.pay_amount != null; }).slice(-12);
+    if (!values.length) return '<div class="finance-analysis-empty">暂无生意参谋经营数据</div>';
+    const width = Math.max(900, values.length * 118 + 90);
+    const height = 360;
+    const left = 66;
+    const top = 28;
+    const baseline = 292;
+    const maxValue = Math.max.apply(null, values.map(function (item) { return Number(item.pay_amount || 0); }).concat([1]));
+    const groupWidth = (width - left - 20) / values.length;
+    const barWidth = Math.min(23, groupWidth * .22);
+    const y = function (value) { return baseline - Number(value || 0) / maxValue * (baseline - top); };
     const grid = Array.from({length: 5}, function (_, index) {
       const value = maxValue * index / 4;
       const pos = y(value);
-      return `<line x1="${left}" y1="${pos.toFixed(1)}" x2="${width - right}" y2="${pos.toFixed(1)}" stroke="#edf0f3"/><text x="${left - 9}" y="${(pos + 4).toFixed(1)}" text-anchor="end" fill="#7b8794" font-size="10">${(value / 10000).toFixed(value >= 100000 ? 0 : 1)}万</text>`;
+      return `<line x1="${left}" y1="${pos.toFixed(1)}" x2="${width - 20}" y2="${pos.toFixed(1)}" stroke="#edf0f3"/><text x="${left - 8}" y="${(pos + 4).toFixed(1)}" text-anchor="end" fill="#7b8794" font-size="10">${(value / 10000).toFixed(1)}万</text>`;
     }).join('');
     const bars = values.map(function (item, index) {
       const center = left + groupWidth * (index + .5);
-      const revenueY = y(item.revenue);
-      const expenseY = y(item.operating_expense);
-      return `<rect x="${(center - barWidth - 2).toFixed(1)}" y="${revenueY.toFixed(1)}" width="${barWidth.toFixed(1)}" height="${(top + plotHeight - revenueY).toFixed(1)}" rx="3" fill="#b9d1f4"><title>${escapeHtml(item.month)} 收入 ${amount(item.revenue)}</title></rect><rect x="${(center + 2).toFixed(1)}" y="${expenseY.toFixed(1)}" width="${barWidth.toFixed(1)}" height="${Math.max(1, top + plotHeight - expenseY).toFixed(1)}" rx="3" fill="#f08c2e"><title>${escapeHtml(item.month)} 运营费用 ${amount(item.operating_expense)}</title></rect><text x="${center.toFixed(1)}" y="${height - 28}" text-anchor="middle" fill="#687482" font-size="10">${escapeHtml(item.month.slice(2))}</text>`;
+      const opacity = item.coverage_status === 'complete' ? 1 : .42;
+      const columns = [
+        ['pay_amount', '#3b82c4', -barWidth - 3, '支付金额'],
+        ['refund_amount', '#e46b61', 0, '成功退款'],
+        ['observed_net_sales', '#285f56', barWidth + 3, '观察净销售'],
+      ].map(function (definition) {
+        const value = Number(item[definition[0]] || 0);
+        const pos = y(value);
+        return `<rect x="${(center + definition[2]).toFixed(1)}" y="${pos.toFixed(1)}" width="${barWidth.toFixed(1)}" height="${Math.max(1, baseline - pos).toFixed(1)}" rx="3" fill="${definition[1]}" opacity="${opacity}"><title>${escapeHtml(item.month)} ${definition[3]} ${amount(value)}</title></rect>`;
+      }).join('');
+      return `${columns}<text x="${center.toFixed(1)}" y="324" text-anchor="middle" fill="#687482" font-size="10">${escapeHtml(item.month)}</text>${item.coverage_status === 'complete' ? '' : `<text x="${center.toFixed(1)}" y="342" text-anchor="middle" fill="#b45309" font-size="9">缺日</text>`}`;
     }).join('');
-    return `<div class="finance-analysis-legend"><span><i style="background:#b9d1f4"></i>去除退款后收入</span><span><i style="background:#f08c2e"></i>运营费用</span></div><div class="finance-chart-scroll"><svg class="finance-amount-chart" viewBox="0 0 ${width} ${height}" style="min-width:${width}px" role="img" aria-label="最近十二个月收入与运营费用同轴柱状图">${grid}${bars}</svg></div>`;
+    return `<div class="finance-analysis-legend"><span><i style="background:#3b82c4"></i>支付金额</span><span><i style="background:#e46b61"></i>成功退款</span><span><i style="background:#285f56"></i>观察净销售</span><span class="muted">半透明月份不参与趋势判断</span></div><div class="finance-chart-scroll"><svg class="finance-amount-chart" viewBox="0 0 ${width} ${height}" style="min-width:${width}px" role="img" aria-label="支付金额、成功退款与观察净销售额月度金额图">${grid}${bars}</svg></div>`;
   }
 
-  function renderAnalysisTable(items, years) {
-    const byMonth = new Map(items.map(function (item) { return [item.month, item]; }));
-    const header = years.map(function (year) { return `<th colspan="3">${escapeHtml(year)} 年</th>`; }).join('');
-    const subheader = years.map(function () { return '<th>收入</th><th>运营费用</th><th>占比</th>'; }).join('');
-    const rows = Array.from({length: 12}, function (_, index) {
-      const month = String(index + 1).padStart(2, '0');
-      const cells = years.map(function (year) {
-        const item = byMonth.get(`${year}-${month}`);
-        if (!item) return '<td class="num muted">—</td><td class="num muted">—</td><td class="num muted">—</td>';
-        return `<td class="num">${analysisValue(item, 'revenue', amount(item.revenue))}</td><td class="num">${analysisValue(item, 'operating_expense', amount(item.operating_expense))}</td><td class="num ratio">${analysisValue(item, 'ratio_percent', analysisRatio(item.ratio_percent))}</td>`;
-      }).join('');
-      const current = years.length > 1 ? byMonth.get(`${years.at(-1)}-${month}`) : null;
-      const previous = years.length > 1 ? byMonth.get(`${years.at(-2)}-${month}`) : null;
-      const delta = current?.ratio_percent != null && previous?.ratio_percent != null ? Number(current.ratio_percent) - Number(previous.ratio_percent) : null;
-      const deltaClass = delta == null || delta === 0 ? 'flat' : delta < 0 ? 'good' : 'up';
-      const deltaText = delta == null ? '—' : `${delta > 0 ? '+' : ''}${delta.toFixed(2)} 个百分点`;
-      return `<tr><th>${index + 1} 月</th>${cells}<td class="num"><span class="delta ${deltaClass}">${deltaText}</span></td></tr>`;
+  function renderEfficiencyChart(items) {
+    const values = items.filter(function (item) { return item.promotion_rate != null || item.platform_operating_rate != null; });
+    if (!values.length) return '<div class="finance-analysis-empty">推广与平台费用原始来源尚未形成可比月份；页面不会用估算值补线。</div>';
+    const width = Math.max(820, values.length * 120 + 100);
+    const height = 330;
+    const left = 64;
+    const right = 24;
+    const top = 30;
+    const bottom = 62;
+    const plotHeight = height - top - bottom;
+    const plotWidth = width - left - right;
+    const maxRate = Math.max.apply(null, values.flatMap(function (item) { return [Number(item.promotion_rate || 0), Number(item.platform_operating_rate || 0)]; }).concat([10]));
+    const axisMax = Math.ceil((maxRate + 3) / 5) * 5;
+    const x = function (index) { return left + plotWidth * (index + .5) / values.length; };
+    const y = function (value) { return top + plotHeight - Number(value) / axisMax * plotHeight; };
+    const grid = Array.from({length: 6}, function (_, index) {
+      const value = axisMax * index / 5;
+      const pos = y(value);
+      return `<line x1="${left}" y1="${pos.toFixed(1)}" x2="${width - right}" y2="${pos.toFixed(1)}" stroke="#edf0f3"/><text x="${left - 8}" y="${(pos + 4).toFixed(1)}" text-anchor="end" fill="#7b8794" font-size="10">${value.toFixed(0)}%</text>`;
     }).join('');
-    return `<div class="finance-analysis-table-wrap"><table class="finance-analysis-table"><thead><tr><th rowspan="2">月份</th>${header}<th rowspan="2">最近两年同比</th></tr><tr>${subheader}</tr></thead><tbody>${rows}</tbody></table></div>`;
+    const series = [
+      ['promotion_rate', '#e6862f', '推广费率'],
+      ['platform_operating_rate', '#7c5cc4', '平台经营费率'],
+    ].map(function (definition) {
+      const points = values.map(function (item, index) { return item[definition[0]] == null ? null : `${x(index).toFixed(1)},${y(item[definition[0]]).toFixed(1)}`; }).filter(Boolean);
+      const dots = values.map(function (item, index) {
+        if (item[definition[0]] == null) return '';
+        return `<circle cx="${x(index).toFixed(1)}" cy="${y(item[definition[0]]).toFixed(1)}" r="5" fill="#fff" stroke="${definition[1]}" stroke-width="3"><title>${escapeHtml(item.month)} ${definition[2]} ${analysisRatio(item[definition[0]])}</title></circle>`;
+      }).join('');
+      return `${points.length > 1 ? `<polyline points="${points.join(' ')}" fill="none" stroke="${definition[1]}" stroke-width="3"/>` : ''}${dots}`;
+    }).join('');
+    const labels = values.map(function (item, index) { return `<text x="${x(index).toFixed(1)}" y="${height - 24}" text-anchor="middle" fill="#687482" font-size="10">${escapeHtml(item.month)}</text>`; }).join('');
+    return `<div class="finance-analysis-legend"><span><i style="background:#e6862f"></i>推广费率</span><span><i style="background:#7c5cc4"></i>平台经营费率</span></div><div class="finance-chart-scroll"><svg class="finance-ratio-chart" viewBox="0 0 ${width} ${height}" style="min-width:${width}px" role="img" aria-label="推广费率与平台经营费率月度趋势">${grid}${series}${labels}</svg></div>`;
+  }
+
+  function renderAnalysisTable(items) {
+    const rows = [...items].reverse().map(function (item) {
+      const expenseStatus = item.promotion_spend == null ? '<span class="analysis-source-missing">推广待接入</span>' : (item.platform_operating_expense == null ? '<span class="analysis-source-missing">平台费待接入</span>' : '<span class="analysis-source-ready">来源完整</span>');
+      return `<tr><th><div>${escapeHtml(item.month)}</div>${coverageBadge(item)}</th><td class="num">${analysisValue(item, 'pay_amount', amount(item.pay_amount))}</td><td class="num">${analysisValue(item, 'refund_amount', amount(item.refund_amount))}<small>${analysisRatio(item.refund_amount_rate)}</small></td><td class="num strong">${analysisValue(item, 'observed_net_sales', amount(item.observed_net_sales))}</td><td class="num">${analysisValue(item, 'promotion_spend', amount(item.promotion_spend))}</td><td class="num ratio">${analysisValue(item, 'promotion_rate', analysisRatio(item.promotion_rate))}</td><td class="num ratio">${analysisValue(item, 'blended_net_mer', analysisMultiple(item.blended_net_mer))}</td><td class="num ratio">${analysisValue(item, 'platform_operating_rate', analysisRatio(item.platform_operating_rate))}</td><td>${expenseStatus}</td></tr>`;
+    }).join('');
+    return `<div class="finance-analysis-table-wrap"><table class="finance-analysis-table finance-efficiency-table"><thead><tr><th>月份 / 覆盖</th><th>支付金额</th><th>成功退款 / 金额率</th><th>观察净销售</th><th>推广消耗</th><th>推广费率</th><th>全店净 MER</th><th>平台经营费率</th><th>费用来源</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  }
+
+  function renderYearComparison(items) {
+    const complete = items.filter(function (item) { return item.sales_complete; });
+    const years = [...new Set(complete.map(function (item) { return item.month.slice(0, 4); }))];
+    if (years.length < 2) return '<div class="finance-analysis-empty">目前只有一个年份的可核验经营数据。同月份跨年视图会在第二年数据完整后自动出现，不使用未核验历史图片补线。</div>';
+    const byMonth = new Map(complete.map(function (item) { return [item.month, item]; }));
+    const header = years.map(function (year) { return `<th colspan="2">${escapeHtml(year)} 年</th>`; }).join('');
+    const sub = years.map(function () { return '<th>观察净销售</th><th>推广费率</th>'; }).join('');
+    const rows = Array.from({length: 12}, function (_, index) {
+      const suffix = String(index + 1).padStart(2, '0');
+      const cells = years.map(function (year) {
+        const item = byMonth.get(`${year}-${suffix}`);
+        return item ? `<td class="num">${amount(item.observed_net_sales)}</td><td class="num">${analysisRatio(item.promotion_rate)}</td>` : '<td class="num muted">—</td><td class="num muted">—</td>';
+      }).join('');
+      return `<tr><th>${index + 1} 月</th>${cells}</tr>`;
+    }).join('');
+    return `<div class="finance-analysis-table-wrap"><table class="finance-analysis-table"><thead><tr><th rowspan="2">同月份</th>${header}</tr><tr>${sub}</tr></thead><tbody>${rows}</tbody></table></div>`;
   }
 
   function showAnalysisSource(month, field) {
     const item = state.analysisItems.find(function (candidate) { return candidate.month === month; });
     if (!item) return;
-    const labels = {revenue: '去除退款后收入', operating_expense: '运营费用', ratio_percent: '运营费用率'};
-    const values = {revenue: amount(item.revenue), operating_expense: amount(item.operating_expense), ratio_percent: analysisRatio(item.ratio_percent)};
-    const currentSource = item.source_kind === 'monthly_report';
-    const sourceLink = currentSource && item.source_url ? `<a class="btn btn-outline-primary btn-sm" href="${escapeHtml(item.source_url)}">跳转到该月财务月报<i class="ti ti-arrow-right ms-1"></i></a>` : '';
-    const sourceMeta = currentSource
-      ? '数据没有在分析页另存；每次打开时实时读取对应财务月报。'
-      : `历史原始图片已存入项目：${escapeHtml(item.source_project_path || item.source_filename || '')}`;
-    dialog('finance-analysis-dialog', `${month} · ${labels[field] || '数据说明'}`, `<div class="finance-trace finance-trace-simple"><dl><dt>当前值</dt><dd><strong>${values[field] || '—'}</strong></dd><dt>计算方式</dt><dd>${field === 'ratio_percent' ? `${amount(item.operating_expense)} ÷ ${amount(item.revenue)} × 100% = ${analysisRatio(item.ratio_percent)}` : field === 'revenue' ? '取该月去除退款后的收入金额。' : '取该月按实际开票口径的运营费用。'}</dd><dt>来源</dt><dd>${escapeHtml(item.source_label || '')}</dd><dt>来源说明</dt><dd>${sourceMeta}</dd></dl>${sourceLink ? `<div class="finance-lineage-source">${sourceLink}</div>` : ''}</div>`);
+    const definitions = {
+      pay_amount: ['支付金额', amount(item.pay_amount), '生意参谋商品日报支付金额按自然日汇总。', item.sales_source],
+      refund_amount: ['成功退款金额', amount(item.refund_amount), '生意参谋商品日报成功退款金额按退款发生自然日汇总。', item.sales_source],
+      observed_net_sales: ['观察净销售额', amount(item.observed_net_sales), `${amount(item.pay_amount)} - ${amount(item.refund_amount)} = ${amount(item.observed_net_sales)}。不是订单队列最终退货率。`, item.sales_source],
+      promotion_spend: ['推广消耗', amount(item.promotion_spend), '推广扣款与付款减付款退回；账户充值不计消耗。', item.promotion_source],
+      promotion_rate: ['推广费率', analysisRatio(item.promotion_rate), `${amount(item.promotion_spend)} ÷ ${amount(item.observed_net_sales)} × 100% = ${analysisRatio(item.promotion_rate)}`, item.promotion_source],
+      blended_net_mer: ['全店净 MER', analysisMultiple(item.blended_net_mer), `${amount(item.observed_net_sales)} ÷ ${amount(item.promotion_spend)} = ${analysisMultiple(item.blended_net_mer)}。这是全店指标，不是广告归因 ROAS。`, item.promotion_source],
+      platform_operating_rate: ['平台经营费率', analysisRatio(item.platform_operating_rate), `（${amount(item.promotion_spend)} + ${amount(item.platform_fee)}）÷ ${amount(item.observed_net_sales)} × 100% = ${analysisRatio(item.platform_operating_rate)}`, item.platform_source],
+    };
+    const definition = definitions[field] || ['数据说明', '—', '', null];
+    const source = definition[3] || {};
+    const sourceLink = source.url ? `<a class="btn btn-outline-primary btn-sm" href="${escapeHtml(source.url)}">跳转到数据源<i class="ti ti-arrow-right ms-1"></i></a>` : '';
+    dialog('finance-analysis-dialog', `${month} · ${definition[0]}`, `<div class="finance-trace finance-trace-simple"><dl><dt>当前值</dt><dd><strong>${definition[1]}</strong></dd><dt>计算方式</dt><dd>${definition[2]}</dd><dt>来源</dt><dd>${escapeHtml(source.label || '来源待接入')}</dd><dt>数据覆盖</dt><dd>${Number(item.captured_days || 0)}/${Number(item.expected_days || 0)} 天；${item.coverage_status === 'complete' ? '可用于当前期间' : '不可用于趋势结论'}</dd></dl>${sourceLink ? `<div class="finance-lineage-source">${sourceLink}</div>` : ''}</div>`);
   }
 
   function renderOperatingAnalysis() {
     const items = state.analysisItems;
-    const years = [...new Set(items.map(function (item) { return item.month.slice(0, 4); }))];
-    const complete = items.filter(function (item) { return item.complete === true && item.ratio_percent != null; });
-    const latest = complete.at(-1);
-    const latest12 = complete.slice(-12);
-    const weightedRevenue = latest12.reduce(function (sum, item) { return sum + Number(item.revenue || 0); }, 0);
-    const weightedExpense = latest12.reduce(function (sum, item) { return sum + Number(item.operating_expense || 0); }, 0);
-    const weightedRatio = weightedRevenue ? weightedExpense / weightedRevenue * 100 : null;
-    const highest = complete.reduce(function (result, item) { return !result || Number(item.ratio_percent) > Number(result.ratio_percent) ? item : result; }, null);
-    const previousYear = latest ? items.find(function (item) { return item.month === `${Number(latest.month.slice(0, 4)) - 1}${latest.month.slice(4)}`; }) : null;
-    const latestDelta = latest?.ratio_percent != null && previousYear?.ratio_percent != null ? Number(latest.ratio_percent) - Number(previousYear.ratio_percent) : null;
+    const latest = items.filter(function (item) { return item.sales_complete; }).at(-1);
+    const comparable = state.analysisComparable || {};
+    const netChange = comparable.change_percent?.observed_net_sales;
+    const qualityIssues = items.filter(function (item) { return item.coverage_status !== 'complete'; });
+    const excluded = state.analysisExcluded[0];
     toolbar.innerHTML = '<a class="btn btn-outline-secondary btn-sm" href="/jun-pages/finance/"><i class="ti ti-arrow-left me-1"></i>返回月报</a><span class="finance-toolbar-spacer"></span><span class="finance-status">只读分析 · 自动引用</span>';
     content.innerHTML = `${reportTabs()}${reportAnalysisNav()}<div class="finance-analysis-page">
-      <header class="finance-report-title"><h1>运营费用率月度分析</h1><div>同月份跨年对齐；比例反映运营投入强度，不用双轴混合金额与比例</div></header>
+      <header class="finance-report-title"><h1>店铺运营效率</h1><div>经营口径取生意参谋，推广与平台费用取财务原始来源；账房结算收入不混入本页</div></header>
+      <div class="finance-analysis-notice"><strong>当前经营数据截至 ${escapeHtml(state.analysisFreshness?.latest_date || '待采集')}</strong><span>支付与退款按各自发生日统计；当月只和上月同天数比较。</span></div>
       <div class="finance-analysis-kpis">
-        <article><span>最新月份</span><strong>${latest ? analysisRatio(latest.ratio_percent) : '待补'}</strong><small>${latest ? escapeHtml(latest.month) : '暂无完整月份'}${latestDelta == null ? '' : ` · 同比 ${latestDelta > 0 ? '+' : ''}${latestDelta.toFixed(2)} 个百分点`}</small></article>
-        <article><span>最近 12 个月整体</span><strong>${analysisRatio(weightedRatio)}</strong><small>按合计费用 ÷ 合计收入加权，不取月占比平均</small></article>
-        <article><span>历史最高</span><strong>${highest ? analysisRatio(highest.ratio_percent) : '待补'}</strong><small>${highest ? escapeHtml(highest.month) : '暂无完整月份'}</small></article>
+        <article><span>支付金额</span><strong>${latest ? amount(latest.pay_amount) : '待补'}</strong><small>${latest ? `${escapeHtml(latest.month)} · ${Number(latest.captured_days)}/${Number(latest.expected_days)} 天` : '暂无完整期间'}</small></article>
+        <article><span>成功退款</span><strong>${latest ? amount(latest.refund_amount) : '待补'}</strong><small>${latest ? `同期间金额率 ${analysisRatio(latest.refund_amount_rate)}` : '不是最终退货率'}</small></article>
+        <article><span>观察净销售</span><strong>${latest ? amount(latest.observed_net_sales) : '待补'}</strong><small>${netChange == null ? '上月同天数不可比' : `较上月同天数 ${netChange >= 0 ? '+' : ''}${Number(netChange).toFixed(1)}%`}</small></article>
+        <article><span>推广效率</span><strong>${latest?.promotion_rate == null ? '推广待接入' : analysisRatio(latest.promotion_rate)}</strong><small>${latest?.blended_net_mer == null ? '接入万相台实际消耗后计算' : `全店净 MER ${analysisMultiple(latest.blended_net_mer)}`}</small></article>
       </div>
-      <section class="finance-analysis-card"><div class="finance-analysis-card-head"><div><h2>每月运营费用率</h2><p>横轴固定 1–12 月，不同年份用独立折线，直接比较同月份。</p></div></div>${renderRatioChart(items, years)}</section>
-      <section class="finance-analysis-card"><div class="finance-analysis-card-head"><div><h2>最近 12 个月金额对比</h2><p>收入和运营费用共用同一金额刻度，柱高可直接比较。</p></div></div>${renderAmountChart(items)}</section>
-      <section class="finance-analysis-card"><div class="finance-analysis-card-head"><div><h2>跨年同月明细</h2><p>点击任一金额或比例，可查看计算方式与唯一来源。</p></div></div>${renderAnalysisTable(items, years)}</section>
-      <section class="finance-analysis-method"><h2>口径与来源</h2><dl><dt>公式</dt><dd>${escapeHtml(state.analysisDefinition?.formula || '')}</dd><dt>收入</dt><dd>${escapeHtml(state.analysisDefinition?.revenue || '')}</dd><dt>运营费用</dt><dd>${escapeHtml(state.analysisDefinition?.operating_expense || '')}</dd><dt>来源规则</dt><dd>${escapeHtml(state.analysisDefinition?.source_rule || '')}</dd></dl></section>
+      ${qualityIssues.length ? `<div class="finance-analysis-warning"><strong>数据覆盖提醒</strong><span>${qualityIssues.map(function (item) { return `${escapeHtml(item.month)} ${Number(item.captured_days || 0)}/${Number(item.expected_days || 0)} 天`; }).join('；')}。这些月份保留展示，但不参与趋势结论。</span></div>` : ''}
+      <section class="finance-analysis-card"><div class="finance-analysis-card-head"><div><h2>支付、退款与观察净销售</h2><p>三项金额使用同一刻度；半透明柱表示缺日，避免把采集缺口误判为经营变化。</p></div></div>${renderSalesChart(items)}</section>
+      <section class="finance-analysis-card"><div class="finance-analysis-card-head"><div><h2>推广与平台费用效率</h2><p>两条线都使用百分比同轴；全店净 MER 在明细表展示，不和费率混用双轴。</p></div></div>${renderEfficiencyChart(items)}</section>
+      <section class="finance-analysis-card"><div class="finance-analysis-card-head"><div><h2>月度指标明细</h2><p>点击任一金额、费率或 MER，可查看公式和跳转到唯一数据源。</p></div></div>${renderAnalysisTable(items)}</section>
+      <section class="finance-analysis-card"><div class="finance-analysis-card-head"><div><h2>跨年同月份比较</h2><p>只使用来源与覆盖均可核验的月份。</p></div></div>${renderYearComparison(items)}</section>
+      ${excluded ? `<div class="finance-analysis-reference"><strong>未核验历史资料不参与计算</strong><span>${escapeHtml(excluded.label)}：${escapeHtml(excluded.reason)}</span></div>` : ''}
+      <section class="finance-analysis-method"><h2>口径与边界</h2><dl><dt>观察净销售</dt><dd>${escapeHtml(state.analysisDefinition?.observed_net_sales || '')}</dd><dt>推广效率</dt><dd>${escapeHtml(state.analysisDefinition?.blended_net_mer || '')}</dd><dt>平台经营费率</dt><dd>${escapeHtml(state.analysisDefinition?.platform_operating_rate || '')}</dd><dt>ROAS 边界</dt><dd>${escapeHtml(state.analysisDefinition?.attributed_roas || '')}</dd><dt>覆盖规则</dt><dd>${escapeHtml(state.analysisDefinition?.coverage_rule || '')}</dd><dt>来源规则</dt><dd>${escapeHtml(state.analysisDefinition?.source_rule || '')}</dd></dl></section>
     </div>`;
     content.querySelectorAll('[data-analysis-month]').forEach(function (button) {
       button.addEventListener('click', function () { showAnalysisSource(button.dataset.analysisMonth, button.dataset.analysisField); });
@@ -337,9 +355,12 @@
 
   async function loadOperatingAnalysis() {
     content.innerHTML = '<div class="finance-loading"><span class="spinner-border spinner-border-sm"></span>正在生成分析</div>';
-    const payload = await api('/api/finance/analysis/operating-expense-ratio');
+    const payload = await api('/api/finance/analysis/store-operating-efficiency');
     state.analysisItems = payload.items || [];
     state.analysisDefinition = payload.metric_definition || {};
+    state.analysisFreshness = payload.freshness || {};
+    state.analysisComparable = payload.comparable_periods || {};
+    state.analysisExcluded = payload.excluded_references || [];
     renderOperatingAnalysis();
   }
 

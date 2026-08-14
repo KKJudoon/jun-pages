@@ -164,11 +164,16 @@ button.finance-source-item { cursor: pointer; }
 .finance-analysis-link strong { font-size: 14px; }
 .finance-analysis-link small { margin-top: 2px; color: var(--finance-muted); font-size: 11px; }
 .finance-analysis-page { max-width: 1080px; margin: 0 auto; }
-.finance-analysis-kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
+.finance-analysis-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
 .finance-analysis-kpis article, .finance-analysis-card, .finance-analysis-method { border: 1px solid var(--finance-border); border-radius: 10px; background: #fff; box-shadow: 0 1px 3px rgba(15, 23, 42, .05); }
 .finance-analysis-kpis article { min-width: 0; padding: 15px 17px; }
 .finance-analysis-kpis span, .finance-analysis-kpis small { display: block; color: var(--finance-muted); font-size: 11px; }
 .finance-analysis-kpis strong { display: block; margin: 4px 0; color: #173b67; font-size: 25px; font-variant-numeric: tabular-nums; }
+.finance-analysis-notice, .finance-analysis-warning, .finance-analysis-reference { display: flex; gap: 8px 16px; align-items: baseline; margin-bottom: 14px; padding: 11px 14px; border-radius: 8px; font-size: 12px; line-height: 1.55; }
+.finance-analysis-notice { border: 1px solid #cfe0f3; background: #f3f8fe; color: #284b72; }
+.finance-analysis-warning { border: 1px solid #f1d59b; background: #fff8e8; color: #7a5210; }
+.finance-analysis-reference { border: 1px solid #d9dee6; background: #f7f8fa; color: #596574; }
+.finance-analysis-notice strong, .finance-analysis-warning strong, .finance-analysis-reference strong { flex: 0 0 auto; }
 .finance-analysis-card { margin-bottom: 16px; padding: 17px; overflow: hidden; }
 .finance-analysis-card-head { display: flex; gap: 16px; align-items: start; justify-content: space-between; margin-bottom: 8px; }
 .finance-analysis-card-head h2, .finance-analysis-method h2 { margin: 0; font-size: 16px; }
@@ -189,6 +194,15 @@ button.finance-source-item { cursor: pointer; }
 .finance-analysis-table .num { font-variant-numeric: tabular-nums; text-align: right; }
 .finance-analysis-table .muted { color: #a2aab3; text-align: center; }
 .finance-analysis-table .ratio { background: #fffaf3; }
+.finance-analysis-table .strong { color: #194f48; font-weight: 700; }
+.finance-analysis-table td small { display: block; margin-top: 2px; color: var(--finance-muted); font-size: 9px; }
+.finance-efficiency-table { min-width: 1180px; }
+.analysis-coverage { display: inline-flex; margin-top: 3px; padding: 2px 5px; border-radius: 4px; color: #587087; background: #edf4fa; font-size: 9px; font-weight: 500; }
+.analysis-coverage.partial { color: #8a5a0a; background: #fff0cf; }
+.analysis-coverage.missing { color: #9b3d3d; background: #fde8e8; }
+.analysis-source-ready, .analysis-source-missing { display: inline-flex; padding: 3px 6px; border-radius: 5px; font-size: 10px; }
+.analysis-source-ready { color: #237044; background: #e4f5eb; }
+.analysis-source-missing { color: #8a5a0a; background: #fff0cf; }
 .finance-analysis-value { padding: 0; border: 0; border-bottom: 1px dashed #9bb6d5; background: transparent; color: inherit; font: inherit; font-variant-numeric: inherit; white-space: nowrap; }
 .finance-analysis-value:hover, .finance-analysis-value:focus-visible { border-bottom-color: var(--finance-blue); color: var(--finance-blue); }
 .finance-analysis-method { margin-bottom: 20px; padding: 17px; }
@@ -377,6 +391,7 @@ th.company-payroll-name { z-index: 5 !important; background: #f6f8fb !important;
   .finance-analysis-method { padding: 14px; }
   .finance-analysis-method dl { grid-template-columns: 1fr; gap: 3px; }
   .finance-analysis-method dd { margin-bottom: 8px; }
+  .finance-analysis-notice, .finance-analysis-warning, .finance-analysis-reference { display: grid; gap: 3px; padding: 10px 12px; }
   .finance-report-title { margin-bottom: 14px; }
   .finance-report-title h1 { font-size: 20px; }
   .finance-report-kpis { grid-template-columns: 1fr; gap: 10px; margin-bottom: 14px; }
