@@ -281,10 +281,14 @@
 
   function renderAnalysisTable(items) {
     const rows = [...items].reverse().map(function (item) {
-      const expenseStatus = item.promotion_spend == null ? '<span class="analysis-source-missing">推广待接入</span>' : (item.platform_operating_expense == null ? '<span class="analysis-source-missing">平台费待接入</span>' : '<span class="analysis-source-ready">来源完整</span>');
+      const expenseStatus = item.promotion_spend == null
+        ? '<span class="analysis-source-missing">推广待接入</span>'
+        : (item.platform_operating_expense == null
+          ? '<span class="analysis-source-ready">推广已核验</span><small class="muted">平台费未接入</small>'
+          : '<span class="analysis-source-ready">来源完整</span>');
       return `<tr><th><div>${escapeHtml(item.month)}</div>${coverageBadge(item)}</th><td class="num">${analysisValue(item, 'pay_amount', amount(item.pay_amount))}</td><td class="num">${analysisValue(item, 'refund_amount', amount(item.refund_amount))}<small>${analysisRatio(item.refund_amount_rate)}</small></td><td class="num strong">${analysisValue(item, 'observed_net_sales', amount(item.observed_net_sales))}</td><td class="num">${analysisValue(item, 'promotion_spend', amount(item.promotion_spend))}</td><td class="num ratio">${analysisValue(item, 'promotion_rate', analysisRatio(item.promotion_rate))}</td><td class="num ratio">${analysisValue(item, 'blended_net_mer', analysisMultiple(item.blended_net_mer))}</td><td class="num ratio">${analysisValue(item, 'platform_operating_rate', analysisRatio(item.platform_operating_rate))}</td><td>${expenseStatus}</td></tr>`;
     }).join('');
-    return `<div class="finance-analysis-table-wrap"><table class="finance-analysis-table finance-efficiency-table"><thead><tr><th>月份 / 覆盖</th><th>支付金额</th><th>成功退款 / 金额率</th><th>观察净销售</th><th>推广消耗</th><th>推广费率</th><th>全店净 MER</th><th>平台经营费率</th><th>费用来源</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+    return `<div class="finance-analysis-table-wrap"><table class="finance-analysis-table finance-efficiency-table"><thead><tr><th>月份 / 覆盖</th><th>支付金额</th><th>成功退款 / 金额率</th><th>观察净销售</th><th>推广费用</th><th>推广费率</th><th>全店净 MER</th><th>平台经营费率</th><th>费用来源</th></tr></thead><tbody>${rows}</tbody></table></div>`;
   }
 
   function renderYearComparison(items) {
@@ -309,10 +313,10 @@
     const item = state.analysisItems.find(function (candidate) { return candidate.month === month; });
     if (!item) return;
     const definitions = {
-      pay_amount: ['支付金额', amount(item.pay_amount), '生意参谋商品日报支付金额按自然日汇总。', item.sales_source],
-      refund_amount: ['成功退款金额', amount(item.refund_amount), '生意参谋商品日报成功退款金额按退款发生自然日汇总。', item.sales_source],
+      pay_amount: ['支付金额', amount(item.pay_amount), `生意参谋支付金额，按${item.sales_source?.event_basis || '自然发生期间'}汇总。`, item.sales_source],
+      refund_amount: ['成功退款金额', amount(item.refund_amount), `生意参谋成功退款金额，按${item.sales_source?.event_basis || '退款发生期间'}汇总。`, item.sales_source],
       observed_net_sales: ['观察净销售额', amount(item.observed_net_sales), `${amount(item.pay_amount)} - ${amount(item.refund_amount)} = ${amount(item.observed_net_sales)}。不是订单队列最终退货率。`, item.sales_source],
-      promotion_spend: ['推广消耗', amount(item.promotion_spend), '推广扣款与付款减付款退回；账户充值不计消耗。', item.promotion_source],
+      promotion_spend: ['推广费用', amount(item.promotion_spend), item.promotion_source?.formula || '推广来源尚未接入。', item.promotion_source],
       promotion_rate: ['推广费率', analysisRatio(item.promotion_rate), `${amount(item.promotion_spend)} ÷ ${amount(item.observed_net_sales)} × 100% = ${analysisRatio(item.promotion_rate)}`, item.promotion_source],
       blended_net_mer: ['全店净 MER', analysisMultiple(item.blended_net_mer), `${amount(item.observed_net_sales)} ÷ ${amount(item.promotion_spend)} = ${analysisMultiple(item.blended_net_mer)}。这是全店指标，不是广告归因 ROAS。`, item.promotion_source],
       platform_operating_rate: ['平台经营费率', analysisRatio(item.platform_operating_rate), `（${amount(item.promotion_spend)} + ${amount(item.platform_fee)}）÷ ${amount(item.observed_net_sales)} × 100% = ${analysisRatio(item.platform_operating_rate)}`, item.platform_source],
@@ -320,7 +324,10 @@
     const definition = definitions[field] || ['数据说明', '—', '', null];
     const source = definition[3] || {};
     const sourceLink = source.url ? `<a class="btn btn-outline-primary btn-sm" href="${escapeHtml(source.url)}">跳转到数据源<i class="ti ti-arrow-right ms-1"></i></a>` : '';
-    dialog('finance-analysis-dialog', `${month} · ${definition[0]}`, `<div class="finance-trace finance-trace-simple"><dl><dt>当前值</dt><dd><strong>${definition[1]}</strong></dd><dt>计算方式</dt><dd>${definition[2]}</dd><dt>来源</dt><dd>${escapeHtml(source.label || '来源待接入')}</dd><dt>数据覆盖</dt><dd>${Number(item.captured_days || 0)}/${Number(item.expected_days || 0)} 天；${item.coverage_status === 'complete' ? '可用于当前期间' : '不可用于趋势结论'}</dd></dl>${sourceLink ? `<div class="finance-lineage-source">${sourceLink}</div>` : ''}</div>`);
+    const sourceFile = source.filename || source.batch?.file_name || '';
+    const sourcePath = source.project_path || '';
+    const sourceHash = source.sha256 || source.batch?.file_sha256 || '';
+    dialog('finance-analysis-dialog', `${month} · ${definition[0]}`, `<div class="finance-trace finance-trace-simple"><dl><dt>当前值</dt><dd><strong>${definition[1]}</strong></dd><dt>计算方式</dt><dd>${definition[2]}</dd><dt>来源</dt><dd>${escapeHtml(source.label || '来源待接入')}</dd>${sourceFile ? `<dt>原始文件</dt><dd>${escapeHtml(sourceFile)}</dd>` : ''}${sourcePath ? `<dt>项目位置</dt><dd><code>${escapeHtml(sourcePath)}</code></dd>` : ''}${sourceHash ? `<dt>文件校验</dt><dd><code>${escapeHtml(String(sourceHash).slice(0, 16))}…</code></dd>` : ''}<dt>数据覆盖</dt><dd>${Number(item.captured_days || 0)}/${Number(item.expected_days || 0)} 天；${item.coverage_status === 'complete' ? '可用于当前期间' : '不可用于趋势结论'}</dd></dl>${sourceLink ? `<div class="finance-lineage-source">${sourceLink}</div>` : ''}</div>`);
   }
 
   function renderOperatingAnalysis() {
@@ -332,7 +339,7 @@
     const excluded = state.analysisExcluded[0];
     toolbar.innerHTML = '<a class="btn btn-outline-secondary btn-sm" href="/jun-pages/finance/"><i class="ti ti-arrow-left me-1"></i>返回月报</a><span class="finance-toolbar-spacer"></span><span class="finance-status">只读分析 · 自动引用</span>';
     content.innerHTML = `${reportTabs()}${reportAnalysisNav()}<div class="finance-analysis-page">
-      <header class="finance-report-title"><h1>店铺运营效率</h1><div>经营口径取生意参谋，推广与平台费用取财务原始来源；账房结算收入不混入本页</div></header>
+      <header class="finance-report-title"><h1>店铺运营效率</h1><div>经营口径取生意参谋；推广取阿里妈妈月度账单，平台费用取淘宝账房；账房结算收入不混入本页</div></header>
       <div class="finance-analysis-notice"><strong>当前经营数据截至 ${escapeHtml(state.analysisFreshness?.latest_date || '待采集')}</strong><span>支付与退款按各自发生日统计；当月只和上月同天数比较。</span></div>
       <div class="finance-analysis-kpis">
         <article><span>支付金额</span><strong>${latest ? amount(latest.pay_amount) : '待补'}</strong><small>${latest ? `${escapeHtml(latest.month)} · ${Number(latest.captured_days)}/${Number(latest.expected_days)} 天` : '暂无完整期间'}</small></article>
