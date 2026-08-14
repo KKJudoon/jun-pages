@@ -253,25 +253,48 @@
     return `<td class="finance-analysis-comparison-cell ${type === 'ratio' || type === 'multiple' ? 'ratio' : ''}"><div class="analysis-year-value current"><span>${escapeHtml(current?.month?.slice(0, 4) || '今年')}</span>${currentDisplay}</div><div class="analysis-year-value previous"><span>${escapeHtml(previous?.month?.slice(0, 4) || '去年')}</span>${previousDisplay}</div>${comparison}</td>`;
   }
 
-  function chartChange(current, previous, suffix) {
-    const currentValue = numeric(current);
-    const previousValue = numeric(previous);
-    if (currentValue == null || previousValue == null) return '—';
-    const change = suffix === '个百分点'
-      ? currentValue - previousValue
-      : (previousValue === 0 ? null : (currentValue - previousValue) / Math.abs(previousValue) * 100);
-    if (change == null) return '基期为 0';
-    return `${change > 0 ? '+' : change < 0 ? '−' : ''}${Math.abs(change).toFixed(suffix === '个百分点' ? 2 : 1)}${suffix}`;
+  function compactChartAmount(value) {
+    const number = numeric(value);
+    if (number == null) return '待补';
+    if (Math.abs(number) >= 10000) return `${(number / 10000).toFixed(Math.abs(number) >= 100000 ? 1 : 2)}万`;
+    return integer.format(number);
   }
 
-  function comparisonChartYear(item, year, maxNet, current) {
-    if (!item) return `<div class="analysis-chart-year missing"><strong>${escapeHtml(year)}</strong><span>待有数据</span></div>`;
-    const net = Math.max(0, Number(item.observed_net_sales || 0));
-    const promotion = Math.max(0, Number(item.promotion_spend || 0));
-    const netWidth = maxNet > 0 ? Math.max(net > 0 ? 2 : 0, Math.min(100, net / maxNet * 100)) : 0;
-    const promotionWidth = net > 0 ? Math.max(promotion > 0 ? 2 : 0, Math.min(100, promotion / net * 100)) : 0;
-    const incomplete = current && !item.sales_complete;
-    return `<div class="analysis-chart-year ${current ? 'current' : 'previous'} ${incomplete ? 'partial' : ''}"><div class="analysis-chart-year-head"><strong>${escapeHtml(year)}</strong><span>${incomplete ? `截至 ${Number(item.captured_days || 0)} 天` : analysisRatio(item.promotion_rate)}</span></div><div class="analysis-chart-track" aria-label="${escapeHtml(item.month)} 观察净销售 ${amount(item.observed_net_sales)}，推广费用 ${amount(item.promotion_spend)}，推广占比 ${analysisRatio(item.promotion_rate)}"><span class="analysis-chart-net" style="--net-width:${netWidth.toFixed(2)}%"><span class="analysis-chart-promotion" style="--promotion-width:${promotionWidth.toFixed(2)}%"></span></span></div><div class="analysis-chart-values"><span>净 ${analysisValue(item, 'observed_net_sales', amount(item.observed_net_sales))}</span><span>推广 ${analysisValue(item, 'promotion_spend', amount(item.promotion_spend))}</span><span>占比 ${analysisValue(item, 'promotion_rate', analysisRatio(item.promotion_rate))}</span></div></div>`;
+  function chartCeiling(values) {
+    const maximum = Math.max.apply(null, values.map(function (value) { return Math.max(0, Number(value || 0)); }).concat([1]));
+    const magnitude = 10 ** Math.floor(Math.log10(maximum));
+    const scaled = maximum / magnitude;
+    return (scaled <= 2 ? 2 : scaled <= 5 ? 5 : 10) * magnitude;
+  }
+
+  function chartGrid(maximum, top, bottom, side, formatter) {
+    return [0, .25, .5, .75, 1].map(function (ratio) {
+      const y = bottom - (bottom - top) * ratio;
+      const label = formatter(maximum * ratio);
+      return `${side === 'right' ? '' : `<line class="finance-combo-grid" x1="66" y1="${y}" x2="946" y2="${y}"></line>`}<text class="finance-combo-axis-label ${side}" x="${side === 'right' ? 958 : 57}" y="${y + 4}" text-anchor="${side === 'right' ? 'start' : 'end'}">${escapeHtml(label)}</text>`;
+    }).join('');
+  }
+
+  function comparisonBar(item, field, x, width, bottom, top, maximum, className, labelClass, patternId) {
+    if (!item || numeric(item[field]) == null) return '';
+    const value = Math.max(0, Number(item[field]));
+    const height = maximum > 0 ? (bottom - top) * value / maximum : 0;
+    const y = bottom - height;
+    const partial = !item.sales_complete ? ' partial' : '';
+    const promotion = field === 'promotion_spend';
+    const labelY = promotion ? Math.min(bottom - 4, y + 13) : Math.max(top + 10, y - 6);
+    return `<g class="finance-combo-interactive" data-analysis-month="${escapeHtml(item.month)}" data-analysis-field="${escapeHtml(field)}" role="button" tabindex="0"><title>${escapeHtml(item.month)} ${field === 'observed_net_sales' ? '观察净销售' : '推广费用'} ${amount(value)}</title><rect class="finance-combo-bar ${className}${partial}"${partial ? ` style="fill:url(#${escapeHtml(patternId)})"` : ''} x="${x}" y="${y}" width="${width}" height="${Math.max(1, height)}" rx="3"></rect><text class="finance-combo-value ${promotion ? 'promotion ' : ''}${labelClass}" x="${x + width / 2}" y="${labelY}" text-anchor="middle">${escapeHtml(compactChartAmount(value))}</text></g>`;
+  }
+
+  function comparisonRateSeries(points, current) {
+    const valid = points.filter(function (point) { return point.value != null; });
+    if (!valid.length) return '';
+    const path = valid.map(function (point, index) { return `${index ? 'L' : 'M'} ${point.x} ${point.y}`; }).join(' ');
+    const dots = valid.map(function (point) {
+      const labelY = current ? point.y - 9 : point.y + 17;
+      return `<g class="finance-combo-interactive" data-analysis-month="${escapeHtml(point.item.month)}" data-analysis-field="promotion_rate" role="button" tabindex="0"><title>${escapeHtml(point.item.month)} 推广占比 ${analysisRatio(point.value)}</title><circle class="finance-combo-dot ${current ? 'current' : 'previous'}" cx="${point.x}" cy="${point.y}" r="4"></circle><text class="finance-combo-rate-label ${current ? 'current' : 'previous'}" x="${point.x}" y="${labelY}" text-anchor="middle">${escapeHtml(analysisRatio(point.value))}</text></g>`;
+    }).join('');
+    return `<path class="finance-combo-line ${current ? 'current' : 'previous'}" d="${path}"></path>${dots}`;
   }
 
   function renderYearComparisonChart(items) {
@@ -282,18 +305,51 @@
     const byMonth = new Map(items.map(function (item) { return [item.month, item]; }));
     const months = Array.from({length: 12}, function (_, index) { return String(index + 1).padStart(2, '0'); })
       .filter(function (suffix) { return byMonth.has(`${currentYear}-${suffix}`); });
-    const comparedItems = months.flatMap(function (suffix) { return [byMonth.get(`${currentYear}-${suffix}`), byMonth.get(`${previousYear}-${suffix}`)]; }).filter(Boolean);
-    const maxNet = Math.max.apply(null, comparedItems.map(function (item) { return Number(item.observed_net_sales || 0); }).concat([1]));
-    const cards = months.map(function (suffix) {
-      const current = byMonth.get(`${currentYear}-${suffix}`);
-      const previous = byMonth.get(`${previousYear}-${suffix}`);
-      const comparable = current && previous && current.sales_complete && previous.sales_complete;
-      const footer = comparable
-        ? `<span>净销售 ${chartChange(current.observed_net_sales, previous.observed_net_sales, '%')}</span><span>推广费 ${chartChange(current.promotion_spend, previous.promotion_spend, '%')}</span><span>占比差 ${chartChange(current.promotion_rate, previous.promotion_rate, '个百分点')}</span>`
-        : '<span>今年期间未完整，暂不计算同比</span>';
-      return `<article class="analysis-month-chart"><header><strong>${Number(suffix)} 月</strong>${current ? coverageBadge(current) : ''}</header>${comparisonChartYear(current, currentYear, maxNet, true)}${comparisonChartYear(previous, previousYear, maxNet, false)}<footer>${footer}</footer></article>`;
+    const pairs = months.map(function (suffix) { return {suffix: suffix, current: byMonth.get(`${currentYear}-${suffix}`), previous: byMonth.get(`${previousYear}-${suffix}`)}; });
+    const comparedItems = pairs.flatMap(function (pair) { return [pair.current, pair.previous]; }).filter(Boolean);
+    const netMaximum = chartCeiling(comparedItems.map(function (item) { return item.observed_net_sales; }));
+    const promotionMaximum = chartCeiling(comparedItems.map(function (item) { return item.promotion_spend; }));
+    const rateMaximum = Math.max(10, Math.ceil(Math.max.apply(null, comparedItems.map(function (item) { return Number(item.promotion_rate || 0); }).concat([1])) / 5) * 5);
+    function buildSvg(displayPairs, suffix, className) {
+      const width = 1000;
+      const left = 66;
+      const right = 54;
+      const plotWidth = width - left - right;
+      const step = plotWidth / Math.max(1, displayPairs.length);
+      const barWidth = Math.min(displayPairs.length <= 4 ? 52 : 38, step * .25);
+      const mobile = className === 'mobile';
+      const netTop = 48;
+      const netBottom = mobile ? 238 : 222;
+      const promotionTitleY = mobile ? 314 : 278;
+      const promotionTop = mobile ? 342 : 304;
+      const promotionBottom = mobile ? 590 : 474;
+      const monthY = mobile ? 628 : 506;
+      const viewHeight = mobile ? 648 : 525;
+      const patternId = `finance-partial-bar-${suffix}`;
+      const netBars = [];
+      const promotionBars = [];
+      const currentRates = [];
+      const previousRates = [];
+      const monthLabels = [];
+      displayPairs.forEach(function (pair, index) {
+        const center = left + step * (index + .5);
+        netBars.push(comparisonBar(pair.previous, 'observed_net_sales', center - barWidth - 3, barWidth, netBottom, netTop, netMaximum, 'net previous', 'previous', patternId));
+        netBars.push(comparisonBar(pair.current, 'observed_net_sales', center + 3, barWidth, netBottom, netTop, netMaximum, 'net current', 'current', patternId));
+        promotionBars.push(comparisonBar(pair.previous, 'promotion_spend', center - barWidth - 3, barWidth, promotionBottom, promotionTop, promotionMaximum, 'promotion previous', 'previous', patternId));
+        promotionBars.push(comparisonBar(pair.current, 'promotion_spend', center + 3, barWidth, promotionBottom, promotionTop, promotionMaximum, 'promotion current', 'current', patternId));
+        const currentRate = numeric(pair.current?.promotion_rate);
+        const previousRate = numeric(pair.previous?.promotion_rate);
+        currentRates.push({item: pair.current, value: currentRate, x: center - 7, y: currentRate == null ? null : promotionBottom - (promotionBottom - promotionTop) * currentRate / rateMaximum});
+        previousRates.push({item: pair.previous, value: previousRate, x: center + 7, y: previousRate == null ? null : promotionBottom - (promotionBottom - promotionTop) * previousRate / rateMaximum});
+        monthLabels.push(`<text class="finance-combo-month" x="${center}" y="${monthY}" text-anchor="middle">${Number(pair.suffix)}月</text>`);
+      });
+      return `<svg class="finance-combo-chart ${className}" viewBox="0 0 1000 ${viewHeight}" role="img" aria-labelledby="finance-combo-title-${suffix} finance-combo-desc-${suffix}"><title id="finance-combo-title-${suffix}">${escapeHtml(currentYear)} 与 ${escapeHtml(previousYear)} 同月份经营对比</title><desc id="finance-combo-desc-${suffix}">上图并列柱比较观察净销售绝对值；下图并列柱比较推广费用，折线比较推广费用占净销售比例。</desc><defs><pattern id="${patternId}" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(35)"><rect width="8" height="8" fill="#7ca4ca"></rect><rect width="3" height="8" fill="#c7daeb"></rect></pattern></defs><text class="finance-combo-panel-title" x="66" y="25">观察净销售 · 绝对值</text>${chartGrid(netMaximum, netTop, netBottom, 'left', compactChartAmount)}${netBars.join('')}<text class="finance-combo-panel-title" x="66" y="${promotionTitleY}">推广费用 · 绝对值</text><text class="finance-combo-panel-title right" x="946" y="${promotionTitleY}" text-anchor="end">推广占比 · 折线</text>${chartGrid(promotionMaximum, promotionTop, promotionBottom, 'left', compactChartAmount)}${chartGrid(rateMaximum, promotionTop, promotionBottom, 'right', function (value) { return `${value.toFixed(0)}%`; })}${promotionBars.join('')}${comparisonRateSeries(previousRates, false)}${comparisonRateSeries(currentRates, true)}${monthLabels.join('')}</svg>`;
+    }
+    const desktopSvg = buildSvg(pairs, 'all', 'desktop');
+    const mobileParts = [pairs.slice(0, 4), pairs.slice(4, 8)].filter(function (group) { return group.length; }).map(function (group, index) {
+      return `<section class="finance-combo-mobile-part"><strong>${Number(group[0].suffix)}–${Number(group.at(-1).suffix)} 月</strong>${buildSvg(group, `mobile-${index}`, 'mobile')}</section>`;
     }).join('');
-    return `<div class="finance-analysis-chart-legend"><span><i class="net current"></i>${escapeHtml(currentYear)} 净销售</span><span><i class="net previous"></i>${escapeHtml(previousYear)} 净销售</span><span><i class="promotion"></i>推广费用</span><span>推广占比 = 推广费用 ÷ 净销售</span></div><div class="finance-year-comparison-chart">${cards}</div>`;
+    return `<div class="finance-combo-legend"><span><i class="bar net previous"></i>${escapeHtml(previousYear)} 净销售</span><span><i class="bar net current"></i>${escapeHtml(currentYear)} 净销售</span><span><i class="bar promotion previous"></i>${escapeHtml(previousYear)} 推广费</span><span><i class="bar promotion current"></i>${escapeHtml(currentYear)} 推广费</span><span><i class="line previous"></i>${escapeHtml(previousYear)} 推广占比</span><span><i class="line current"></i>${escapeHtml(currentYear)} 推广占比</span></div><div class="finance-combo-chart-shell">${desktopSvg}<div class="finance-combo-mobile-charts">${mobileParts}</div></div><p class="finance-combo-note">柱顶为绝对金额（万元简写）；折线标注推广占比。点击任一柱或折线点，可查看精确金额、公式和来源。</p>`;
   }
 
   function renderYearComparisonTable(items) {
@@ -351,13 +407,15 @@
         <article><span>推广费率</span><strong>${latest?.promotion_rate == null ? '推广待接入' : analysisRatio(latest.promotion_rate)}</strong><small>${latest?.blended_net_mer == null ? '推广账单待接入' : `投入产出倍数 ${analysisMultiple(latest.blended_net_mer)}`}</small></article>
       </div>
       ${qualityIssues.length ? `<div class="finance-analysis-warning"><strong>数据覆盖提醒</strong><span>${qualityIssues.map(function (item) { return `${escapeHtml(item.month)} ${Number(item.captured_days || 0)}/${Number(item.expected_days || 0)} 天`; }).join('；')}。这些月份保留展示，但不参与趋势结论。</span></div>` : ''}
-      <section class="finance-analysis-card"><div class="finance-analysis-card-head"><div><h2>同月份经营对比图</h2><p>每个月内直接比较 ${escapeHtml(items.at(-1)?.month?.slice(0, 4) || '今年')} 与上一年；蓝色为净销售，橙色覆盖段为推广费用，右侧数字为推广占比。</p></div></div>${renderYearComparisonChart(items)}</section>
+      <section class="finance-analysis-card"><div class="finance-analysis-card-head"><div><h2>同月份经营对比图</h2><p>共享月份横轴：上图比较净销售绝对值，下图同时比较推广费用绝对值和推广占比走势。</p></div></div>${renderYearComparisonChart(items)}</section>
       <details class="finance-analysis-card finance-analysis-table-details"><summary><span><strong>查看精确数据表</strong><small>金额、差额、同比和完整计算说明</small></span><i class="ti ti-chevron-down"></i></summary>${renderYearComparisonTable(items)}</details>
       ${excluded ? `<div class="finance-analysis-reference"><strong>未核验历史资料不参与计算</strong><span>${escapeHtml(excluded.label)}：${escapeHtml(excluded.reason)}</span></div>` : ''}
       <section class="finance-analysis-method"><h2>口径与边界</h2><dl><dt>观察净销售</dt><dd>${escapeHtml(state.analysisDefinition?.observed_net_sales || '')}</dd><dt>推广投入产出倍数</dt><dd>观察净销售 ÷ 推广费用。行业中也常称 MER，表示每投入 1 元推广费带来的全店观察净销售额；数值越高越好。</dd><dt>同比差距</dt><dd>绝对差 = 今年 − 去年；同比百分比 =（今年 − 去年）÷ 去年绝对值 × 100%。费率还会额外显示相差多少个百分点。</dd><dt>ROAS 边界</dt><dd>${escapeHtml(state.analysisDefinition?.attributed_roas || '')}</dd><dt>覆盖规则</dt><dd>${escapeHtml(state.analysisDefinition?.coverage_rule || '')}</dd><dt>来源规则</dt><dd>${escapeHtml(state.analysisDefinition?.source_rule || '')}</dd></dl></section>
     </div>`;
-    content.querySelectorAll('[data-analysis-month]').forEach(function (button) {
-      button.addEventListener('click', function () { showAnalysisSource(button.dataset.analysisMonth, button.dataset.analysisField); });
+    content.querySelectorAll('[data-analysis-month]').forEach(function (target) {
+      const openSource = function () { showAnalysisSource(target.dataset.analysisMonth, target.dataset.analysisField); };
+      target.addEventListener('click', openSource);
+      if (target.tagName !== 'BUTTON') target.addEventListener('keydown', function (event) { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openSource(); } });
     });
   }
 
