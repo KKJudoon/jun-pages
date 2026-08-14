@@ -172,8 +172,8 @@
     return `<section class="finance-analysis-region" aria-labelledby="finance-analysis-title">
       <div class="finance-analysis-region-head"><div><span class="finance-analysis-eyebrow">月报子页面</span><h2 id="finance-analysis-title">经营分析</h2></div><span>经营与结算口径分开</span></div>
       <a class="finance-analysis-link ${active ? 'active' : ''}" href="/jun-pages/finance/analysis/operating-expense/">
-        <span class="finance-analysis-link-icon"><i class="ti ti-chart-line"></i></span>
-        <span><strong>店铺运营效率</strong><small>支付、退款、推广费率、全店净 MER 与平台经营费率</small></span>
+        <span class="finance-analysis-link-icon"><i class="ti ti-table"></i></span>
+        <span><strong>店铺运营效率</strong><small>按同月份紧邻比较支付、退款与推广投入产出</small></span>
         <i class="ti ti-chevron-right"></i>
       </a>
     </section>`;
@@ -210,103 +210,63 @@
     return `<span class="analysis-coverage ${escapeHtml(item.coverage_status || 'missing')}">${labels[item.coverage_status] || '待核对'} · ${Number(item.captured_days || 0)}/${Number(item.expected_days || 0)} 天</span>`;
   }
 
-  function renderSalesChart(items) {
-    const values = items.filter(function (item) { return item.pay_amount != null; }).slice(-12);
-    if (!values.length) return '<div class="finance-analysis-empty">暂无生意参谋经营数据</div>';
-    const width = Math.max(900, values.length * 118 + 90);
-    const height = 360;
-    const left = 66;
-    const top = 28;
-    const baseline = 292;
-    const maxValue = Math.max.apply(null, values.map(function (item) { return Number(item.pay_amount || 0); }).concat([1]));
-    const groupWidth = (width - left - 20) / values.length;
-    const barWidth = Math.min(23, groupWidth * .22);
-    const y = function (value) { return baseline - Number(value || 0) / maxValue * (baseline - top); };
-    const grid = Array.from({length: 5}, function (_, index) {
-      const value = maxValue * index / 4;
-      const pos = y(value);
-      return `<line x1="${left}" y1="${pos.toFixed(1)}" x2="${width - 20}" y2="${pos.toFixed(1)}" stroke="#edf0f3"/><text x="${left - 8}" y="${(pos + 4).toFixed(1)}" text-anchor="end" fill="#7b8794" font-size="10">${(value / 10000).toFixed(1)}万</text>`;
-    }).join('');
-    const bars = values.map(function (item, index) {
-      const center = left + groupWidth * (index + .5);
-      const opacity = item.coverage_status === 'complete' ? 1 : .42;
-      const columns = [
-        ['pay_amount', '#3b82c4', -barWidth - 3, '支付金额'],
-        ['refund_amount', '#e46b61', 0, '成功退款'],
-        ['observed_net_sales', '#285f56', barWidth + 3, '观察净销售'],
-      ].map(function (definition) {
-        const value = Number(item[definition[0]] || 0);
-        const pos = y(value);
-        return `<rect x="${(center + definition[2]).toFixed(1)}" y="${pos.toFixed(1)}" width="${barWidth.toFixed(1)}" height="${Math.max(1, baseline - pos).toFixed(1)}" rx="3" fill="${definition[1]}" opacity="${opacity}"><title>${escapeHtml(item.month)} ${definition[3]} ${amount(value)}</title></rect>`;
-      }).join('');
-      return `${columns}<text x="${center.toFixed(1)}" y="324" text-anchor="middle" fill="#687482" font-size="10">${escapeHtml(item.month)}</text>${item.coverage_status === 'complete' ? '' : `<text x="${center.toFixed(1)}" y="342" text-anchor="middle" fill="#b45309" font-size="9">缺日</text>`}`;
-    }).join('');
-    return `<div class="finance-analysis-legend"><span><i style="background:#3b82c4"></i>支付金额</span><span><i style="background:#e46b61"></i>成功退款</span><span><i style="background:#285f56"></i>观察净销售</span><span class="muted">半透明月份不参与趋势判断</span></div><div class="finance-chart-scroll"><svg class="finance-amount-chart" viewBox="0 0 ${width} ${height}" style="min-width:${width}px" role="img" aria-label="支付金额、成功退款与观察净销售额月度金额图">${grid}${bars}</svg></div>`;
+  function analysisDisplay(value, type) {
+    if (type === 'ratio') return analysisRatio(value);
+    if (type === 'multiple') return analysisMultiple(value);
+    return value == null ? '待补' : amount(value);
   }
 
-  function renderEfficiencyChart(items) {
-    const values = items.filter(function (item) { return item.promotion_rate != null || item.platform_operating_rate != null; });
-    if (!values.length) return '<div class="finance-analysis-empty">推广与平台费用原始来源尚未形成可比月份；页面不会用估算值补线。</div>';
-    const width = Math.max(820, values.length * 120 + 100);
-    const height = 330;
-    const left = 64;
-    const right = 24;
-    const top = 30;
-    const bottom = 62;
-    const plotHeight = height - top - bottom;
-    const plotWidth = width - left - right;
-    const maxRate = Math.max.apply(null, values.flatMap(function (item) { return [Number(item.promotion_rate || 0), Number(item.platform_operating_rate || 0)]; }).concat([10]));
-    const axisMax = Math.ceil((maxRate + 3) / 5) * 5;
-    const x = function (index) { return left + plotWidth * (index + .5) / values.length; };
-    const y = function (value) { return top + plotHeight - Number(value) / axisMax * plotHeight; };
-    const grid = Array.from({length: 6}, function (_, index) {
-      const value = axisMax * index / 5;
-      const pos = y(value);
-      return `<line x1="${left}" y1="${pos.toFixed(1)}" x2="${width - right}" y2="${pos.toFixed(1)}" stroke="#edf0f3"/><text x="${left - 8}" y="${(pos + 4).toFixed(1)}" text-anchor="end" fill="#7b8794" font-size="10">${value.toFixed(0)}%</text>`;
-    }).join('');
-    const series = [
-      ['promotion_rate', '#e6862f', '推广费率'],
-      ['platform_operating_rate', '#7c5cc4', '平台经营费率'],
-    ].map(function (definition) {
-      const points = values.map(function (item, index) { return item[definition[0]] == null ? null : `${x(index).toFixed(1)},${y(item[definition[0]]).toFixed(1)}`; }).filter(Boolean);
-      const dots = values.map(function (item, index) {
-        if (item[definition[0]] == null) return '';
-        return `<circle cx="${x(index).toFixed(1)}" cy="${y(item[definition[0]]).toFixed(1)}" r="5" fill="#fff" stroke="${definition[1]}" stroke-width="3"><title>${escapeHtml(item.month)} ${definition[2]} ${analysisRatio(item[definition[0]])}</title></circle>`;
-      }).join('');
-      return `${points.length > 1 ? `<polyline points="${points.join(' ')}" fill="none" stroke="${definition[1]}" stroke-width="3"/>` : ''}${dots}`;
-    }).join('');
-    const labels = values.map(function (item, index) { return `<text x="${x(index).toFixed(1)}" y="${height - 24}" text-anchor="middle" fill="#687482" font-size="10">${escapeHtml(item.month)}</text>`; }).join('');
-    return `<div class="finance-analysis-legend"><span><i style="background:#e6862f"></i>推广费率</span><span><i style="background:#7c5cc4"></i>平台经营费率</span></div><div class="finance-chart-scroll"><svg class="finance-ratio-chart" viewBox="0 0 ${width} ${height}" style="min-width:${width}px" role="img" aria-label="推广费率与平台经营费率月度趋势">${grid}${series}${labels}</svg></div>`;
+  function analysisDifference(current, previous, type, favorableDirection) {
+    const currentValue = numeric(current);
+    const previousValue = numeric(previous);
+    if (currentValue == null || previousValue == null) return '<span class="analysis-delta unavailable">暂无可比数据</span>';
+    const difference = currentValue - previousValue;
+    const relative = previousValue === 0 ? null : difference / Math.abs(previousValue) * 100;
+    const sign = difference > 0 ? '+' : difference < 0 ? '−' : '';
+    const absolute = type === 'ratio'
+      ? `${sign}${Math.abs(difference).toFixed(2)} 个百分点`
+      : type === 'multiple'
+        ? `${sign}${Math.abs(difference).toFixed(2)}×`
+        : `${sign}${amount(Math.abs(difference))}`;
+    const relativeText = relative == null ? '基期为 0' : `${relative > 0 ? '+' : relative < 0 ? '−' : ''}${Math.abs(relative).toFixed(1)}%`;
+    const tone = difference === 0
+      ? 'flat'
+      : favorableDirection === 'neutral'
+        ? 'change'
+        : ((difference > 0) === (favorableDirection === 'up') ? 'good' : 'bad');
+    return `<span class="analysis-delta ${tone}"><strong>差 ${absolute}</strong><small>同比 ${relativeText}</small></span>`;
   }
 
-  function renderAnalysisTable(items) {
-    const rows = [...items].reverse().map(function (item) {
-      const expenseStatus = item.promotion_spend == null
-        ? '<span class="analysis-source-missing">推广待接入</span>'
-        : (item.platform_operating_expense == null
-          ? '<span class="analysis-source-ready">推广已核验</span><small class="muted">平台费未接入</small>'
-          : '<span class="analysis-source-ready">来源完整</span>');
-      return `<tr><th><div>${escapeHtml(item.month)}</div>${coverageBadge(item)}</th><td class="num">${analysisValue(item, 'pay_amount', amount(item.pay_amount))}</td><td class="num">${analysisValue(item, 'refund_amount', amount(item.refund_amount))}<small>${analysisRatio(item.refund_amount_rate)}</small></td><td class="num strong">${analysisValue(item, 'observed_net_sales', amount(item.observed_net_sales))}</td><td class="num">${analysisValue(item, 'promotion_spend', amount(item.promotion_spend))}</td><td class="num ratio">${analysisValue(item, 'promotion_rate', analysisRatio(item.promotion_rate))}</td><td class="num ratio">${analysisValue(item, 'blended_net_mer', analysisMultiple(item.blended_net_mer))}</td><td class="num ratio">${analysisValue(item, 'platform_operating_rate', analysisRatio(item.platform_operating_rate))}</td><td>${expenseStatus}</td></tr>`;
-    }).join('');
-    return `<div class="finance-analysis-table-wrap"><table class="finance-analysis-table finance-efficiency-table"><thead><tr><th>月份 / 覆盖</th><th>支付金额</th><th>成功退款 / 金额率</th><th>观察净销售</th><th>推广费用</th><th>推广费率</th><th>全店净 MER</th><th>平台经营费率</th><th>费用来源</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  function comparisonMetricCell(current, previous, field, type, favorableDirection) {
+    const currentValue = current?.[field];
+    const previousValue = previous?.[field];
+    const comparable = current && previous && current.sales_complete && previous.sales_complete && currentValue != null && previousValue != null;
+    const currentDisplay = current
+      ? analysisValue(current, field, analysisDisplay(currentValue, type))
+      : '<span class="analysis-value-missing">待有数据</span>';
+    const previousDisplay = previous
+      ? analysisValue(previous, field, analysisDisplay(previousValue, type))
+      : '<span class="analysis-value-missing">待有数据</span>';
+    const comparison = comparable
+      ? analysisDifference(currentValue, previousValue, type, favorableDirection)
+      : `<span class="analysis-delta unavailable">${current && !current.sales_complete ? '本月未完整，暂不同比' : '暂无可比数据'}</span>`;
+    return `<td class="finance-analysis-comparison-cell ${type === 'ratio' || type === 'multiple' ? 'ratio' : ''}"><div class="analysis-year-value current"><span>${escapeHtml(current?.month?.slice(0, 4) || '今年')}</span>${currentDisplay}</div><div class="analysis-year-value previous"><span>${escapeHtml(previous?.month?.slice(0, 4) || '去年')}</span>${previousDisplay}</div>${comparison}</td>`;
   }
 
-  function renderYearComparison(items) {
-    const complete = items.filter(function (item) { return item.sales_complete; });
-    const years = [...new Set(complete.map(function (item) { return item.month.slice(0, 4); }))];
-    if (years.length < 2) return '<div class="finance-analysis-empty">目前只有一个年份的可核验经营数据。同月份跨年视图会在第二年数据完整后自动出现，不使用未核验历史图片补线。</div>';
-    const byMonth = new Map(complete.map(function (item) { return [item.month, item]; }));
-    const header = years.map(function (year) { return `<th colspan="2">${escapeHtml(year)} 年</th>`; }).join('');
-    const sub = years.map(function () { return '<th>观察净销售</th><th>推广费率</th>'; }).join('');
+  function renderYearComparisonTable(items) {
+    const years = [...new Set(items.map(function (item) { return item.month.slice(0, 4); }))].sort();
+    const currentYear = years.at(-1);
+    const previousYear = String(Number(currentYear) - 1);
+    if (!currentYear || !years.includes(previousYear)) return '<div class="finance-analysis-empty">目前只有一个年份的可核验经营数据；第二年数据形成后会自动按同月份紧邻比较。</div>';
+    const byMonth = new Map(items.map(function (item) { return [item.month, item]; }));
     const rows = Array.from({length: 12}, function (_, index) {
       const suffix = String(index + 1).padStart(2, '0');
-      const cells = years.map(function (year) {
-        const item = byMonth.get(`${year}-${suffix}`);
-        return item ? `<td class="num">${amount(item.observed_net_sales)}</td><td class="num">${analysisRatio(item.promotion_rate)}</td>` : '<td class="num muted">—</td><td class="num muted">—</td>';
-      }).join('');
-      return `<tr><th>${index + 1} 月</th>${cells}</tr>`;
+      const current = byMonth.get(`${currentYear}-${suffix}`);
+      const previous = byMonth.get(`${previousYear}-${suffix}`);
+      const coverage = current ? coverageBadge(current) : '<span class="analysis-coverage missing">今年待有数据</span>';
+      return `<tr><th><strong>${index + 1} 月</strong>${coverage}</th>${comparisonMetricCell(current, previous, 'pay_amount', 'amount', 'up')}${comparisonMetricCell(current, previous, 'refund_amount', 'amount', 'down')}${comparisonMetricCell(current, previous, 'observed_net_sales', 'amount', 'up')}${comparisonMetricCell(current, previous, 'promotion_spend', 'amount', 'neutral')}${comparisonMetricCell(current, previous, 'promotion_rate', 'ratio', 'down')}${comparisonMetricCell(current, previous, 'blended_net_mer', 'multiple', 'up')}</tr>`;
     }).join('');
-    return `<div class="finance-analysis-table-wrap"><table class="finance-analysis-table"><thead><tr><th rowspan="2">同月份</th>${header}</tr><tr>${sub}</tr></thead><tbody>${rows}</tbody></table></div>`;
+    return `<div class="finance-comparison-guide"><strong>${escapeHtml(currentYear)} 对比 ${escapeHtml(previousYear)}</strong><span>每格依次显示今年、去年、绝对差和同比百分比；点击任一数值查看公式与原始来源。</span></div><div class="finance-analysis-table-wrap"><table class="finance-analysis-table finance-year-comparison-table"><thead><tr><th>月份 / 覆盖</th><th>支付金额<small>生意参谋自然月汇总</small></th><th>成功退款<small>生意参谋退款额汇总</small></th><th>观察净销售<small>支付金额 − 成功退款</small></th><th>推广费用<small>阿里妈妈账期合计</small></th><th>推广费率<small>推广费用 ÷ 观察净销售</small></th><th>推广投入产出倍数<small>观察净销售 ÷ 推广费用</small></th></tr></thead><tbody>${rows}</tbody></table></div>`;
   }
 
   function showAnalysisSource(month, field) {
@@ -318,7 +278,7 @@
       observed_net_sales: ['观察净销售额', amount(item.observed_net_sales), `${amount(item.pay_amount)} - ${amount(item.refund_amount)} = ${amount(item.observed_net_sales)}。不是订单队列最终退货率。`, item.sales_source],
       promotion_spend: ['推广费用', amount(item.promotion_spend), item.promotion_source?.formula || '推广来源尚未接入。', item.promotion_source],
       promotion_rate: ['推广费率', analysisRatio(item.promotion_rate), `${amount(item.promotion_spend)} ÷ ${amount(item.observed_net_sales)} × 100% = ${analysisRatio(item.promotion_rate)}`, item.promotion_source],
-      blended_net_mer: ['全店净 MER', analysisMultiple(item.blended_net_mer), `${amount(item.observed_net_sales)} ÷ ${amount(item.promotion_spend)} = ${analysisMultiple(item.blended_net_mer)}。这是全店指标，不是广告归因 ROAS。`, item.promotion_source],
+      blended_net_mer: ['推广投入产出倍数', analysisMultiple(item.blended_net_mer), `${amount(item.observed_net_sales)} ÷ ${amount(item.promotion_spend)} = ${analysisMultiple(item.blended_net_mer)}。行业中也常称 MER，表示每投入 1 元推广费带来的全店观察净销售额；数值越高越好，但不是广告后台归因 ROAS。`, item.promotion_source],
       platform_operating_rate: ['平台经营费率', analysisRatio(item.platform_operating_rate), `（${amount(item.promotion_spend)} + ${amount(item.platform_fee)}）÷ ${amount(item.observed_net_sales)} × 100% = ${analysisRatio(item.platform_operating_rate)}`, item.platform_source],
     };
     const definition = definitions[field] || ['数据说明', '—', '', null];
@@ -345,15 +305,12 @@
         <article><span>支付金额</span><strong>${latest ? amount(latest.pay_amount) : '待补'}</strong><small>${latest ? `${escapeHtml(latest.month)} · ${Number(latest.captured_days)}/${Number(latest.expected_days)} 天` : '暂无完整期间'}</small></article>
         <article><span>成功退款</span><strong>${latest ? amount(latest.refund_amount) : '待补'}</strong><small>${latest ? `同期间金额率 ${analysisRatio(latest.refund_amount_rate)}` : '不是最终退货率'}</small></article>
         <article><span>观察净销售</span><strong>${latest ? amount(latest.observed_net_sales) : '待补'}</strong><small>${netChange == null ? '上月同天数不可比' : `较上月同天数 ${netChange >= 0 ? '+' : ''}${Number(netChange).toFixed(1)}%`}</small></article>
-        <article><span>推广效率</span><strong>${latest?.promotion_rate == null ? '推广待接入' : analysisRatio(latest.promotion_rate)}</strong><small>${latest?.blended_net_mer == null ? '接入万相台实际消耗后计算' : `全店净 MER ${analysisMultiple(latest.blended_net_mer)}`}</small></article>
+        <article><span>推广费率</span><strong>${latest?.promotion_rate == null ? '推广待接入' : analysisRatio(latest.promotion_rate)}</strong><small>${latest?.blended_net_mer == null ? '推广账单待接入' : `投入产出倍数 ${analysisMultiple(latest.blended_net_mer)}`}</small></article>
       </div>
       ${qualityIssues.length ? `<div class="finance-analysis-warning"><strong>数据覆盖提醒</strong><span>${qualityIssues.map(function (item) { return `${escapeHtml(item.month)} ${Number(item.captured_days || 0)}/${Number(item.expected_days || 0)} 天`; }).join('；')}。这些月份保留展示，但不参与趋势结论。</span></div>` : ''}
-      <section class="finance-analysis-card"><div class="finance-analysis-card-head"><div><h2>支付、退款与观察净销售</h2><p>三项金额使用同一刻度；半透明柱表示缺日，避免把采集缺口误判为经营变化。</p></div></div>${renderSalesChart(items)}</section>
-      <section class="finance-analysis-card"><div class="finance-analysis-card-head"><div><h2>推广与平台费用效率</h2><p>两条线都使用百分比同轴；全店净 MER 在明细表展示，不和费率混用双轴。</p></div></div>${renderEfficiencyChart(items)}</section>
-      <section class="finance-analysis-card"><div class="finance-analysis-card-head"><div><h2>月度指标明细</h2><p>点击任一金额、费率或 MER，可查看公式和跳转到唯一数据源。</p></div></div>${renderAnalysisTable(items)}</section>
-      <section class="finance-analysis-card"><div class="finance-analysis-card-head"><div><h2>跨年同月份比较</h2><p>只使用来源与覆盖均可核验的月份。</p></div></div>${renderYearComparison(items)}</section>
+      <section class="finance-analysis-card"><div class="finance-analysis-card-head"><div><h2>同月份经营对比表</h2><p>今年和去年放在同一个指标格内；只有两个完整期间才计算差额与同比。</p></div></div>${renderYearComparisonTable(items)}</section>
       ${excluded ? `<div class="finance-analysis-reference"><strong>未核验历史资料不参与计算</strong><span>${escapeHtml(excluded.label)}：${escapeHtml(excluded.reason)}</span></div>` : ''}
-      <section class="finance-analysis-method"><h2>口径与边界</h2><dl><dt>观察净销售</dt><dd>${escapeHtml(state.analysisDefinition?.observed_net_sales || '')}</dd><dt>推广效率</dt><dd>${escapeHtml(state.analysisDefinition?.blended_net_mer || '')}</dd><dt>平台经营费率</dt><dd>${escapeHtml(state.analysisDefinition?.platform_operating_rate || '')}</dd><dt>ROAS 边界</dt><dd>${escapeHtml(state.analysisDefinition?.attributed_roas || '')}</dd><dt>覆盖规则</dt><dd>${escapeHtml(state.analysisDefinition?.coverage_rule || '')}</dd><dt>来源规则</dt><dd>${escapeHtml(state.analysisDefinition?.source_rule || '')}</dd></dl></section>
+      <section class="finance-analysis-method"><h2>口径与边界</h2><dl><dt>观察净销售</dt><dd>${escapeHtml(state.analysisDefinition?.observed_net_sales || '')}</dd><dt>推广投入产出倍数</dt><dd>观察净销售 ÷ 推广费用。行业中也常称 MER，表示每投入 1 元推广费带来的全店观察净销售额；数值越高越好。</dd><dt>同比差距</dt><dd>绝对差 = 今年 − 去年；同比百分比 =（今年 − 去年）÷ 去年绝对值 × 100%。费率还会额外显示相差多少个百分点。</dd><dt>ROAS 边界</dt><dd>${escapeHtml(state.analysisDefinition?.attributed_roas || '')}</dd><dt>覆盖规则</dt><dd>${escapeHtml(state.analysisDefinition?.coverage_rule || '')}</dd><dt>来源规则</dt><dd>${escapeHtml(state.analysisDefinition?.source_rule || '')}</dd></dl></section>
     </div>`;
     content.querySelectorAll('[data-analysis-month]').forEach(function (button) {
       button.addEventListener('click', function () { showAnalysisSource(button.dataset.analysisMonth, button.dataset.analysisField); });
