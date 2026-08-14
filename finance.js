@@ -40,7 +40,7 @@
     software:'软件费用',finance_fee:'财务费用',
   };
   const sectionOrder = ['income','product_cost','platform_operations','logistics','customer_service','rent_food_equipment','design','factory_manager','business_show','company_social','software','finance_fee'];
-  const state = {months: [], month: '', data: null, sourceType: 'taobao_income_order', offset: 0, limit: 100, sourceTotal: 0, companyPayrollModule: 'all', shipmentCompare: '', payrollBinding: null, payrollSelfService: false};
+  const state = {months: [], month: '', data: null, analysisItems: [], analysisDefinition: null, sourceType: 'taobao_income_order', offset: 0, limit: 100, sourceTotal: 0, companyPayrollModule: 'all', shipmentCompare: '', payrollBinding: null, payrollSelfService: false};
 
   function escapeHtml(value) {
     return String(value == null ? '' : value).replace(/[&<>"']/g, function (character) {
@@ -164,7 +164,19 @@
     const companyPayroll = has('finance.payroll.manage') || has('finance.manage')
       ? `<a href="/jun-pages/finance/company-payroll/" ${page === 'finance-company-payroll' ? 'class="active"' : ''}>公司工资表</a>`
       : '';
-    return `<nav class="finance-tabs" aria-label="财务模块"><a href="/jun-pages/finance/" ${page === 'finance-report' ? 'class="active"' : ''}>财务月报</a>${companyPayroll}<a href="/jun-pages/finance/payroll/" ${page === 'finance-payroll' ? 'class="active"' : ''}>工资条</a><a href="/jun-pages/finance/sources/" ${page === 'finance-sources' ? 'class="active"' : ''}>财务数据源</a>${has('finance.employees.manage') ? `<a href="/jun-pages/finance/employees/" ${page === 'finance-employees' ? 'class="active"' : ''}>员工信息</a>` : ''}</nav>`;
+    return `<nav class="finance-tabs" aria-label="财务模块"><a href="/jun-pages/finance/" ${['finance-report','finance-operating-analysis'].includes(page) ? 'class="active"' : ''}>财务月报</a>${companyPayroll}<a href="/jun-pages/finance/payroll/" ${page === 'finance-payroll' ? 'class="active"' : ''}>工资条</a><a href="/jun-pages/finance/sources/" ${page === 'finance-sources' ? 'class="active"' : ''}>财务数据源</a>${has('finance.employees.manage') ? `<a href="/jun-pages/finance/employees/" ${page === 'finance-employees' ? 'class="active"' : ''}>员工信息</a>` : ''}</nav>`;
+  }
+
+  function reportAnalysisNav() {
+    const active = page === 'finance-operating-analysis';
+    return `<section class="finance-analysis-region" aria-labelledby="finance-analysis-title">
+      <div class="finance-analysis-region-head"><div><span class="finance-analysis-eyebrow">月报子页面</span><h2 id="finance-analysis-title">经营分析</h2></div><span>从月报唯一来源自动生成</span></div>
+      <a class="finance-analysis-link ${active ? 'active' : ''}" href="/jun-pages/finance/analysis/operating-expense/">
+        <span class="finance-analysis-link-icon"><i class="ti ti-chart-line"></i></span>
+        <span><strong>运营费用率</strong><small>按月比较运营费用占收入比例，并对齐各年同月份</small></span>
+        <i class="ti ti-chevron-right"></i>
+      </a>
+    </section>`;
   }
 
   function reportMetric(key, fallback) {
@@ -179,6 +191,156 @@
 
   function percent(value, base) {
     return value == null || !base ? '' : `${money.format((Number(value) / Number(base)) * 100)}%`;
+  }
+
+  function analysisRatio(value) {
+    return value == null || !Number.isFinite(Number(value)) ? '待补' : `${Number(value).toFixed(2)}%`;
+  }
+
+  function analysisValue(item, field, display) {
+    return `<button class="finance-analysis-value" type="button" data-analysis-month="${escapeHtml(item.month)}" data-analysis-field="${escapeHtml(field)}">${display}</button>`;
+  }
+
+  function renderRatioChart(items, years) {
+    const width = 1080;
+    const height = 390;
+    const left = 66;
+    const right = 28;
+    const top = 38;
+    const bottom = 58;
+    const plotWidth = width - left - right;
+    const plotHeight = height - top - bottom;
+    const complete = items.filter(function (item) { return item.ratio_percent != null; });
+    const maxRatio = Math.max.apply(null, complete.map(function (item) { return Number(item.ratio_percent); }).concat([10]));
+    const axisMax = Math.max(10, Math.ceil((maxRatio + 2) / 5) * 5);
+    const colors = ['#1f6feb','#f08c2e','#2b8a3e','#8b5cf6','#d9485f'];
+    const x = function (monthIndex) { return left + monthIndex * plotWidth / 11; };
+    const y = function (value) { return top + plotHeight - Number(value) / axisMax * plotHeight; };
+    const grids = Array.from({length: 6}, function (_, index) {
+      const value = axisMax * index / 5;
+      const pos = y(value);
+      return `<line x1="${left}" y1="${pos.toFixed(1)}" x2="${width - right}" y2="${pos.toFixed(1)}" stroke="#e7ebf0"/><text x="${left - 10}" y="${(pos + 4).toFixed(1)}" text-anchor="end" fill="#7b8794" font-size="11">${value.toFixed(0)}%</text>`;
+    }).join('');
+    const monthLabels = Array.from({length: 12}, function (_, index) {
+      return `<text x="${x(index).toFixed(1)}" y="${height - 24}" text-anchor="middle" fill="#687482" font-size="11">${index + 1}月</text>`;
+    }).join('');
+    const series = years.map(function (year, yearIndex) {
+      const values = items.filter(function (item) { return item.month.startsWith(`${year}-`) && item.ratio_percent != null; });
+      const points = values.map(function (item) {
+        const monthIndex = Number(item.month.slice(5)) - 1;
+        return `${x(monthIndex).toFixed(1)},${y(item.ratio_percent).toFixed(1)}`;
+      }).join(' ');
+      const dots = values.map(function (item) {
+        const monthIndex = Number(item.month.slice(5)) - 1;
+        return `<circle cx="${x(monthIndex).toFixed(1)}" cy="${y(item.ratio_percent).toFixed(1)}" r="5" fill="#fff" stroke="${colors[yearIndex % colors.length]}" stroke-width="3"><title>${escapeHtml(item.month)} ${analysisRatio(item.ratio_percent)}</title></circle>`;
+      }).join('');
+      return `${values.length > 1 ? `<polyline points="${points}" fill="none" stroke="${colors[yearIndex % colors.length]}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>` : ''}${dots}`;
+    }).join('');
+    const legend = years.map(function (year, index) {
+      return `<span><i style="background:${colors[index % colors.length]}"></i>${escapeHtml(year)} 年</span>`;
+    }).join('');
+    return `<div class="finance-analysis-legend">${legend}</div><div class="finance-chart-scroll"><svg class="finance-ratio-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="各年每月运营费用率折线图">${grids}${monthLabels}${series}</svg></div>`;
+  }
+
+  function renderAmountChart(items) {
+    const values = items.filter(function (item) { return item.complete === true; }).slice(-12);
+    if (!values.length) return '<div class="finance-analysis-empty">暂无完整金额</div>';
+    const width = Math.max(980, values.length * 82 + 100);
+    const height = 350;
+    const left = 64;
+    const right = 24;
+    const top = 24;
+    const bottom = 64;
+    const plotHeight = height - top - bottom;
+    const plotWidth = width - left - right;
+    const maxValue = Math.max.apply(null, values.map(function (item) { return Number(item.revenue); }).concat([1]));
+    const groupWidth = plotWidth / values.length;
+    const barWidth = Math.min(22, groupWidth * .26);
+    const y = function (value) { return top + plotHeight - Number(value) / maxValue * plotHeight; };
+    const grid = Array.from({length: 5}, function (_, index) {
+      const value = maxValue * index / 4;
+      const pos = y(value);
+      return `<line x1="${left}" y1="${pos.toFixed(1)}" x2="${width - right}" y2="${pos.toFixed(1)}" stroke="#edf0f3"/><text x="${left - 9}" y="${(pos + 4).toFixed(1)}" text-anchor="end" fill="#7b8794" font-size="10">${(value / 10000).toFixed(value >= 100000 ? 0 : 1)}万</text>`;
+    }).join('');
+    const bars = values.map(function (item, index) {
+      const center = left + groupWidth * (index + .5);
+      const revenueY = y(item.revenue);
+      const expenseY = y(item.operating_expense);
+      return `<rect x="${(center - barWidth - 2).toFixed(1)}" y="${revenueY.toFixed(1)}" width="${barWidth.toFixed(1)}" height="${(top + plotHeight - revenueY).toFixed(1)}" rx="3" fill="#b9d1f4"><title>${escapeHtml(item.month)} 收入 ${amount(item.revenue)}</title></rect><rect x="${(center + 2).toFixed(1)}" y="${expenseY.toFixed(1)}" width="${barWidth.toFixed(1)}" height="${Math.max(1, top + plotHeight - expenseY).toFixed(1)}" rx="3" fill="#f08c2e"><title>${escapeHtml(item.month)} 运营费用 ${amount(item.operating_expense)}</title></rect><text x="${center.toFixed(1)}" y="${height - 28}" text-anchor="middle" fill="#687482" font-size="10">${escapeHtml(item.month.slice(2))}</text>`;
+    }).join('');
+    return `<div class="finance-analysis-legend"><span><i style="background:#b9d1f4"></i>去除退款后收入</span><span><i style="background:#f08c2e"></i>运营费用</span></div><div class="finance-chart-scroll"><svg class="finance-amount-chart" viewBox="0 0 ${width} ${height}" style="min-width:${width}px" role="img" aria-label="最近十二个月收入与运营费用同轴柱状图">${grid}${bars}</svg></div>`;
+  }
+
+  function renderAnalysisTable(items, years) {
+    const byMonth = new Map(items.map(function (item) { return [item.month, item]; }));
+    const header = years.map(function (year) { return `<th colspan="3">${escapeHtml(year)} 年</th>`; }).join('');
+    const subheader = years.map(function () { return '<th>收入</th><th>运营费用</th><th>占比</th>'; }).join('');
+    const rows = Array.from({length: 12}, function (_, index) {
+      const month = String(index + 1).padStart(2, '0');
+      const cells = years.map(function (year) {
+        const item = byMonth.get(`${year}-${month}`);
+        if (!item) return '<td class="num muted">—</td><td class="num muted">—</td><td class="num muted">—</td>';
+        return `<td class="num">${analysisValue(item, 'revenue', amount(item.revenue))}</td><td class="num">${analysisValue(item, 'operating_expense', amount(item.operating_expense))}</td><td class="num ratio">${analysisValue(item, 'ratio_percent', analysisRatio(item.ratio_percent))}</td>`;
+      }).join('');
+      const current = years.length > 1 ? byMonth.get(`${years.at(-1)}-${month}`) : null;
+      const previous = years.length > 1 ? byMonth.get(`${years.at(-2)}-${month}`) : null;
+      const delta = current?.ratio_percent != null && previous?.ratio_percent != null ? Number(current.ratio_percent) - Number(previous.ratio_percent) : null;
+      const deltaClass = delta == null || delta === 0 ? 'flat' : delta < 0 ? 'good' : 'up';
+      const deltaText = delta == null ? '—' : `${delta > 0 ? '+' : ''}${delta.toFixed(2)} 个百分点`;
+      return `<tr><th>${index + 1} 月</th>${cells}<td class="num"><span class="delta ${deltaClass}">${deltaText}</span></td></tr>`;
+    }).join('');
+    return `<div class="finance-analysis-table-wrap"><table class="finance-analysis-table"><thead><tr><th rowspan="2">月份</th>${header}<th rowspan="2">最近两年同比</th></tr><tr>${subheader}</tr></thead><tbody>${rows}</tbody></table></div>`;
+  }
+
+  function showAnalysisSource(month, field) {
+    const item = state.analysisItems.find(function (candidate) { return candidate.month === month; });
+    if (!item) return;
+    const labels = {revenue: '去除退款后收入', operating_expense: '运营费用', ratio_percent: '运营费用率'};
+    const values = {revenue: amount(item.revenue), operating_expense: amount(item.operating_expense), ratio_percent: analysisRatio(item.ratio_percent)};
+    const currentSource = item.source_kind === 'monthly_report';
+    const sourceLink = currentSource && item.source_url ? `<a class="btn btn-outline-primary btn-sm" href="${escapeHtml(item.source_url)}">跳转到该月财务月报<i class="ti ti-arrow-right ms-1"></i></a>` : '';
+    const sourceMeta = currentSource
+      ? '数据没有在分析页另存；每次打开时实时读取对应财务月报。'
+      : `历史原始图片已存入项目：${escapeHtml(item.source_project_path || item.source_filename || '')}`;
+    dialog('finance-analysis-dialog', `${month} · ${labels[field] || '数据说明'}`, `<div class="finance-trace finance-trace-simple"><dl><dt>当前值</dt><dd><strong>${values[field] || '—'}</strong></dd><dt>计算方式</dt><dd>${field === 'ratio_percent' ? `${amount(item.operating_expense)} ÷ ${amount(item.revenue)} × 100% = ${analysisRatio(item.ratio_percent)}` : field === 'revenue' ? '取该月去除退款后的收入金额。' : '取该月按实际开票口径的运营费用。'}</dd><dt>来源</dt><dd>${escapeHtml(item.source_label || '')}</dd><dt>来源说明</dt><dd>${sourceMeta}</dd></dl>${sourceLink ? `<div class="finance-lineage-source">${sourceLink}</div>` : ''}</div>`);
+  }
+
+  function renderOperatingAnalysis() {
+    const items = state.analysisItems;
+    const years = [...new Set(items.map(function (item) { return item.month.slice(0, 4); }))];
+    const complete = items.filter(function (item) { return item.complete === true && item.ratio_percent != null; });
+    const latest = complete.at(-1);
+    const latest12 = complete.slice(-12);
+    const weightedRevenue = latest12.reduce(function (sum, item) { return sum + Number(item.revenue || 0); }, 0);
+    const weightedExpense = latest12.reduce(function (sum, item) { return sum + Number(item.operating_expense || 0); }, 0);
+    const weightedRatio = weightedRevenue ? weightedExpense / weightedRevenue * 100 : null;
+    const highest = complete.reduce(function (result, item) { return !result || Number(item.ratio_percent) > Number(result.ratio_percent) ? item : result; }, null);
+    const previousYear = latest ? items.find(function (item) { return item.month === `${Number(latest.month.slice(0, 4)) - 1}${latest.month.slice(4)}`; }) : null;
+    const latestDelta = latest?.ratio_percent != null && previousYear?.ratio_percent != null ? Number(latest.ratio_percent) - Number(previousYear.ratio_percent) : null;
+    toolbar.innerHTML = '<a class="btn btn-outline-secondary btn-sm" href="/jun-pages/finance/"><i class="ti ti-arrow-left me-1"></i>返回月报</a><span class="finance-toolbar-spacer"></span><span class="finance-status">只读分析 · 自动引用</span>';
+    content.innerHTML = `${reportTabs()}${reportAnalysisNav()}<div class="finance-analysis-page">
+      <header class="finance-report-title"><h1>运营费用率月度分析</h1><div>同月份跨年对齐；比例反映运营投入强度，不用双轴混合金额与比例</div></header>
+      <div class="finance-analysis-kpis">
+        <article><span>最新月份</span><strong>${latest ? analysisRatio(latest.ratio_percent) : '待补'}</strong><small>${latest ? escapeHtml(latest.month) : '暂无完整月份'}${latestDelta == null ? '' : ` · 同比 ${latestDelta > 0 ? '+' : ''}${latestDelta.toFixed(2)} 个百分点`}</small></article>
+        <article><span>最近 12 个月整体</span><strong>${analysisRatio(weightedRatio)}</strong><small>按合计费用 ÷ 合计收入加权，不取月占比平均</small></article>
+        <article><span>历史最高</span><strong>${highest ? analysisRatio(highest.ratio_percent) : '待补'}</strong><small>${highest ? escapeHtml(highest.month) : '暂无完整月份'}</small></article>
+      </div>
+      <section class="finance-analysis-card"><div class="finance-analysis-card-head"><div><h2>每月运营费用率</h2><p>横轴固定 1–12 月，不同年份用独立折线，直接比较同月份。</p></div></div>${renderRatioChart(items, years)}</section>
+      <section class="finance-analysis-card"><div class="finance-analysis-card-head"><div><h2>最近 12 个月金额对比</h2><p>收入和运营费用共用同一金额刻度，柱高可直接比较。</p></div></div>${renderAmountChart(items)}</section>
+      <section class="finance-analysis-card"><div class="finance-analysis-card-head"><div><h2>跨年同月明细</h2><p>点击任一金额或比例，可查看计算方式与唯一来源。</p></div></div>${renderAnalysisTable(items, years)}</section>
+      <section class="finance-analysis-method"><h2>口径与来源</h2><dl><dt>公式</dt><dd>${escapeHtml(state.analysisDefinition?.formula || '')}</dd><dt>收入</dt><dd>${escapeHtml(state.analysisDefinition?.revenue || '')}</dd><dt>运营费用</dt><dd>${escapeHtml(state.analysisDefinition?.operating_expense || '')}</dd><dt>来源规则</dt><dd>${escapeHtml(state.analysisDefinition?.source_rule || '')}</dd></dl></section>
+    </div>`;
+    content.querySelectorAll('[data-analysis-month]').forEach(function (button) {
+      button.addEventListener('click', function () { showAnalysisSource(button.dataset.analysisMonth, button.dataset.analysisField); });
+    });
+  }
+
+  async function loadOperatingAnalysis() {
+    content.innerHTML = '<div class="finance-loading"><span class="spinner-border spinner-border-sm"></span>正在生成分析</div>';
+    const payload = await api('/api/finance/analysis/operating-expense-ratio');
+    state.analysisItems = payload.items || [];
+    state.analysisDefinition = payload.metric_definition || {};
+    renderOperatingAnalysis();
   }
 
   function deltaHtml(current, previous, goodWhenUp) {
@@ -289,7 +451,7 @@
     const maxExpense = Math.max.apply(null, sectionOrder.slice(1).map(function (section) { return Number(sectionTotal(section, sectionLines(section)).final_amount || 0); }).concat([1]));
     const missing = state.data.completeness?.missing?.length || 0;
     const payrollWarning = state.data.payroll_snapshot?.source_status?.source_pending_employee_count || 0;
-    content.innerHTML = `${reportTabs()}<div class="finance-report-wrap">
+    content.innerHTML = `${reportTabs()}${reportAnalysisNav()}<div class="finance-report-wrap">
       <header class="finance-report-title"><h1>${escapeHtml(state.month.replace('-', '年'))}月 月度财务报告</h1><div>君设计 · 纯展示 · 每个金额都由唯一来源和固定公式生成</div></header>
       <div class="finance-report-kpis">
         <article><span>收入</span><strong>${traceAmount(incomeLine)}</strong><small>100%</small>${deltaHtml(income, numeric(previous.income), true)}</article>
@@ -1178,6 +1340,7 @@
     if (page === 'production-manual') return await loadStandaloneSource('/api/production/manual-approvals', '手工审批');
     if (page === 'production-pattern') return await loadStandaloneSource('/api/production/pattern-approvals', '制版审批');
     if (page === 'erp-shipments') return await loadShipments();
+    if (page === 'finance-operating-analysis') return await loadOperatingAnalysis();
     await loadFinanceMonths();
     setMonth(state.month);
     if (page === 'finance-report') return await loadReport();
