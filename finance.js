@@ -8,6 +8,20 @@
   const integer = new Intl.NumberFormat('zh-CN', {maximumFractionDigits: 2});
   const promotionContributionMargin = 0.5;
   const promotionBreakEvenMultiple = 1 / promotionContributionMargin;
+  const promotionBudgetPolicy = {
+    version: '2026 试行基线 v1',
+    annualStandard: 200000,
+    annualExpansionPool: 40000,
+    effectiveFrom: '2026-08',
+    releaseStages: [0.6, 0.2, 0.2],
+    expansionGateMultiple: 3,
+    expansionGateRate: 0.15,
+    monthlyStandard: {
+      '01': 29000, '02': 12000, '03': 8000, '04': 15000,
+      '05': 21000, '06': 14000, '07': 20000, '08': 9000,
+      '09': 13000, '10': 13000, '11': 21000, '12': 25000,
+    },
+  };
   const sourceLabels = {
     taobao_income_order: '淘宝账房订单',
     taobao_platform_charge: '平台运营扣费',
@@ -350,6 +364,80 @@
     return `${number >= 0 ? '+' : '−'}${Math.abs(number).toFixed(2)}元`;
   }
 
+  function promotionBudgetDecision(item, previousItem, standardBudget) {
+    if (!item.sales_complete) return {tone: 'current', label: '进行中', note: '当月未完整，暂不判定追加'};
+    if (numeric(item.promotion_spend) == null) return {tone: 'current', label: '待账单', note: '推广账单未形成，暂不判定追加'};
+    const promotionRate = numeric(item.promotion_rate);
+    const incremental = incrementalPromotionResult(item, previousItem);
+    if (promotionRate != null && promotionRate > promotionBudgetPolicy.expansionGateRate * 100) {
+      return {tone: 'loss', label: '不追加', note: `推广占比 ${analysisRatio(promotionRate)}，已高于 15%`};
+    }
+    if (!incremental || incremental.multiple == null) {
+      return {tone: 'neutral', label: '维持基线', note: '缺少有效的同比增投结果'};
+    }
+    if (incremental.multiple < promotionBreakEvenMultiple) {
+      return {tone: 'loss', label: '停止增投', note: `新增投放 ${promotionReturnText(incremental.multiple)}，未过回本线`};
+    }
+    if (incremental.multiple < promotionBudgetPolicy.expansionGateMultiple) {
+      return {tone: 'borderline', label: '维持基线', note: `新增投放 ${promotionReturnText(incremental.multiple)}，尚未到追加线`};
+    }
+    const upperRate = incremental.multiple >= 5 ? 0.2 : 0.1;
+    return {tone: 'effective', label: `可追加 ${Math.round(upperRate * 100)}%`, note: `本月追加上限 ${amount(standardBudget * upperRate)}`};
+  }
+
+  function renderPromotionBudgetPolicy(items) {
+    const comparison = operatingYearPairs(items);
+    const currentYear = comparison.currentYear;
+    if (!currentYear) return '<div class="finance-analysis-empty">经营数据形成后再生成月度推广预算对照。</div>';
+    const currentBySuffix = new Map(comparison.pairs.map(function (pair) { return [pair.suffix, pair]; }));
+    const cards = Object.entries(promotionBudgetPolicy.monthlyStandard).sort(function (left, right) {
+      return Number(left[0]) - Number(right[0]);
+    }).map(function (entry) {
+      const suffix = entry[0];
+      const standardBudget = entry[1];
+      const pair = currentBySuffix.get(suffix);
+      const item = pair?.current;
+      const actual = numeric(item?.promotion_spend);
+      const variance = actual == null ? null : actual - standardBudget;
+      const usage = actual == null || standardBudget <= 0 ? null : actual / standardBudget * 100;
+      const decision = item
+        ? promotionBudgetDecision(item, pair?.previous, standardBudget)
+        : {tone: 'future', label: '尚未发生', note: '到月后按标准预算分段释放'};
+      const historical = Boolean(item?.month && item.month < promotionBudgetPolicy.effectiveFrom);
+      return `<button type="button" class="finance-budget-month ${escapeHtml(decision.tone)}" data-budget-month="${escapeHtml(suffix)}">
+        <span><strong>${Number(suffix)} 月</strong><em>${escapeHtml(historical ? '历史回测' : decision.label)}</em></span>
+        <b>${escapeHtml(amount(standardBudget))}</b>
+        <small>${actual == null ? '实绩待形成' : `实绩 ${amount(actual)} · ${usage.toFixed(0)}%`}</small>
+        <small class="variance ${variance == null ? '' : variance > 0 ? 'over' : 'under'}">${variance == null ? '按 60% / 20% / 20% 分段释放' : `${variance > 0 ? '超预算' : '余预算'} ${amount(Math.abs(variance))}`}</small>
+        <small class="decision">${escapeHtml(historical ? `按新规则回测：${decision.label}` : decision.note)}</small>
+      </button>`;
+    }).join('');
+    const latestPair = comparison.pairs.filter(function (pair) { return pair.current; }).at(-1);
+    const businessMonth = currentBusinessMonth();
+    const latestSuffix = businessMonth.startsWith(`${currentYear}-`) ? businessMonth.slice(5) : latestPair?.suffix || businessMonth.slice(5);
+    const latestBudget = promotionBudgetPolicy.monthlyStandard[latestSuffix];
+    return `<div class="finance-budget-summary">
+      <article><span>年度标准预算</span><strong>${escapeHtml(amount(promotionBudgetPolicy.annualStandard))}</strong><small>固定基线，不因实际花费追认修改</small></article>
+      <article><span>${Number(latestSuffix)} 月标准预算</span><strong>${escapeHtml(amount(latestBudget))}</strong><small>同一自然月以后沿用同一基线</small></article>
+      <article><span>年度追加池</span><strong>${escapeHtml(amount(promotionBudgetPolicy.annualExpansionPool))}</strong><small>只在新增投放达到 1→3 后启用</small></article>
+      <article><span>分段释放</span><strong>60% / 20% / 20%</strong><small>基础投放 · 验证 · 放量</small></article>
+    </div><div class="finance-budget-months">${cards}</div><p class="finance-budget-note"><strong>${escapeHtml(promotionBudgetPolicy.version)}</strong> · ${escapeHtml(promotionBudgetPolicy.effectiveFrom)} 起执行。标准预算用于比较，不要求花完；追加预算单独记录，不反写标准预算。点击月份查看判断规则。</p>`;
+  }
+
+  function showPromotionBudgetPolicy(monthSuffix) {
+    const standardBudget = promotionBudgetPolicy.monthlyStandard[monthSuffix];
+    const monthNumber = Number(monthSuffix);
+    dialog('finance-analysis-dialog', `${monthNumber} 月 · 推广标准预算`, `<div class="finance-trace finance-trace-simple"><dl>
+      <dt>标准预算</dt><dd><strong>${escapeHtml(amount(standardBudget))}</strong></dd>
+      <dt>预算性质</dt><dd>这是经营政策基线，不是财务实绩，也不参与财务月报计算。以后同一自然月沿用同一标准，避免根据实际花费反向移动目标。</dd>
+      <dt>形成依据</dt><dd>根据 2025–2026 已核验的同月净销售、推广费、推广占比和新增投放效益，先按全年 ${escapeHtml(amount(promotionBudgetPolicy.annualStandard))} 分配季节性基线。</dd>
+      <dt>释放方式</dt><dd>${escapeHtml(amount(standardBudget * promotionBudgetPolicy.releaseStages[0]))} 基础投放；两个验证阶段各 ${escapeHtml(amount(standardBudget * promotionBudgetPolicy.releaseStages[1]))}。</dd>
+      <dt>追加条件</dt><dd>新增投放至少达到 1 元推广带来 3 元净销售，且推广费不超过净销售的 15%。达到 1→3 可追加 10%；达到 1→5 可追加 20%。</dd>
+      <dt>止损条件</dt><dd>低于 1→2 回本线停止增投；1→2 至 1→3 之间只维持标准预算，不使用追加池。</dd>
+      <dt>版本</dt><dd>${escapeHtml(promotionBudgetPolicy.version)}，自 ${escapeHtml(promotionBudgetPolicy.effectiveFrom)} 起试行；跑满一个周期后再按证据调整下一版。</dd>
+    </dl></div>`);
+  }
+
   function renderPromotionEfficiencySummary(items) {
     const comparison = operatingYearPairs(items);
     const pair = comparison.pairs.filter(function (candidate) {
@@ -487,6 +575,7 @@
       <div class="finance-analysis-notice"><strong>当前经营数据截至 ${escapeHtml(state.analysisFreshness?.latest_date || '待采集')}</strong><span>支付与退款按各自发生日统计；当月只和上月同天数比较。</span></div>
       ${renderPromotionEfficiencySummary(items)}
       ${qualityIssues.length ? `<div class="finance-analysis-warning"><strong>数据覆盖提醒</strong><span>${qualityIssues.map(function (item) { return `${escapeHtml(item.month)} ${Number(item.captured_days || 0)}/${Number(item.expected_days || 0)} 天`; }).join('；')}。这些月份保留展示，但不参与趋势结论。</span></div>` : ''}
+      <section class="finance-analysis-card"><div class="finance-analysis-card-head"><div><h2>月度推广标准预算</h2><p>每个自然月固定一个比较基线；标准预算和效果达标后的追加预算分开记录。</p></div></div>${renderPromotionBudgetPolicy(items)}</section>
       <section class="finance-analysis-card"><div class="finance-analysis-card-head"><div><h2>每 1 元推广带来的净销售</h2><p>双柱直接比较今年和去年同月；超过 2 元回本线，才可能覆盖推广成本。</p></div></div>${renderYearComparisonChart(items)}</section>
       <details class="finance-analysis-card finance-analysis-table-details"><summary><span><strong>查看精确数据表</strong><small>金额、差额、同比和完整计算说明</small></span><i class="ti ti-chevron-down"></i></summary>${renderYearComparisonTable(items)}</details>
       ${excluded ? `<div class="finance-analysis-reference"><strong>未核验历史资料不参与计算</strong><span>${escapeHtml(excluded.label)}：${escapeHtml(excluded.reason)}</span></div>` : ''}
@@ -496,6 +585,9 @@
       const openSource = function () { showAnalysisSource(target.dataset.analysisMonth, target.dataset.analysisField); };
       target.addEventListener('click', openSource);
       if (target.tagName !== 'BUTTON') target.addEventListener('keydown', function (event) { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openSource(); } });
+    });
+    content.querySelectorAll('[data-budget-month]').forEach(function (target) {
+      target.addEventListener('click', function () { showPromotionBudgetPolicy(target.dataset.budgetMonth); });
     });
   }
 
