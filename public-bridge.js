@@ -142,7 +142,7 @@
     ['sycm','生意参谋','/sycm/'],['marketing','营销安全','/marketing-safety/'],['production','生产记工','/production/'],
     ['production_manual','手工审批','/production/manual/'],['production_pattern','制版审批','/production/pattern/'],
     ['finance_report','财务月报','/finance/'],['finance_company_payroll','公司工资表','/finance/company-payroll/'],
-    ['finance_payroll','工资条','/finance/payroll/'],['finance_sources','财务数据源','/finance/sources/'],
+    ['finance_payroll','工资条','/finance/payroll/'],
     ['finance_employees','员工信息','/finance/employees/'],['admin_users','用户与安全','/admin/users/'],['account','账号与登录','/account/'],['other','其他','/other/'],
   ];
 

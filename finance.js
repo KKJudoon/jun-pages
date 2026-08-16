@@ -180,7 +180,7 @@
     const companyPayroll = has('finance.payroll.manage') || has('finance.manage')
       ? `<a href="/jun-pages/finance/company-payroll/" ${page === 'finance-company-payroll' ? 'class="active"' : ''}>公司工资表</a>`
       : '';
-    return `<nav class="finance-tabs" aria-label="财务模块"><a href="/jun-pages/finance/" ${['finance-report','finance-operating-analysis'].includes(page) ? 'class="active"' : ''}>财务月报</a>${companyPayroll}<a href="/jun-pages/finance/payroll/" ${page === 'finance-payroll' ? 'class="active"' : ''}>工资条</a><a href="/jun-pages/finance/sources/" ${page === 'finance-sources' ? 'class="active"' : ''}>财务数据源</a>${has('finance.employees.manage') ? `<a href="/jun-pages/finance/employees/" ${page === 'finance-employees' ? 'class="active"' : ''}>员工信息</a>` : ''}</nav>`;
+    return `<nav class="finance-tabs" aria-label="财务模块"><a href="/jun-pages/finance/" ${['finance-report','finance-operating-analysis'].includes(page) ? 'class="active"' : ''}>财务月报</a>${companyPayroll}<a href="/jun-pages/finance/payroll/" ${page === 'finance-payroll' ? 'class="active"' : ''}>工资条</a>${has('finance.employees.manage') ? `<a href="/jun-pages/finance/employees/" ${page === 'finance-employees' ? 'class="active"' : ''}>员工信息</a>` : ''}</nav>`;
   }
 
   function reportAnalysisNav() {
@@ -672,7 +672,11 @@
   }
 
   function reportActions(line) {
-    return `<span class="report-row-actions"><button class="finance-icon-button" type="button" data-trace="${escapeHtml(line.line_key)}" title="查看计算依据" aria-label="查看${escapeHtml(line.label)}计算依据"><i class="ti ti-help-circle"></i></button></span>`;
+    const source = line.trace?.kind === 'manual_source' ? line.trace.source : null;
+    const directEdit = source && has('finance.manage') && state.data.month?.status === 'open'
+      ? `<button class="finance-entry-action ${line.status === 'missing' ? 'is-required' : ''}" type="button" data-edit-report-entry='${escapeHtml(JSON.stringify(source))}' title="${line.status === 'missing' ? '填写本月金额' : '编辑本月条目'}">${line.status === 'missing' ? '<i class="ti ti-plus"></i>填写' : '<i class="ti ti-pencil"></i>'}</button>`
+      : '';
+    return `<span class="report-row-actions">${directEdit}<button class="finance-icon-button" type="button" data-trace="${escapeHtml(line.line_key)}" title="查看计算依据" aria-label="查看${escapeHtml(line.label)}计算依据"><i class="ti ti-help-circle"></i></button></span>`;
   }
 
   function traceAmount(line) {
@@ -691,7 +695,7 @@
     const previousMonth = Number((state.data.comparison?.month || '').slice(5));
     const note = total.note || rows.map(function (line) { return line.note; }).filter(Boolean).at(-1) || '';
     return `<section class="finance-report-category">
-      <div class="finance-category-head"><span class="finance-category-name">${escapeHtml(sectionLabels[section])}</span><span class="finance-category-total">${traceAmount(total)} <span class="pct">占收入 ${percent(total.final_amount, income)}</span> ${deltaHtml(total.final_amount, previousTotal, goodWhenUp)}</span></div>
+      <div class="finance-category-head"><span class="finance-category-name">${escapeHtml(sectionLabels[section])}${has('finance.manage') && state.data.month?.status === 'open' ? `<button class="finance-category-add" type="button" data-add-report-entry="${escapeHtml(section)}" title="在${escapeHtml(sectionLabels[section])}中新增支出"><i class="ti ti-plus"></i><span>新增</span></button>` : ''}</span><span class="finance-category-total">${traceAmount(total)} <span class="pct">占收入 ${percent(total.final_amount, income)}</span> ${deltaHtml(total.final_amount, previousTotal, goodWhenUp)}</span></div>
       <div class="finance-category-bar"><div style="width:${barWidth.toFixed(1)}%"></div></div>
       <div class="finance-subs-wrap"><table class="finance-subs"><thead><tr><th>子项</th><th>${currentMonth}月</th><th>占收入</th><th>${previousMonth || '-'}月</th><th>环比</th></tr></thead><tbody>${rows.map(function (line) {
         const previous = comparisonValue(line);
@@ -724,6 +728,14 @@
       <section class="finance-report-card finance-settlement-card"><h2>经营净利与最终结算</h2><dl><dt>支出合计</dt><dd>${traceAmount(expenses)}</dd><dt>经营净利</dt><dd>${traceAmount(operating)}</dd><dt>CK 个人结算</dt><dd>${traceAmount(reportMetric('post_profit_adjustment'))}</dd><dt>最终净利</dt><dd><strong>${traceAmount(finalProfit)}</strong></dd></dl></section>
     </div>`;
     content.querySelectorAll('[data-trace]').forEach(function (button) { button.addEventListener('click', function () { showTrace(button.dataset.trace); }); });
+    content.querySelectorAll('[data-add-report-entry]').forEach(function(button){button.addEventListener('click',function(){showFinanceEntryDialog(null,button.dataset.addReportEntry);});});
+    content.querySelectorAll('[data-edit-report-entry]').forEach(function(button){button.addEventListener('click',function(){
+      const instance=JSON.parse(button.dataset.editReportEntry);
+      const rule=(state.data.recurring_costs||[]).find(function(item){return item.id===instance.recurring_cost_id;});
+      showFinanceEntryDialog(rule?{kind:'recurring',record:rule,instance:instance}:{kind:'single',record:instance},instance.parent_key);
+    });});
+    const requestedEntry=new URLSearchParams(location.search).get('entry');
+    if(requestedEntry){const button=[...content.querySelectorAll('[data-edit-report-entry]')].find(function(item){try{return JSON.parse(item.dataset.editReportEntry).id===requestedEntry;}catch(_){return false;}});button?.closest('tr')?.classList.add('is-lineage-target');}
   }
 
   function showTrace(lineKey) {
@@ -1403,28 +1415,37 @@
     }).join('')}</div>`;
   }
 
-  function showFinanceEntryDialog(entry) {
+  async function reloadFinancePage() {
+    if (page === 'finance-report') await loadReport(); else await loadSources();
+  }
+
+  function showFinanceEntryDialog(entry, defaultSection) {
     const record = entry?.record || null;
+    const instance = entry?.instance || null;
     const editingKind = entry?.kind || '';
     const initialType = editingKind === 'single' ? 'single' : record?.cost_type === 'one_time_amortized' ? 'amortized' : editingKind === 'recurring' ? 'recurring' : 'single';
     const singleOptions = Object.entries(manualParentLabels).map(function(item){return `<option value="${escapeHtml(item[0])}">${escapeHtml(item[1])}</option>`;}).join('');
-    const recurringOptions = Object.entries(recurringCategoryLabels).map(function(item){return `<option value="${escapeHtml(item[0])}">${escapeHtml(item[1])}</option>`;}).join('');
     const requiredRecord = editingKind === 'single' && record?.is_required === true;
-    const element = dialog('finance-entry-dialog', record ? '编辑财务记账' : '新增财务记账', `<p class="finance-note">${requiredRecord ? '这是每月必填项目；当月没有金额也要明确填 0 并写明依据。' : '先选择当月单次费用、持续周期费用，或一笔总额按月分摊。'}月报只引用这里保存的源数据，不在结果页重复录入。</p><label>发生方式<select class="form-select" name="entry_type" ${record ? 'disabled' : ''}><option value="single">单次费用 · 只计入当月</option><option value="recurring">周期费用 · 每月计入</option><option value="amortized">一次性费用 · 按周期分摊</option></select></label><label>月报母条目<select class="form-select" name="category" ${requiredRecord ? 'disabled' : ''}></select></label><label>条目名称<input class="form-control" name="name" maxlength="120" required ${requiredRecord ? 'disabled' : ''} value="${escapeHtml(record?.name || '')}"></label><label data-amount-label><span>金额</span><input class="form-control" type="number" step="0.01" name="amount" required value="${escapeHtml(record?.amount ?? '')}"></label><div data-period hidden><div class="row"><label class="col">开始月份<input class="form-control" type="month" name="start_month" value="${escapeHtml(record?.start_month || state.month)}"></label><label class="col">结束月份（可留空）<input class="form-control" type="month" name="end_month" value="${escapeHtml(record?.end_month || '')}"></label></div><label data-amortization hidden>分摊月数<input class="form-control" type="number" min="1" max="240" name="amortization_months" value="${escapeHtml(record?.amortization_months || '')}"></label><label class="form-check"><input class="form-check-input" type="checkbox" name="renewal_required" ${record?.renewal_required ? 'checked' : ''}><span class="form-check-label">到期后需要重新确认</span></label></div><label>来源与核对说明<textarea class="form-control" name="note" rows="3" required placeholder="写清账单、回单或核对依据">${escapeHtml(record?.note || '')}</textarea></label><div class="finance-error" data-message hidden></div><footer><button class="btn btn-outline-secondary" value="cancel">取消</button>${editingKind === 'single' && !requiredRecord ? '<button class="btn btn-outline-danger me-auto" type="button" data-retire>停用本条</button>' : ''}<button class="btn btn-primary" type="button" data-save>保存源数据</button></footer>`);
+    const shownAmount = editingKind === 'recurring' && record?.amount_mode === 'variable' ? instance?.amount : record?.amount;
+    const element = dialog('finance-entry-dialog', record ? '编辑财务条目' : '新增财务条目', `<p class="finance-note">${requiredRecord ? '这是每月必填项目；当月没有金额也要明确填 0 并写明依据。' : '单次项目只进入本月；周期项目会由数据库为每个应发生月份生成实际条目。'}规则修改从当前页面月份起生效，不追改更早月份。</p><label>发生方式<select class="form-select" name="entry_type" ${requiredRecord ? 'disabled' : ''}><option value="single">单次 · 只计入本月</option><option value="recurring">周期 · 按设定周期出现</option><option value="amortized">一次性总额 · 按月分摊</option></select></label><label>所属分类<select class="form-select" name="category" ${requiredRecord ? 'disabled' : ''}>${singleOptions}</select></label><label>条目名称<input class="form-control" name="name" maxlength="120" required ${requiredRecord ? 'disabled' : ''} value="${escapeHtml(record?.name || instance?.name || '')}"></label><div data-recurring-options hidden><label>金额方式<select class="form-select" name="amount_mode"><option value="fixed">固定金额 · 以后自动带入</option><option value="variable">每期不固定 · 下期重新填写</option></select></label><label>出现周期<select class="form-select" name="frequency_months"><option value="1">每月</option><option value="3">每季度</option><option value="6">每半年</option><option value="12">每年</option></select></label></div><label data-amount-label><span>金额</span><input class="form-control" type="number" min="0" step="0.01" name="amount" required value="${escapeHtml(shownAmount ?? '')}"></label><div data-period hidden><div class="row"><label class="col">开始月份<input class="form-control" type="month" name="start_month" value="${escapeHtml(record?.start_month || state.month)}"></label><label class="col">结束月份（可留空）<input class="form-control" type="month" name="end_month" value="${escapeHtml(record?.end_month || '')}"></label></div><label data-amortization hidden>分摊月数<input class="form-control" type="number" min="1" max="240" name="amortization_months" value="${escapeHtml(record?.amortization_months || '')}"></label><label class="form-check"><input class="form-check-input" type="checkbox" name="renewal_required" ${record?.renewal_required ? 'checked' : ''}><span class="form-check-label">到期后提醒重新确认</span></label></div><label>来源与核对说明<textarea class="form-control" name="note" rows="3" required placeholder="写清账单、回单或核对依据">${escapeHtml(instance?.note || record?.note || '')}</textarea></label><div class="finance-error" data-message hidden></div><footer><button class="btn btn-outline-secondary" value="cancel">取消</button>${editingKind === 'single' && !requiredRecord ? '<button class="btn btn-outline-danger me-auto" type="button" data-retire>停用本条</button>' : ''}<button class="btn btn-primary" type="button" data-save>保存</button></footer>`);
     const typeField = element.querySelector('[name="entry_type"]');
     const categoryField = element.querySelector('[name="category"]');
     const sync = function(){
       const type = typeField.value;
       const recurring = type !== 'single';
-      const desired = editingKind === 'single' ? record?.parent_key : editingKind === 'recurring' ? record?.category : categoryField.value;
-      categoryField.innerHTML = recurring ? recurringOptions : singleOptions;
+      const desired = editingKind === 'single' ? record?.parent_key : editingKind === 'recurring' ? record?.parent_key : defaultSection || categoryField.value;
       if ([...categoryField.options].some(function(option){return option.value === desired;})) categoryField.value = desired;
       element.querySelector('[data-period]').hidden = !recurring;
+      element.querySelector('[data-recurring-options]').hidden = type !== 'recurring';
       element.querySelector('[data-amortization]').hidden = type !== 'amortized';
-      element.querySelector('[data-amount-label] span').textContent = type === 'amortized' ? '待分摊总金额' : type === 'recurring' ? '每月金额' : '本月金额';
+      const variable = type === 'recurring' && element.querySelector('[name="amount_mode"]').value === 'variable';
+      element.querySelector('[data-amount-label] span').textContent = type === 'amortized' ? '待分摊总金额' : variable ? '本期金额（下期留空）' : type === 'recurring' ? '固定金额' : '本月金额';
     };
     typeField.value = initialType;
     typeField.addEventListener('change', sync);
+    element.querySelector('[name="amount_mode"]').value = record?.amount_mode || 'fixed';
+    element.querySelector('[name="frequency_months"]').value = String(record?.frequency_months || 1);
+    element.querySelector('[name="amount_mode"]').addEventListener('change',sync);
     sync();
     element.querySelector('[data-save]').addEventListener('click', async function(){
       const type = typeField.value;
@@ -1435,21 +1456,17 @@
       const message = element.querySelector('[data-message]');
       if (!name || rawAmount === '' || !Number.isFinite(value) || note.length < 2) { message.hidden=false; message.textContent='请填写名称、有效金额和来源说明'; return; }
       try {
-        if (type === 'single') {
-          await api('/api/finance/manual-sources',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({month:state.month,id:editingKind === 'single' ? record.id : null,expected_version:editingKind === 'single' ? record.version : null,values:{parent_key:categoryField.value,name:name,amount:value,note:note}})});
-        } else {
-          const monthsRaw = element.querySelector('[name="amortization_months"]').value.trim();
-          const months = type === 'amortized' ? Number(monthsRaw) : null;
-          if (type === 'amortized' && (!Number.isInteger(months) || months < 1 || months > 240)) throw new Error('请填写 1 到 240 之间的分摊月数');
-          await api('/api/finance/recurring-costs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:editingKind === 'recurring' ? record.id : null,expected_version:editingKind === 'recurring' ? record.version : null,values:{name:name,category:categoryField.value,cost_type:type === 'amortized' ? 'one_time_amortized' : 'recurring',amount:value,start_month:element.querySelector('[name="start_month"]').value || state.month,end_month:element.querySelector('[name="end_month"]').value,amortization_months:months,renewal_required:element.querySelector('[name="renewal_required"]').checked,active:true,note:note}})});
-        }
-        element.close(); await loadSources();
+        const monthsRaw = element.querySelector('[name="amortization_months"]').value.trim();
+        const months = type === 'amortized' ? Number(monthsRaw) : null;
+        if (type === 'amortized' && (!Number.isInteger(months) || months < 1 || months > 240)) throw new Error('请填写 1 到 240 之间的分摊月数');
+        await api('/api/finance/entries',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({month:state.month,entry_kind:editingKind||'new',id:record?.id||null,expected_version:record?.version||null,values:{entry_type:type,parent_key:categoryField.value,name:name,amount:value,amount_mode:element.querySelector('[name="amount_mode"]').value,frequency_months:Number(element.querySelector('[name="frequency_months"]').value||1),start_month:element.querySelector('[name="start_month"]').value||state.month,end_month:element.querySelector('[name="end_month"]').value,amortization_months:months,renewal_required:element.querySelector('[name="renewal_required"]').checked,note:note}})});
+        element.close(); await reloadFinancePage();
       } catch(error) { message.hidden=false; message.textContent=error.message; }
     });
     element.querySelector('[data-retire]')?.addEventListener('click', async function(){
       if (!confirm(`停用“${record.name}”？历史版本仍会保留。`)) return;
       const message = element.querySelector('[data-message]');
-      try { await api(`/api/finance/manual-sources/${record.id}/retire`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({month:state.month,expected_version:record.version})}); element.close(); await loadSources(); }
+      try { await api(`/api/finance/manual-sources/${record.id}/retire`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({month:state.month,expected_version:record.version})}); element.close(); await reloadFinancePage(); }
       catch(error){message.hidden=false;message.textContent=error.message;}
     });
   }
@@ -1484,13 +1501,11 @@
     const requestedSource = new URLSearchParams(location.search).get('source_type');
     if (requestedSource && sourceLabels[requestedSource] && !['manual_work','erp_shipment','pattern_approval'].includes(requestedSource)) state.sourceType = requestedSource;
     if (!batches.has(state.sourceType)) state.sourceType = Array.from(batches.keys()).find(function (key) { return !['manual_work','erp_shipment','pattern_approval'].includes(key); }) || 'taobao_income_order';
-    toolbar.innerHTML = `${monthSelect(state.months, state.month)}<span class="finance-toolbar-spacer"></span>${has('finance.manage') ? '<button class="btn btn-primary" id="add-finance-entry"><i class="ti ti-plus me-1"></i>新增财务记账</button><button class="btn btn-outline-primary" id="add-policy"><i class="ti ti-adjustments me-1"></i>经营调整</button>' : ''}`;
+    toolbar.innerHTML = `${monthSelect(state.months, state.month)}<span class="finance-toolbar-spacer"></span>${has('finance.manage') ? '<button class="btn btn-outline-primary" id="add-policy"><i class="ti ti-adjustments me-1"></i>经营调整</button>' : ''}`;
     toolbar.querySelector('#finance-month').addEventListener('change', async function (event) { setMonth(event.target.value); state.offset = 0; await loadSources(); });
-    toolbar.querySelector('#add-finance-entry')?.addEventListener('click', function () { showFinanceEntryDialog(null); });
     toolbar.querySelector('#add-policy')?.addEventListener('click', function () { showPolicyDialog(null); });
-    content.innerHTML = `${reportTabs()}<section class="finance-section"><div class="finance-section-header"><div><h2>财务数据原</h2><p class="finance-note mb-0">单次、周期、分摊和系统采集数据统一按月报分类展示；月报只引用这里的唯一源记录。</p></div></div>${renderFinanceEntryTable()}</section><section class="finance-section mt-4"><div class="finance-section-header"><div><h3>自动采集明细</h3><p class="finance-note mb-0">选择采集源查看原始记录；这里的金额不能人工覆盖。</p></div></div><div class="finance-source-grid">${Object.keys(sourceLabels).filter(function (key) { return !['manual_work','erp_shipment','pattern_approval'].includes(key); }).map(function (key) { return sourceCard(batches.get(key) || {source_type: key, amount_total: 0, record_count: 0, captured_at: null}); }).join('')}</div><div id="source-records"><div class="finance-loading"><span class="spinner-border spinner-border-sm"></span>正在读取</div></div></section><section class="finance-section mt-4"><div class="finance-section-header"><h3>经营模块外调整</h3></div>${renderPolicyTable(state.data.policies || [])}</section>`;
+    content.innerHTML = `${reportTabs()}<section class="finance-section"><div class="finance-section-header"><div><h2>自动采集来源明细</h2><p class="finance-note mb-0">本页只用于追溯系统采集记录；人工费用统一在财务月报对应分类中新增和编辑。</p></div></div><div class="finance-source-grid">${Object.keys(sourceLabels).filter(function (key) { return !['manual_work','erp_shipment','pattern_approval'].includes(key); }).map(function (key) { return sourceCard(batches.get(key) || {source_type: key, amount_total: 0, record_count: 0, captured_at: null}); }).join('')}</div><div id="source-records"><div class="finance-loading"><span class="spinner-border spinner-border-sm"></span>正在读取</div></div></section><section class="finance-section mt-4"><div class="finance-section-header"><h3>经营模块外调整</h3></div>${renderPolicyTable(state.data.policies || [])}</section>`;
     content.querySelectorAll('[data-source]').forEach(function (button) { button.addEventListener('click', async function () { state.sourceType = button.dataset.source; state.offset = 0; content.querySelectorAll('[data-source]').forEach(function (item) { item.classList.toggle('active', item === button); }); await loadSourceRecords(); }); });
-    content.querySelectorAll('[data-finance-entry]').forEach(function (button) { button.addEventListener('click', function () { showFinanceEntryDialog({kind:button.dataset.financeEntry,record:JSON.parse(button.dataset.entryRecord)}); }); });
     content.querySelectorAll('[data-policy]').forEach(function (button) { button.addEventListener('click', function () { showPolicyDialog(JSON.parse(button.dataset.policy)); }); });
     await loadSourceRecords();
     const manualId = new URLSearchParams(location.search).get('manual');
