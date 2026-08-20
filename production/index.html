@@ -27,6 +27,9 @@
     .production-data-tools .production-search { flex:1 1 14rem; }
     .production-data-tools .production-filter { flex:1 1 9rem; max-width:12rem; }
     .production-data-tools-actions { display:flex; align-items:end; gap:.45rem; margin-left:auto; }
+    .production-layout-switch { display:inline-flex; padding:2px; border:1px solid var(--production-border); border-radius:5px; background:#fff; }
+    .production-layout-switch .btn { min-width:4.2rem; border:0; }
+    .production-layout-switch .btn.active { color:#fff; background:#206bc4; }
     .production-sort-direction { width:40px; height:40px; padding:0; }
     .production-filter-summary { width:100%; color:var(--production-muted); font-size:.72rem; }
     .production-view-switch { display:inline-grid; grid-template-columns:repeat(6,auto); padding:3px; border:1px solid var(--production-border); border-radius:5px; background:#f4f6f8; }
@@ -52,6 +55,25 @@
     .production-table tbody tr.is-pending { box-shadow:inset 4px 0 var(--production-pending); background:#fffaf0; }
     .production-table tbody tr.is-excluded:not(.is-pending) > td, .production-table tbody tr.is-excluded:not(.is-pending) > td :not(.badge):not(.btn):not(i):not(.production-action-alert) { color:#d63939 !important; }
     .production-table tbody tr.is-pending > td, .production-table tbody tr.is-pending > td :not(.badge):not(.btn):not(i):not(.production-action-alert) { color:#d97706 !important; }
+    .production-card-list { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:.55rem; }
+    .production-record-card { position:relative; min-width:0; padding:.62rem .68rem; border:1px solid var(--production-border); border-radius:6px; background:#fff; box-shadow:0 1px 2px rgba(16,24,40,.04); }
+    .production-record-card.is-changed { border-left:3px solid #206bc4; }
+    .production-record-card.is-pending { border-left:3px solid var(--production-pending); background:#fffaf0; }
+    .production-record-card.is-excluded:not(.is-pending) { border-left:3px solid #d63939; background:#fff8f7; }
+    .production-record-card.is-excluded:not(.is-pending), .production-record-card.is-excluded:not(.is-pending) .production-card-label, .production-record-card.is-excluded:not(.is-pending) .production-card-muted { color:#d63939; }
+    .production-record-card.is-pending, .production-record-card.is-pending .production-card-label, .production-record-card.is-pending .production-card-muted { color:#d97706; }
+    .production-card-head { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:.45rem; align-items:start; margin-bottom:.45rem; }
+    .production-card-product { display:flex; min-width:0; align-items:center; gap:.5rem; }
+    .production-card-title { min-width:0; font-size:.86rem; font-weight:700; overflow-wrap:anywhere; }
+    .production-card-muted { color:var(--production-muted); font-size:.68rem; line-height:1.25; }
+    .production-card-action { display:flex; justify-content:flex-end; }
+    .production-card-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.3rem .7rem; }
+    .production-card-field { min-width:0; display:grid; grid-template-columns:auto minmax(0,1fr); gap:.3rem; align-items:baseline; font-size:.75rem; line-height:1.35; }
+    .production-card-field.production-card-wide { grid-column:1 / -1; }
+    .production-card-label { color:var(--production-muted); font-size:.66rem; white-space:nowrap; }
+    .production-card-value { min-width:0; overflow-wrap:anywhere; text-align:right; font-variant-numeric:tabular-nums; }
+    .production-card-wide .production-card-value { text-align:left; }
+    .production-card-value .badge { vertical-align:baseline; }
     .production-action-with-alert { position:relative; }
     .production-action-alert { position:absolute; top:-.3rem; right:-.3rem; display:inline-flex; width:1rem; height:1rem; align-items:center; justify-content:center; border:2px solid #fff; border-radius:50%; color:#fff; background:#d63939; font-size:.62rem; font-weight:800; line-height:1; }
     .production-code { min-width:7rem; font-weight:600; }
@@ -197,6 +219,8 @@
       .production-actions .btn { flex:1 1 auto; }
       .production-data-tools .production-filter { max-width:none; flex-basis:calc(50% - .4rem); }
       .production-data-tools-actions { width:100%; margin-left:0; }
+      .production-layout-switch { flex:1 1 auto; }
+      .production-layout-switch .btn { min-width:0; flex:1 1 50%; }
       .production-data-tools-actions .btn:not(.production-sort-direction) { flex:1 1 auto; }
       .production-stat-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
       .production-request { grid-template-columns:1fr; gap:.6rem; }
@@ -310,6 +334,10 @@
               <label class="production-filter"><span class="form-label">排序</span><select id="production-sort-by" class="form-select"></select></label>
               <div class="production-data-tools-actions">
                 <button id="production-sort-direction" class="btn btn-outline-secondary production-sort-direction" type="button" title="切换升降序" aria-label="切换升降序"><i class="ti ti-sort-ascending"></i></button>
+                <div class="production-layout-switch" role="group" aria-label="显示模式">
+                  <button class="btn btn-sm" type="button" data-production-layout="table" title="表格显示"><i class="ti ti-table me-1"></i>表格</button>
+                  <button class="btn btn-sm" type="button" data-production-layout="cards" title="卡片显示"><i class="ti ti-layout-cards me-1"></i>卡片</button>
+                </div>
                 <button id="production-columns" class="btn btn-outline-secondary" type="button"><i class="ti ti-columns-3 me-1"></i>列配置</button>
                 <button id="production-filter-reset" class="btn btn-outline-secondary" type="button"><i class="ti ti-filter-off me-1"></i>重置</button>
               </div>
@@ -554,7 +582,11 @@
 
   <script src="/jun-pages/vendor/tabler.min.js"></script>
   <script>
-  const productionState={months:[],data:null,view:'lines',search:'',worker:'',type:'',attribution:'',change:'',calculation:'',sortBy:'date',sortDirection:'asc',requestStatus:'pending',requestOrder:'desc',showExcluded:localStorage.getItem('production.showExcluded')==='true',editingLine:null,detailRequest:null,detailExpense:null,editingWage:null,detailWage:null,editingAuxiliary:null,detailAuxiliary:null,pendingImages:[],columnDraft:null};
+  const productionLayoutStorageKey='production.layout.v1';
+  const productionMobileLayoutQuery=window.matchMedia('(max-width: 575px)');
+  const productionStoredLayout=localStorage.getItem(productionLayoutStorageKey);
+  const productionInitialLayout=['table','cards'].includes(productionStoredLayout)?productionStoredLayout:(productionMobileLayoutQuery.matches?'cards':'table');
+  const productionState={months:[],data:null,view:'lines',layout:productionInitialLayout,search:'',worker:'',type:'',attribution:'',change:'',calculation:'',sortBy:'date',sortDirection:'asc',requestStatus:'pending',requestOrder:'desc',showExcluded:localStorage.getItem('production.showExcluded')==='true',editingLine:null,detailRequest:null,detailExpense:null,editingWage:null,detailWage:null,editingAuxiliary:null,detailAuxiliary:null,pendingImages:[],columnDraft:null};
   const productionStatusLabels={open:['编辑中','bg-blue-lt'],finalized:['已定稿','bg-orange-lt'],verified:['已核验','bg-green-lt']};
   const productionRequestLabels={pending:['待审批','bg-yellow-lt'],approved:['已批准','bg-green-lt'],rejected:['已驳回','bg-red-lt'],cancelled:['已撤回','bg-secondary-lt'],not_required:['原始记录','bg-secondary-lt']};
   const productionReasonConfig={
@@ -634,7 +666,7 @@
     const ordered=[...selected.map(key=>definitions.find(item=>item[0]===key)).filter(Boolean),...definitions.filter(item=>!selected.includes(item[0]))];
     document.getElementById('production-column-options').innerHTML=ordered.map((item,index)=>{const checked=selected.includes(item[0]);const fixed=item[2]===false;const selectedIndex=selected.indexOf(item[0]);return `<div class="production-column-row" data-production-column="${item[0]}"><label class="form-check"><input class="form-check-input" type="checkbox" ${checked?'checked':''} ${fixed?'disabled':''}/><span class="form-check-label">${productionEscape(item[1])}${fixed?' <span class="text-secondary small">固定</span>':''}</span></label><div class="production-column-moves"><button class="btn btn-sm btn-icon btn-outline-secondary" type="button" data-column-move="up" title="上移" ${!checked||selectedIndex<=0?'disabled':''}><i class="ti ti-arrow-up"></i></button><button class="btn btn-sm btn-icon btn-outline-secondary" type="button" data-column-move="down" title="下移" ${!checked||selectedIndex<0||selectedIndex>=selected.length-1?'disabled':''}><i class="ti ti-arrow-down"></i></button></div></div>`;}).join('');
   }
-  function productionOpenColumns(){productionState.columnDraft=[...productionVisibleColumns(productionState.view)];productionRenderColumnDialog();document.getElementById('production-column-dialog').showModal();}
+  function productionOpenColumns(){if(productionState.layout==='cards')return;productionState.columnDraft=[...productionVisibleColumns(productionState.view)];productionRenderColumnDialog();document.getElementById('production-column-dialog').showModal();}
   function productionValue(field,value){if(field==='include_in_payroll')return value?'计入':'不计入';if(['quantity','unit_price','supplement'].includes(field))return productionMoney(value);return value||'—';}
   function productionFullImageUrl(url){const value=String(url||'');if(value.includes('erp.qiniu.wsgjp.com'))return value.replace(/!200x200(?:\?.*)?$/,'');return value.replace(/_\d+x\d+xz(?=$|[?#])/,'');}
   function productionImage(line){if(!line.image_url)return '<span class="production-thumb-placeholder" title="暂无商品图片"><i class="ti ti-photo-off"></i></span>';const title=[line.product_code,line.color,line.size].filter(Boolean).join(' · ');return `<button class="production-thumb-button" type="button" data-production-image="${productionEscape(productionFullImageUrl(line.image_url))}" data-production-image-title="${productionEscape(title)}" title="查看商品大图" aria-label="查看 ${productionEscape(title)} 的商品大图"><img class="production-thumb" src="${productionEscape(line.image_url)}" alt="${productionEscape(title)}" loading="lazy" referrerpolicy="no-referrer" onerror="this.closest('button').outerHTML='<span class=&quot;production-thumb-placeholder&quot; title=&quot;图片加载失败&quot;><i class=&quot;ti ti-photo-off&quot;></i></span>'"></button>`;}
@@ -764,6 +796,15 @@
     };
     const numeric=['quantity','unit_price','supplement','amount'].includes(key);return `<td class="${numeric?'production-number ':''}${productionStickyClass('lines',key)}">${cells[key]??'—'}</td>`;
   }
+  function productionCardField(label,value,wide=false){return `<div class="production-card-field ${wide?'production-card-wide':''}"><span class="production-card-label">${productionEscape(label)}</span><span class="production-card-value">${value??'—'}</span></div>`;}
+  function productionLineCard(line,canEdit){
+    const pending=(line.pending_requests||[])[0];const rejected=line.latest_rejected_request;const marker=productionRejectedMarker(rejected);
+    const action=pending?`<button class="btn btn-sm btn-icon btn-outline-warning production-action-with-alert" type="button" data-request-view="${productionEscape(pending.id)}" title="查看待审批申请${rejected?'，有历史驳回':''}" aria-label="查看待审批申请"><i class="ti ti-clock-edit"></i>${marker}</button>`:canEdit?`<button class="btn btn-sm btn-icon ${rejected?'btn-outline-danger':'btn-outline-primary'} production-action-with-alert" type="button" data-line-request="${productionEscape(line.id)}" title="${rejected?'上次申请被驳回，重新申请':'申请调整'}" aria-label="申请调整"><i class="ti ti-edit"></i>${marker}</button>`:rejected?`<button class="btn btn-sm btn-icon btn-outline-danger production-action-with-alert" type="button" data-request-view="${productionEscape(rejected.id)}" title="查看已驳回申请" aria-label="查看已驳回申请"><i class="ti ti-edit"></i>${marker}</button>`:'—';
+    const change=pending?`${productionBadge('pending')} <span class="production-card-muted">${productionEscape(pending.request_no)}</span>`:line.changed?productionBadge('approved'):productionBadge('not_required');
+    const calculation=line.eligible?'<span class="text-success">计入</span>':`<span class="text-danger">不计入</span>${line.exclusion_reason?` <span class="production-card-muted">${productionEscape(line.exclusion_reason)}</span>`:''}`;
+    const counterparty=`${productionEscape(line.worker_name)} ${line.counterparty_included?'<span class="badge bg-green-lt">单位计入</span>':'<span class="badge bg-red-lt">单位不计入</span>'}`;
+    return `<article class="production-record-card ${line.eligible?'':'is-excluded'} ${line.changed?'is-changed':''} ${pending?'is-pending':''}"><div class="production-card-head"><div class="production-card-product">${productionImage(line)}<div><div class="production-card-title">${productionEscape(line.product_code)}</div><div class="production-card-muted">${productionEscape([line.color,line.size].filter(Boolean).join(' / ')||'无规格')} · ${productionEscape(productionShortDate(line.work_date))}</div></div></div><div class="production-card-action">${action}</div></div><div class="production-card-grid">${productionCardField('数量',productionMoney(line.quantity))}${productionCardField('金额',`<strong>${productionMoney(line.amount)}</strong>`)}${productionCardField('单价',line.unit_price===null?'<span class="text-danger">待确认</span>':productionMoney(line.unit_price))}${productionCardField('补价',productionMoney(line.supplement))}${productionCardField('往来单位',counterparty,true)}${productionCardField('类型',productionEscape(line.work_type))}${productionCardField('产值归属',productionEscape(line.value_attribution))}${productionCardField('裁床',productionEscape(line.cutting_type||'—'))}${productionCardField('变更',change)}${productionCardField('计算状态',calculation,true)}</div></article>`;
+  }
   function productionFilteredLinesEnhanced(){
     const search=productionState.search.toLowerCase();
     const rows=(productionState.data?.lines||[]).filter(line=>{
@@ -780,6 +821,7 @@
   }
   function productionRenderLinesEnhanced(){
     const open=productionState.data?.month?.status==='open';const canEdit=open&&productionHas('production.edit');const lines=productionFilteredLinesEnhanced();const columns=productionVisibleColumns('lines');
+    if(productionState.layout==='cards'){const cards=lines.map(line=>productionLineCard(line,canEdit)).join('');document.getElementById('production-lines-view').innerHTML=cards?`<div class="production-card-list">${cards}</div>`:'<div class="production-empty">没有符合条件的记工记录</div>';return;}
     const body=lines.map(line=>`<tr class="${line.eligible?'':'is-excluded'} ${line.changed?'is-changed':''} ${(line.pending_requests||[]).length?'is-pending':''}">${columns.map(key=>productionLineCell(line,key,canEdit)).join('')}</tr>`).join('');
     document.getElementById('production-lines-view').innerHTML=`<div class="production-table-wrap"><table class="table table-vcenter table-hover production-table"><thead><tr>${columns.map(key=>productionColumnHeader('lines',key)).join('')}</tr></thead><tbody>${body}</tbody></table>${body?'':`<div class="production-empty">没有符合条件的记工记录</div>`}</div>`;
   }
@@ -796,12 +838,20 @@
       action:pending?`<button class="btn btn-sm btn-icon btn-outline-warning production-action-with-alert" type="button" data-auxiliary-request-view="${productionEscape(pending.id)}" title="查看待审批申请${rejected?'，有历史驳回':''}" aria-label="查看待审批申请"><i class="ti ti-clock-edit"></i>${marker}</button>`:canEdit?`<button class="btn btn-sm btn-icon ${rejected?'btn-outline-danger':'btn-outline-primary'} production-action-with-alert" type="button" data-auxiliary-edit="${type}" data-record-id="${productionEscape(item.id)}" title="${rejected?'上次申请被驳回，重新申请':'申请调整'}" aria-label="申请调整"><i class="ti ti-edit"></i>${marker}</button>`:rejected?`<button class="btn btn-sm btn-icon btn-outline-danger production-action-with-alert" type="button" data-auxiliary-request-view="${productionEscape(rejected.id)}" title="查看已驳回申请" aria-label="查看已驳回申请"><i class="ti ti-edit"></i>${marker}</button>`:'—'
     };const numeric=!['date','contractor','product_code','note','action'].includes(key);const view=type==='outsourcing'?'outsourcing':'processing';return `<td class="${numeric?'production-number ':''}${productionStickyClass(view,key)}">${value[key]??'—'}</td>`;
   }
+  function productionAuxiliaryCard(item,type,canEdit){
+    const pending=productionAuxiliaryPending(type,item.id);const rejected=item.latest_rejected_request;const marker=productionRejectedMarker(rejected);
+    const action=pending?`<button class="btn btn-sm btn-icon btn-outline-warning production-action-with-alert" type="button" data-auxiliary-request-view="${productionEscape(pending.id)}" title="查看待审批申请${rejected?'，有历史驳回':''}" aria-label="查看待审批申请"><i class="ti ti-clock-edit"></i>${marker}</button>`:canEdit?`<button class="btn btn-sm btn-icon ${rejected?'btn-outline-danger':'btn-outline-primary'} production-action-with-alert" type="button" data-auxiliary-edit="${type}" data-record-id="${productionEscape(item.id)}" title="${rejected?'上次申请被驳回，重新申请':'申请调整'}" aria-label="申请调整"><i class="ti ti-edit"></i>${marker}</button>`:rejected?`<button class="btn btn-sm btn-icon btn-outline-danger production-action-with-alert" type="button" data-auxiliary-request-view="${productionEscape(rejected.id)}" title="查看已驳回申请" aria-label="查看已驳回申请"><i class="ti ti-edit"></i>${marker}</button>`:'—';
+    const title=type==='outsourcing'?item.contractor_name:item.product_code;const meta=`${productionShortDate(item.created_at)}${pending?' · 待审批':''}`;
+    const fields=type==='outsourcing'?[['货值',productionMoney(item.goods_value)],['实付金额',productionMoney(item.paid_amount)],['自己裁剪货值',productionMoney(item.own_cutting_goods_value)],['货值比',Number(item.goods_value_ratio||0).toFixed(2)],['备注',productionEscape(item.note||'—'),true]]:[['数量',productionMoney(item.quantity)],['加工单价',productionMoney(item.unit_price)],['加工收入',`<strong>${productionMoney(item.revenue)}</strong>`],['裁剪单价',productionMoney(item.cutting_unit_price)],['裁剪费用',productionMoney(item.cutting_amount)],['包装费用单价',productionMoney(item.packaging_unit_price)],['包装费用',productionMoney(item.packaging_amount)],['外加工成本',productionMoney(item.external_cost)],['备注',productionEscape(item.note||'—'),true]];
+    return `<article class="production-record-card ${pending?'is-pending':''}"><div class="production-card-head"><div><div class="production-card-title">${productionEscape(title||'—')}</div><div class="production-card-muted">${productionEscape(meta)}</div></div><div class="production-card-action">${action}</div></div><div class="production-card-grid">${fields.map(field=>productionCardField(field[0],field[1],field[2])).join('')}</div></article>`;
+  }
   function productionRenderAuxiliaryEnhanced(view){
     const type=view==='outsourcing'?'outsourcing':'external_processing';const records=productionFilteredAuxiliaryRecords(view);const open=productionState.data?.month?.status==='open';const canEdit=open&&productionHas('production.edit');const columns=productionVisibleColumns(view);
     const rows=records.map(item=>`<tr class="${productionAuxiliaryPending(type,item.id)?'is-pending':''}">${columns.map(key=>productionAuxiliaryCell(item,key,type,canEdit)).join('')}</tr>`).join('');
     const total=view==='outsourcing'?records.reduce((sum,item)=>sum+Number(item.goods_value||0),0):records.reduce((sum,item)=>sum+Number(item.revenue||0),0);
     const title=view==='outsourcing'?'外发计价':'外加工收入';const subtitle=view==='outsourcing'?'货值分成按已批准外发货值合计计算':'收入和成本由数量与单价自动生成';
-    document.getElementById(`production-${view}-view`).innerHTML=`<section class="production-section"><div class="production-section-head"><div><h3 class="production-section-title">${title}</h3><span class="text-secondary small">${subtitle}</span></div><span class="text-secondary small">${records.length} 条 · 合计 ¥${productionMoney(total)}</span></div><div class="production-table-wrap border-0 rounded-0"><table class="table table-vcenter production-table"><thead><tr>${columns.map(key=>productionColumnHeader(view,key)).join('')}</tr></thead><tbody>${rows}</tbody></table>${rows?'':`<div class="production-empty">没有符合条件的${title}正式记录，可从顶部提交新增申请</div>`}</div></section>`;
+    const cards=records.map(item=>productionAuxiliaryCard(item,type,canEdit)).join('');const content=productionState.layout==='cards'?(cards?`<div class="production-card-list p-2">${cards}</div>`:`<div class="production-empty">没有符合条件的${title}正式记录，可从顶部提交新增申请</div>`):`<div class="production-table-wrap border-0 rounded-0"><table class="table table-vcenter production-table"><thead><tr>${columns.map(key=>productionColumnHeader(view,key)).join('')}</tr></thead><tbody>${rows}</tbody></table>${rows?'':`<div class="production-empty">没有符合条件的${title}正式记录，可从顶部提交新增申请</div>`}</div>`;
+    document.getElementById(`production-${view}-view`).innerHTML=`<section class="production-section"><div class="production-section-head"><div><h3 class="production-section-title">${title}</h3><span class="text-secondary small">${subtitle}</span></div><span class="text-secondary small">${records.length} 条 · 合计 ¥${productionMoney(total)}</span></div>${content}</section>`;
   }
   function productionSetSelectOptions(id,values,current){const element=document.getElementById(id);element.innerHTML='<option value="">全部</option>'+values.map(value=>`<option value="${productionEscape(value)}">${productionEscape(value)}</option>`).join('');element.value=values.includes(current)?current:'';}
   function productionRenderDataTools(){
@@ -816,7 +866,9 @@
     productionSetSelectOptions('production-type-filter',[...new Set(lines.map(item=>item.work_type).filter(Boolean))],productionState.type);productionSetSelectOptions('production-attribution-filter',[...new Set(lines.map(item=>item.value_attribution).filter(Boolean))],productionState.attribution);
     document.querySelector('[data-production-filter="counterparty"]').hidden=view==='processing';document.querySelector('[data-production-filter="type"]').hidden=view!=='lines';document.querySelector('[data-production-filter="attribution"]').hidden=view!=='lines';
     document.getElementById('production-change-filter').value=productionState.change;document.getElementById('production-calculation-filter').value=productionState.calculation;
-    const count=view==='lines'?productionFilteredLinesEnhanced().length:productionFilteredAuxiliaryRecords(view).length;document.getElementById('production-filter-summary').textContent=`当前显示 ${count} 条${productionActiveFilterCount()?` · 已启用 ${productionActiveFilterCount()} 个筛选条件`:''}`;
+    document.querySelectorAll('[data-production-layout]').forEach(button=>{const active=button.dataset.productionLayout===productionState.layout;button.classList.toggle('active',active);button.setAttribute('aria-pressed',String(active));});
+    const columnButton=document.getElementById('production-columns');columnButton.disabled=productionState.layout==='cards';columnButton.title=productionState.layout==='cards'?'卡片模式采用固定版式，列配置不生效':'配置表格显示列';
+    const count=view==='lines'?productionFilteredLinesEnhanced().length:productionFilteredAuxiliaryRecords(view).length;document.getElementById('production-filter-summary').textContent=`当前显示 ${count} 条${productionActiveFilterCount()?` · 已启用 ${productionActiveFilterCount()} 个筛选条件`:''}${productionState.layout==='cards'?' · 卡片为固定版式，列配置不生效':''}`;
   }
   function productionRender(){
     productionRenderKpis();productionRenderLinesEnhanced();productionRenderRequests();productionRenderWages();productionRenderFinanceAccurate();productionRenderDataTools();
@@ -935,6 +987,7 @@
   document.getElementById('production-sort-by').addEventListener('change',event=>{productionState.sortBy=event.target.value;productionRender();});
   document.getElementById('production-sort-direction').addEventListener('click',()=>{productionState.sortDirection=productionState.sortDirection==='asc'?'desc':'asc';productionRender();});
   document.getElementById('production-filter-reset').addEventListener('click',productionResetDataTools);
+  document.querySelectorAll('[data-production-layout]').forEach(button=>button.addEventListener('click',()=>{productionState.layout=button.dataset.productionLayout;localStorage.setItem(productionLayoutStorageKey,productionState.layout);productionRender();}));
   document.getElementById('production-columns').addEventListener('click',productionOpenColumns);
   document.getElementById('production-column-options').addEventListener('change',event=>{const row=event.target.closest('[data-production-column]');if(!row||!productionState.columnDraft)return;const key=row.dataset.productionColumn;if(event.target.checked){if(!productionState.columnDraft.includes(key))productionState.columnDraft.push(key);}else productionState.columnDraft=productionState.columnDraft.filter(item=>item!==key);productionRenderColumnDialog();});
   document.getElementById('production-column-options').addEventListener('click',event=>{const button=event.target.closest('[data-column-move]');const row=event.target.closest('[data-production-column]');if(!button||!row||!productionState.columnDraft)return;const index=productionState.columnDraft.indexOf(row.dataset.productionColumn);const target=index+(button.dataset.columnMove==='up'?-1:1);if(index<0||target<0||target>=productionState.columnDraft.length)return;[productionState.columnDraft[index],productionState.columnDraft[target]]=[productionState.columnDraft[target],productionState.columnDraft[index]];productionRenderColumnDialog();});
@@ -975,6 +1028,7 @@
     document.getElementById('production-processing-view').hidden=productionState.view!=='processing';
     document.getElementById('production-export').hidden=productionState.view!=='lines';
   };
+  productionMobileLayoutQuery.addEventListener?.('change',event=>{if(localStorage.getItem(productionLayoutStorageKey))return;productionState.layout=event.matches?'cards':'table';if(productionState.data)productionRender();});
   productionInitialize();
   </script>
 </body>
