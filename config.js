@@ -5,5 +5,10 @@ window.JUN_CONFIG = {
   edgeFunctionName: 'zhongtai-api',
   edgeFunctionBaseUrl: window.location.hostname === 'zhongtai.jundesign.studio'
     ? `${window.location.origin}/_supabase/functions/v1/zhongtai-api`
-    : 'https://bksugnavdfplkedzmxbw.supabase.co/functions/v1/zhongtai-api'
+    : 'https://bksugnavdfplkedzmxbw.supabase.co/functions/v1/zhongtai-api',
+  filing: {
+    companyName: '',
+    icpNumber: '',
+    policeRecordNumber: ''
+  }
 };

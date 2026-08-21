@@ -72,4 +72,58 @@
       };
     }
   };
+
+  function appendFilingFooter() {
+    const filing = window.JUN_CONFIG?.filing || {};
+    const icpNumber = String(filing.icpNumber || '').trim();
+    const policeRecordNumber = String(filing.policeRecordNumber || '').trim();
+    if (!icpNumber && !policeRecordNumber) return;
+
+    const footer = document.createElement('footer');
+    footer.className = 'jun-filing-footer';
+    footer.setAttribute('aria-label', '网站备案信息');
+
+    const companyName = String(filing.companyName || '').trim();
+    if (companyName) {
+      const company = document.createElement('span');
+      company.textContent = companyName;
+      footer.appendChild(company);
+    }
+    if (icpNumber) {
+      const link = document.createElement('a');
+      link.href = 'https://beian.miit.gov.cn/';
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      link.textContent = icpNumber;
+      footer.appendChild(link);
+    }
+    if (policeRecordNumber) {
+      const link = document.createElement('a');
+      const code = policeRecordNumber.replace(/\D/g, '');
+      link.href = `https://beian.mps.gov.cn/#/query/webSearch?code=${encodeURIComponent(code)}`;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      link.textContent = policeRecordNumber;
+      footer.appendChild(link);
+    }
+
+    const style = document.createElement('style');
+    style.textContent = `
+      .jun-filing-footer {
+        display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 14px;
+        padding: 12px 16px; color: #7a8699; background: #f4f6fa;
+        border-top: 1px solid #e3e8ef; font-size: 12px; line-height: 1.5;
+      }
+      .jun-filing-footer a { color: inherit; text-decoration: none; }
+      .jun-filing-footer a:hover { text-decoration: underline; }
+    `;
+    document.head.appendChild(style);
+    document.body.appendChild(footer);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', appendFilingFooter, {once: true});
+  } else {
+    appendFilingFooter();
+  }
 })();
