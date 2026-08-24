@@ -771,6 +771,13 @@
     return state.data?.payroll_rows || [];
   }
 
+  function payrollFrozen() {
+    const rows = payrollRows();
+    return state.data?.payroll_snapshot?.status === 'final'
+      && rows.length > 0
+      && rows.every(function (row) { return row.payment?.is_paid === true; });
+  }
+
   function payrollStatus(row) {
     const labels = {ready: '应发已生成', missing_input: '待补提报', source_pending: '受待审批影响', excluded: '不计经营报表'};
     if (row.payload?.finance_managed_gross && row.gross_pay == null) return '待财务核定应发';
@@ -865,7 +872,7 @@
       ${totalBand}
       <div class="payroll-payment-list">${rows.map(function (row) {
         const statusClass = row.calculation_status === 'missing_input' ? 'is-missing' : row.calculation_status === 'source_pending' ? 'is-pending' : 'is-ready';
-        const paymentReady = state.data.payroll_snapshot?.status === 'final' && row.net_pay != null;
+        const paymentReady = state.data.payroll_snapshot?.status === 'final' && row.net_pay != null && !payrollFrozen();
         const paid = row.payment?.is_paid === true;
         const adminControl = window.JUN_CONTEXT?.profile?.role === 'admin'
           ? `<label class="payroll-paid-control ${paid ? 'is-paid' : ''}"><input type="checkbox" data-payroll-paid="${escapeHtml(row.id)}" ${paid ? 'checked' : ''} ${paymentReady ? '' : 'disabled'}><span>${paid ? '已发' : '未发'}</span></label>`
@@ -929,7 +936,7 @@
     const item = payrollComponent(row, key);
     if (!item) return '<span class="company-payroll-empty">-</span>';
     const inputKey = payrollManualInputKey(row, key);
-    const manual = Boolean(inputKey) && has('finance.manage') && state.data.month.status === 'open';
+    const manual = Boolean(inputKey) && has('finance.manage') && state.data.month.status === 'open' && !payrollFrozen();
     return `<button type="button" class="company-payroll-value ${manual ? 'is-manual-source' : 'is-linked-source'}" data-component-row="${escapeHtml(row.id)}" data-component-key="${escapeHtml(key)}" ${manual ? `data-source-input="${escapeHtml(inputKey)}"` : ''}>${amount(item.amount)}<i class="ti ti-${manual ? 'pencil' : 'link'}"></i></button>`;
   }
 
@@ -947,7 +954,7 @@
 
   function companyPayrollMonthNote(row) {
     const note = row.payload?.month_note || row.note || '';
-    const editable = has('finance.manage') && state.data.month.status === 'open';
+    const editable = has('finance.manage') && state.data.month.status === 'open' && !payrollFrozen();
     if (!editable) return `<span title="${escapeHtml(note)}">${escapeHtml(note || '-')}</span>`;
     return `<button type="button" class="company-payroll-note-button" data-payroll-month-note="${escapeHtml(row.employee_id)}" title="编辑只适用于本月的备注"><span>${escapeHtml(note || '填写当月备注')}</span><i class="ti ti-pencil"></i></button>`;
   }
@@ -1072,13 +1079,18 @@
 
   async function loadCompanyPayroll() {
     if (!has('finance.payroll.manage') && !has('finance.manage')) throw new Error('没有查看公司工资表的权限');
-    state.data = await api(`/api/finance/months/${state.month}?prepare_payroll=1`);
-    const snapshot = state.data.payroll_snapshot;
     const canManagePayroll = has('finance.payroll.manage') || has('finance.manage');
+    state.data = await api(`/api/finance/months/${state.month}`);
+    if (!state.data.payroll_snapshot && canManagePayroll) {
+      await api(`/api/finance/payroll/${state.month}/recalculate`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'});
+      state.data = await api(`/api/finance/months/${state.month}`);
+    }
+    const snapshot = state.data.payroll_snapshot;
+    const frozen = payrollFrozen();
     const businessMonth = currentBusinessMonth();
     const currentMonthOpened = state.months.some(function (item) { return item.month === businessMonth; });
     const openCurrentMonth = has('finance.manage') && !currentMonthOpened ? `<button id="payroll-open-current-month" class="btn btn-primary"><i class="ti ti-calendar-plus me-1"></i>提前打开 ${businessMonth.replace('-', '年')}月工资表</button>` : '';
-    toolbar.innerHTML = `${monthSelect(state.months, state.month)}${snapshot ? `<span class="finance-status ${snapshot.status === 'final' ? 'is-ready' : 'is-missing'}">${snapshot.status === 'final' ? '财务已核定' : snapshot.status === 'awaiting_finance' ? '待财务核定' : '工资草稿'}</span>` : '<span class="finance-status is-missing">尚未核算</span>'}<span class="finance-toolbar-spacer"></span>${openCurrentMonth}${has('finance.manage') && state.data.month.status === 'open' ? '<button id="payroll-recalculate" class="btn btn-outline-primary"><i class="ti ti-calculator me-1"></i>重新核算</button>' : ''}${canManagePayroll ? `<button id="payroll-export" class="btn btn-outline-primary" ${payrollRows().length ? '' : 'disabled'}><i class="ti ti-file-export me-1"></i>导出给财务</button>` : ''}${canManagePayroll && payrollRows().length ? '<label class="btn btn-primary mb-0"><i class="ti ti-file-import me-1"></i>导入财务回表<input id="payroll-import" type="file" accept=".xlsx,.xls" hidden></label>' : ''}`;
+    toolbar.innerHTML = `${monthSelect(state.months, state.month)}${snapshot ? `<span class="finance-status ${snapshot.status === 'final' ? 'is-ready' : 'is-missing'}">${frozen ? '工资已发 · 已冻结' : snapshot.status === 'final' ? '财务已核定' : snapshot.status === 'awaiting_finance' ? '待财务核定' : '工资草稿'}</span>` : '<span class="finance-status is-missing">尚未核算</span>'}<span class="finance-toolbar-spacer"></span>${openCurrentMonth}${has('finance.manage') && state.data.month.status === 'open' && !frozen ? '<button id="payroll-recalculate" class="btn btn-outline-primary"><i class="ti ti-calculator me-1"></i>重新核算</button>' : ''}${canManagePayroll ? `<button id="payroll-export" class="btn btn-outline-primary" ${payrollRows().length ? '' : 'disabled'}><i class="ti ti-file-export me-1"></i>导出给财务</button>` : ''}${canManagePayroll && payrollRows().length && !frozen ? '<label class="btn btn-primary mb-0"><i class="ti ti-file-import me-1"></i>导入财务回表<input id="payroll-import" type="file" accept=".xlsx,.xls" hidden></label>' : ''}`;
     toolbar.querySelector('#finance-month').addEventListener('change', async function (event) { setMonth(event.target.value); state.companyPayrollModule = 'all'; await loadCompanyPayroll(); });
     toolbar.querySelector('#payroll-export')?.addEventListener('click', exportPayroll);
     toolbar.querySelector('#payroll-recalculate')?.addEventListener('click', async function (event) {
