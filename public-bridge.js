@@ -102,6 +102,7 @@
     if (pathname.startsWith(`${basePath}/finance/payroll`)) return null;
     if ((pathname.startsWith(`${basePath}/finance/sources`) || pathname.startsWith(`${basePath}/finance/express-bills`))) return 'finance.sources.read';
     if (pathname.startsWith(`${basePath}/finance`)) return 'finance.read';
+    if (pathname.startsWith(`${basePath}/production/manual`)) return 'production.manual.read';
     if (pathname.startsWith(`${basePath}/production`)) return 'production.read';
     if (pathname.startsWith(`${basePath}/inventory`)) return 'inventory.read';
     if (pathname.startsWith(`${basePath}/erp`)) return 'orders.read';
@@ -156,6 +157,7 @@
     if (pathname.startsWith(`${basePath}/finance/payroll`)) return null;
     if ((pathname.startsWith(`${basePath}/finance/sources`) || pathname.startsWith(`${basePath}/finance/express-bills`))) return 'finance.sources.read';
     if (pathname.startsWith(`${basePath}/finance`)) return 'finance.read';
+    if (pathname.startsWith(`${basePath}/production/manual`)) return 'production.manual.read';
     if (pathname.startsWith(`${basePath}/production`)) return 'production.read';
     if (pathname.startsWith(`${basePath}/inventory`)) return 'inventory.read';
     if (pathname.startsWith(`${basePath}/erp`)) return 'orders.read';
