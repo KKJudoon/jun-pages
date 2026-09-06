@@ -23,6 +23,7 @@
     {path:'/finance/company-payroll/',name:'公司工资表',area:'finance',permission:'finance.read',admin:true,icon:'table',month:true},
     {path:'/finance/payroll/',name:'工资条',area:'finance',icon:'cash-banknote',month:true},
     {path:'/finance/employees/',name:'员工信息',area:'finance',permission:'finance.employees.manage',admin:true,icon:'users',month:true},
+    {path:'/admin/collectors/',name:'采集器状态',area:'system',permission:'users.manage',admin:true,icon:'activity-heartbeat'},
     {path:'/admin/users/',name:'用户与安全',area:'system',permission:'users.manage',icon:'shield-lock'},
   ];
   const validMonth = value => typeof value === 'string' && /^[0-9]{4}-(0[1-9]|1[0-2])$/.test(value);

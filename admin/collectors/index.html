@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>采集器状态 — 生意中台</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="/jun-pages/assets/jun-icon-32.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/jun-pages/assets/jun-icon-180.png">
+  <link rel="manifest" href="/jun-pages/manifest.webmanifest">
+  <meta name="theme-color" content="#101b3d">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="stylesheet" href="/jun-pages/vendor/tabler.min.css">
+  <link rel="stylesheet" href="/jun-pages/vendor/tabler-icons.min.css">
+  <link rel="stylesheet" href="/jun-pages/auth-gate.css?v=20260810-4">
+  <link rel="stylesheet" href="/jun-pages/collector-status.css">
+  <script src="/jun-pages/vendor/supabase.js"></script>
+  <script src="/jun-pages/config.js?v=20260805-3"></script>
+  <script src="/jun-pages/device.js"></script>
+  <script src="/jun-pages/public-bridge.js?v=20260815-1"></script>
+</head>
+<body>
+<header class="collector-top"><a href="/jun-pages/">生意中台</a></header><nav class="collector-nav"><a href="/jun-pages/admin/users/">用户与安全</a><a href="/jun-pages/admin/collectors/" aria-current="page">采集器状态</a></nav>
+<main class="collector-page">
+<div class="collector-heading"><div><p class="text-secondary">系统管理 · Starfish</p><h1>采集器状态</h1><p>查看采集计划、执行结果和数据去向。时间均为北京时间。</p></div><button id="refresh" class="btn btn-primary" type="button">刷新状态</button></div>
+<div id="connection" role="status" aria-live="polite">正在读取 Starfish 状态…</div>
+<div id="summary" class="collector-summary"></div>
+<section class="collector-filters" aria-label="筛选采集任务"><label>分类<select id="group"><option value="">全部分类</option><option>日常采集</option><option>月度采集</option><option>数据发布</option><option>健康检查</option></select></label><label>账期<select id="month"><option value="">全部月份</option></select></label><label>状态<select id="status"><option value="">全部状态</option><option value="attention">需要关注</option><option value="pending">待采集</option><option value="complete">已成功</option></select></label></section>
+<div id="collectors" class="collector-grid"></div>
+<p class="collector-footnote">每30秒自动刷新。采集状态与通知读取相同的执行记录；“已导出”表示原件校验通过，入账情况需在对应业务模块查看。</p>
+</main><script src="/jun-pages/collector-status.js"></script></body></html>

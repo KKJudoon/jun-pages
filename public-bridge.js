@@ -100,6 +100,7 @@
   function pagePermission(pathname) {
     const known = window.JUN_WORKSPACE?.pageFor(pathname.slice(basePath.length));
     if (known) return known.permission || null;
+    if (pathname.startsWith(`${basePath}/admin/collectors`)) return 'users.manage';
     if (pathname.startsWith(`${basePath}/admin/users`)) return 'users.manage';
     if (pathname.startsWith(`${basePath}/finance/payroll`)) return null;
     if ((pathname.startsWith(`${basePath}/finance/sources`) || pathname.startsWith(`${basePath}/finance/express-bills`))) return 'finance.sources.read';
@@ -437,7 +438,7 @@
     }
     await new Promise(function (resolve, reject) {
       const script = document.createElement('script');
-      script.src = `${basePath}/workspace.js?v=20260906-1`;script.onload=resolve;script.onerror=reject;document.head.appendChild(script);
+      script.src = `${basePath}/workspace.js?v=20260906-2`;script.onload=resolve;script.onerror=reject;document.head.appendChild(script);
     });
     if (document.readyState === 'loading') await new Promise(resolve => document.addEventListener('DOMContentLoaded',resolve,{once:true}));
     const required = pagePermission(window.location.pathname);
