@@ -27,5 +27,5 @@
 <div id="summary" class="collector-summary"></div>
 <section class="collector-filters" aria-label="筛选采集任务"><label>分类<select id="group"><option value="">全部分类</option><option>日常采集</option><option>月度采集</option><option>数据发布</option><option>健康检查</option></select></label><label>账期<select id="month"><option value="">全部月份</option></select></label><label>状态<select id="status"><option value="">全部状态</option><option value="attention">需要关注</option><option value="pending">待采集</option><option value="complete">已成功</option></select></label></section>
 <div id="collectors" class="collector-grid"></div>
-<p class="collector-footnote">每30秒自动刷新。采集状态与通知读取相同的执行记录；“已导出”表示原件校验通过，入账情况需在对应业务模块查看。</p>
+<p class="collector-footnote">每30秒自动刷新。采集状态与通知读取同一个健康结果；月度项目只有原件校验、导入中台和回读均完成，才显示“全链路完成”。</p>
 </main><script src="/jun-pages/collector-status.js"></script></body></html>
