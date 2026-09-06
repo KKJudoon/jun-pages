@@ -1625,31 +1625,42 @@
     return `<svg class="shipment-trend" viewBox="0 0 ${width} ${height}" role="img" aria-label="按日发货件数对比图">${grid}${bars}${points?`<polyline points="${points}" fill="none" stroke="#e07b00" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="7 5"/>`:''}${labels}</svg>`;
   }
 
+  let shipmentLoadSequence = 0;
   async function loadShipments() {
-    const months = rollingMonths();
-    state.month = selectedMonthFromUrl(monthOffset(monthBeforeNow(), 1));
+    const requestId = ++shipmentLoadSequence;
+    const month = selectedMonthFromUrl(currentBusinessMonth());
+    const months = [...new Set([currentBusinessMonth(), ...rollingMonths(), month])].sort().reverse();
+    state.month = month;
     const params = new URLSearchParams(location.search);
     const search = params.get('search') || '';
-    const defaultCompare = monthOffset(state.month, -1);
-    state.shipmentCompare = params.get('compare') || defaultCompare;
+    const defaultCompare = monthOffset(month, -1);
+    state.shipmentCompare = /^\d{4}-(0[1-9]|1[0-2])$/.test(params.get('compare') || '') ? params.get('compare') : defaultCompare;
     if (state.shipmentCompare === state.month) state.shipmentCompare = defaultCompare;
+    const compareMonth = state.shipmentCompare;
     const compareOptions = months.concat([state.shipmentCompare]).filter(function(value,index,array){return value !== state.month && array.indexOf(value) === index;}).map(function(value){return `<option value="${escapeHtml(value)}" ${value===state.shipmentCompare?'selected':''}>对比 ${escapeHtml(value)}</option>`;}).join('');
-    toolbar.innerHTML = `${monthSelect(months,state.month)}<select id="shipment-compare" class="form-select finance-month">${compareOptions}</select><input id="source-search" class="form-control finance-source-search" type="search" placeholder="搜索单号、商品或内容" value="${escapeHtml(search)}"><span class="finance-toolbar-spacer"></span><span class="finance-status">当前月为主 · 虚线为对比月</span>`;
+    toolbar.innerHTML = `${monthSelect(months,month)}<select id="shipment-compare" class="form-select finance-month">${compareOptions}</select><input id="source-search" class="form-control finance-source-search" type="search" placeholder="搜索单号、商品或内容" value="${escapeHtml(search)}"><span class="finance-toolbar-spacer"></span><span class="finance-status">当前月为主 · 虚线为对比月</span>`;
     toolbar.querySelector('#finance-month').addEventListener('change', async function(event){setMonth(event.target.value);await loadShipments();});
     toolbar.querySelector('#shipment-compare').addEventListener('change', async function(event){const url=new URL(location.href);url.searchParams.set('compare',event.target.value);history.replaceState({},'',url);await loadShipments();});
     toolbar.querySelector('#source-search').addEventListener('change', async function(event){const url=new URL(location.href);if(event.target.value.trim())url.searchParams.set('search',event.target.value.trim());else url.searchParams.delete('search');history.replaceState({},'',url);await loadShipments();});
     content.innerHTML = '<div class="finance-loading"><span class="spinner-border spinner-border-sm"></span>正在汇总按日发货数据</div>';
-    const [current,comparison] = await Promise.all([allShipmentRows(state.month,search),allShipmentRows(state.shipmentCompare,search)]);
-    const legacyMonths = [[state.month,current],[state.shipmentCompare,comparison]].filter(function(entry){return entry[1].batch && entry[1].batch.basis !== "actual_shipment";}).map(function(entry){return entry[0];});
+    let current, comparison;
+    try {
+      [current,comparison] = await Promise.all([allShipmentRows(month,search),allShipmentRows(compareMonth,search)]);
+    } catch (error) {
+      if (requestId === shipmentLoadSequence) renderError(error);
+      return;
+    }
+    if (requestId !== shipmentLoadSequence) return;
+    const legacyMonths = [[month,current],[compareMonth,comparison]].filter(function(entry){return entry[1].batch && entry[1].batch.basis !== "actual_shipment";}).map(function(entry){return entry[0];});
     const currentRows = current.rows;
     const compareRows = comparison.rows;
-    const currentDaily = shipmentDaily(currentRows,state.month);
-    const compareDaily = shipmentDaily(compareRows,state.shipmentCompare);
+    const currentDaily = shipmentDaily(currentRows,month);
+    const compareDaily = shipmentDaily(compareRows,compareMonth);
     const total = currentDaily.reduce(function(sum,value){return sum+value;},0);
     const compareTotal = compareDaily.reduce(function(sum,value){return sum+value;},0);
     const change = !legacyMonths.length && compareTotal ? (total-compareTotal)/compareTotal*100 : null;
     const activeDays = currentDaily.filter(function(value){return value>0;}).length;
-    content.innerHTML = `<section class="shipment-overview"><div class="shipment-kpis"><article><span>${escapeHtml(state.month)} 发货工作量（件）</span><strong>${current.batch ? integer.format(total) : "待采集"}</strong><small>${currentRows.filter(function(row){return row.eligible !== false;}).length} 条有效记录 · ${currentRows.filter(function(row){return row.eligible === false;}).length} 条不计入</small></article><article><span>对比 ${escapeHtml(state.shipmentCompare)}</span><strong>${comparison.batch ? integer.format(compareTotal) : "待采集"}</strong><small>${change==null?'无可比基数':`${change>=0?'+':''}${change.toFixed(1)}%`}</small></article><article><span>有发货的日期</span><strong>${activeDays}</strong><small>日均 ${activeDays?integer.format(total/activeDays):'0'} 件</small></article></div><div class="shipment-chart-card"><header><div><h2>日粒度发货数量</h2><p>${escapeHtml(state.month)} 以蓝色柱为主；${escapeHtml(state.shipmentCompare)} 用橙色虚线按日期对齐。</p></div><div class="shipment-legend"><span><i class="current"></i>${escapeHtml(state.month)}</span><span><i class="compare"></i>${escapeHtml(state.shipmentCompare)}</span></div></header>${shipmentTrendSvg(currentDaily,compareDaily)}</div></section><section class="finance-section"><div class="finance-section-header"><div><h3>${escapeHtml(state.month)} 发货明细</h3><p class="finance-note mb-0">${current.batch ? `数据更新于 ${dateTime(current.batch.captured_at)}` : "该月尚未采集"}。按实际发货时间统计实物工作量，已发货后的退款、交易关闭以及赠品均计入；邮费、补价及编号 000 等非实物行不计件数。${legacyMonths.length ? `<strong>${escapeHtml(legacyMonths.join("、"))} 为历史导入数据，尚未按实际工作量重新采集，不能直接与新口径比较。</strong>` : ""}搜索同时作用于当月和对比月。</p></div></div>${renderRecordTable(currentRows,false)}</section>`;
+    content.innerHTML = `<section class="shipment-overview"><div class="shipment-kpis"><article><span>${escapeHtml(month)} 发货工作量（件）</span><strong>${current.batch ? integer.format(total) : "待采集"}</strong><small>${currentRows.filter(function(row){return row.eligible !== false;}).length} 条有效记录 · ${currentRows.filter(function(row){return row.eligible === false;}).length} 条不计入</small></article><article><span>对比 ${escapeHtml(compareMonth)}</span><strong>${comparison.batch ? integer.format(compareTotal) : "待采集"}</strong><small>${change==null?'无可比基数':`${change>=0?'+':''}${change.toFixed(1)}%`}</small></article><article><span>有发货的日期</span><strong>${activeDays}</strong><small>日均 ${activeDays?integer.format(total/activeDays):'0'} 件</small></article></div><div class="shipment-chart-card"><header><div><h2>日粒度发货数量</h2><p>${escapeHtml(month)} 以蓝色柱为主；${escapeHtml(compareMonth)} 用橙色虚线按日期对齐。</p></div><div class="shipment-legend"><span><i class="current"></i>${escapeHtml(month)}</span><span><i class="compare"></i>${escapeHtml(compareMonth)}</span></div></header>${shipmentTrendSvg(currentDaily,compareDaily)}</div></section><section class="finance-section"><div class="finance-section-header"><div><h3>${escapeHtml(month)} 发货明细</h3><p class="finance-note mb-0">${current.batch ? `数据更新于 ${dateTime(current.batch.captured_at)}` : "该月尚未采集"}。按实际发货时间统计实物工作量，已发货后的退款、交易关闭以及赠品均计入；邮费、补价及编号 000 等非实物行不计件数。${legacyMonths.length ? `<strong>${escapeHtml(legacyMonths.join("、"))} 为历史导入数据，尚未按实际工作量重新采集，不能直接与新口径比较。</strong>` : ""}搜索同时作用于当月和对比月。</p></div></div>${renderRecordTable(currentRows,false)}</section>`;
     bindRecordDetails(content);
   }
 
