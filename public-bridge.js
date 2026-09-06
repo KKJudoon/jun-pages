@@ -98,6 +98,8 @@
   }
 
   function pagePermission(pathname) {
+    const known = window.JUN_WORKSPACE?.pageFor(pathname.slice(basePath.length));
+    if (known) return known.permission || null;
     if (pathname.startsWith(`${basePath}/admin/users`)) return 'users.manage';
     if (pathname.startsWith(`${basePath}/finance/payroll`)) return null;
     if ((pathname.startsWith(`${basePath}/finance/sources`) || pathname.startsWith(`${basePath}/finance/express-bills`))) return 'finance.sources.read';
@@ -122,6 +124,10 @@
 
   function allowedHome(context) {
     const preferred = String(context.role?.home_path || '/');
+    if (window.JUN_WORKSPACE) {
+      const visible = window.JUN_WORKSPACE.visiblePages(context);
+      return basePath + (visible.find(page => page.path === preferred)?.path || visible[0]?.path || '/finance/payroll/');
+    }
     if (context.profile?.role !== 'admin' && preferred.startsWith('/finance') && !preferred.startsWith('/finance/payroll')) return `${basePath}/inventory/`;
     return `${basePath}${preferred === '/' ? '/' : preferred}`;
   }
@@ -155,6 +161,8 @@
   }
 
   function navPermission(pathname) {
+    const known = window.JUN_WORKSPACE?.pageFor(pathname.slice(basePath.length));
+    if (known) return known.permission || null;
     if (pathname.startsWith(`${basePath}/finance/payroll`)) return null;
     if ((pathname.startsWith(`${basePath}/finance/sources`) || pathname.startsWith(`${basePath}/finance/express-bills`))) return 'finance.sources.read';
     if (pathname.startsWith(`${basePath}/finance`)) return 'finance.read';
@@ -171,18 +179,6 @@
 
   function applyPermissionNavigation(context) {
     const permissions = new Set(context.permissions || []);
-    if (context.profile?.role !== 'admin') {
-      document.querySelectorAll('.bottom-tab-bar a[href]').forEach(function (anchor) {
-        const pathname = new URL(anchor.href, window.location.href).pathname.replace(/\/$/, '');
-        if (pathname === `${basePath}/finance`) {
-          anchor.href = `${basePath}/finance/payroll/`;
-          const label = anchor.querySelector('span');
-          if (label) label.textContent = '工资条';
-          const icon = anchor.querySelector('i');
-          if (icon) icon.className = 'ti ti-cash-banknote';
-        }
-      });
-    }
     document.querySelectorAll('a[href]').forEach(function (anchor) {
       const pathname = new URL(anchor.href, window.location.href).pathname;
       const required = navPermission(pathname);
@@ -439,12 +435,11 @@
       redirectToLogin(context.error === 'account_disabled' ? 'disabled' : 'access');
       return null;
     }
-    const preferredHome = allowedHome(context);
-    const atBaseHome = window.location.pathname === basePath || window.location.pathname === `${basePath}/`;
-    if (atBaseHome && preferredHome !== window.location.pathname) {
-      window.location.replace(preferredHome);
-      return null;
-    }
+    await new Promise(function (resolve, reject) {
+      const script = document.createElement('script');
+      script.src = `${basePath}/workspace.js?v=20260906-1`;script.onload=resolve;script.onerror=reject;document.head.appendChild(script);
+    });
+    if (document.readyState === 'loading') await new Promise(resolve => document.addEventListener('DOMContentLoaded',resolve,{once:true}));
     const required = pagePermission(window.location.pathname);
     const blockedFinance = isFinancePath(window.location.pathname) && !isPayrollSlipPath(window.location.pathname) && context.profile?.role !== 'admin';
     if (blockedFinance || required && !(context.permissions || []).includes(required)) {
@@ -454,6 +449,7 @@
       return null;
     }
     window.JUN_CONTEXT = context;
+    window.JUN_WORKSPACE.init(context, edgeFetch);
     applyPermissionNavigation(context);
     renderAccount(context);
     document.documentElement.classList.remove('jun-auth-pending');

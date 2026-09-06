@@ -112,7 +112,9 @@
 
   function selectedMonthFromUrl(fallback) {
     const value = new URLSearchParams(location.search).get('month');
-    return /^\d{4}-(0[1-9]|1[0-2])$/.test(value || '') ? value : fallback;
+    const selected = window.JUN_PAGE_STATE?.resolveMonth(fallback) || (/^\d{4}-(0[1-9]|1[0-2])$/.test(value || '') ? value : fallback);
+    window.JUN_PAGE_STATE?.rememberMonth(selected, false);
+    return selected;
   }
 
   function monthSelect(months, selected) {
@@ -127,6 +129,7 @@
     url.searchParams.set('month', month);
     history.replaceState({}, '', url);
     state.month = month;
+    window.JUN_PAGE_STATE?.rememberMonth(month);
   }
 
   function markNavigation() {
@@ -176,6 +179,7 @@
   }
 
   function reportTabs() {
+    if (window.JUN_WORKSPACE) return '';
     if (state.payrollSelfService) return '<nav class="finance-tabs" aria-label="工资条"><a href="/jun-pages/finance/payroll/" class="active">工资条</a></nav>';
     const companyPayroll = has('finance.payroll.manage') || has('finance.manage')
       ? `<a href="/jun-pages/finance/company-payroll/" ${page === 'finance-company-payroll' ? 'class="active"' : ''}>公司工资表</a>`

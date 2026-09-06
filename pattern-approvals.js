@@ -198,5 +198,5 @@
     }
   });
   async function load() { data = await api(); render(); }
-  Promise.resolve(window.JUN_AUTH_READY).then(load).catch(e => { $('#module-content').textContent = ''; message(e.message, true); });
+  Promise.resolve(window.JUN_AUTH_READY).then(() => { month = window.JUN_PAGE_STATE?.resolveMonth(month) || month; window.JUN_PAGE_STATE?.rememberMonth(month, false); return load(); }).catch(e => { $('#module-content').textContent = ''; message(e.message, true); });
 })(typeof window !== 'undefined' ? window : globalThis);
