@@ -1,4 +1,4 @@
-body[data-jun-page="production-manual"] .finance-shell { --manual-border:#dce2e9; --manual-muted:#66758a; color:#182433; font-size:14px; }
+body[data-jun-page="production-manual"] .finance-shell,body[data-jun-page="production-pattern"] .finance-shell { --manual-border:#dce2e9; --manual-muted:#66758a; color:#182433; font-size:14px; }
 .manual-toolbar { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; margin-bottom:16px; }
 .manual-month-group,.manual-toolbar-actions { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
 .manual-month-group label { font-size:13px; color:#526176; margin:0; }
@@ -98,3 +98,5 @@ body[data-jun-page="production-manual"] .finance-shell { --manual-border:#dce2e9
  .manual-form-grid { gap:14px 12px; }.manual-dialog-footer .btn { min-height:44px; }
 }
 @media(max-width:360px) { .manual-form-grid { grid-template-columns:1fr; }.manual-summary strong { font-size:16px; }.manual-tab { padding-inline:5px; } }
+
+.manual-card-total>strong>small { font-size:12px; font-weight:400; color:#66758a; }
