@@ -84,7 +84,7 @@
         <input type="hidden" name="role_key">
         <label>角色名称<input name="label" maxlength="30" placeholder="例如：企划" required><small>用户分配角色时看到的名称，不能与现有角色重名。</small></label>
         <label>角色说明<textarea name="description" maxlength="240" rows="3" placeholder="说明这个角色负责的工作范围"></textarea></label>
-        <label>登录后默认页面<select name="home_path" required><option value="/inventory/">库存明细</option><option value="/erp/">订单审核</option><option value="/erp/products/">商品档案</option><option value="/sycm/">运营数据</option><option value="/marketing-safety/">营销安全</option><option value="/">工作台</option></select></label>
+        <label>登录后默认页面<select name="home_path" required><option value="/customer/wecom-sales/">企业微信销售</option><option value="/inventory/">库存明细</option><option value="/erp/">订单审核</option><option value="/erp/products/">商品档案</option><option value="/sycm/">运营数据</option><option value="/marketing-safety/">营销安全</option><option value="/">工作台</option></select></label>
         <p class="helper-copy" id="role-system-note" hidden>这是系统内置角色，可以修改名称、说明和权限，但不能删除。</p>
         <p class="dialog-message" role="alert"></p>
       </div>

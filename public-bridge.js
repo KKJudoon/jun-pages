@@ -105,6 +105,7 @@
     if (pathname.startsWith(`${basePath}/finance/payroll`)) return null;
     if ((pathname.startsWith(`${basePath}/finance/sources`) || pathname.startsWith(`${basePath}/finance/express-bills`))) return 'finance.sources.read';
     if (pathname.startsWith(`${basePath}/finance`)) return 'finance.read';
+    if (pathname.startsWith(`${basePath}/customer/wecom-sales`)) return 'customer.sales.read';
     if (pathname.startsWith(`${basePath}/production/manual`)) return 'production.manual.read';
     if (pathname.startsWith(`${basePath}/production/pattern`)) return 'production.pattern.read';
     if (pathname.startsWith(`${basePath}/production`)) return 'production.read';
@@ -167,6 +168,7 @@
     if (pathname.startsWith(`${basePath}/finance/payroll`)) return null;
     if ((pathname.startsWith(`${basePath}/finance/sources`) || pathname.startsWith(`${basePath}/finance/express-bills`))) return 'finance.sources.read';
     if (pathname.startsWith(`${basePath}/finance`)) return 'finance.read';
+    if (pathname.startsWith(`${basePath}/customer/wecom-sales`)) return 'customer.sales.read';
     if (pathname.startsWith(`${basePath}/production/manual`)) return 'production.manual.read';
     if (pathname.startsWith(`${basePath}/production/pattern`)) return 'production.pattern.read';
     if (pathname.startsWith(`${basePath}/production`)) return 'production.read';
