@@ -47,12 +47,13 @@
   root.JUN_MANUAL = { parseRows, dateText, labels };
   if (typeof module !== 'undefined') module.exports = root.JUN_MANUAL;
   if (typeof document === 'undefined') return;
+  const style = document.createElement('link'); style.rel = 'stylesheet'; style.href = '/jun-pages/manual-approvals.css?v=20260906-2'; document.head.append(style);
   const $ = s => document.querySelector(s);
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const money = n => Number(n || 0).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const now = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Shanghai' });
   let month = new URLSearchParams(location.search).get('month') || now().slice(0, 7), data, filter = 'all', busy = false;
-  const errors = { manual_forbidden: '没有操作权限', manual_submit_forbidden: '没有提交权限', manual_admin_required: '仅管理员可以审批、导入及定稿', manual_version_conflict: '记录已被更新，请刷新后再操作', manual_month_finalized: '本月已定稿，请管理员先重新打开', manual_pending_approvals: '还有待审批记录，请先处理完再定稿', finance_month_locked: '财务月份已锁定', finance_payroll_finalized: '工资表已定稿，不能修改本月来源', manual_legacy_month_requires_migration: '本月是历史账本，暂时只读，需先完成历史迁移', manual_not_pending: '这条记录已处理，请刷新', manual_submission_month_mismatch: '按提交时间归月：新增只能提交到当前月份', manual_detail_invalid: '请核对款号、数量、单价和金额', manual_import_total_mismatch: '导入明细合计与企微总金额不一致' };
+  const errors = { manual_forbidden: '没有操作权限', manual_submit_forbidden: '没有提交权限', manual_admin_required: '仅管理员可以审批、导入及定稿', manual_version_conflict: '记录已被更新，请刷新后再操作', manual_month_finalized: '本月已定稿，请管理员先重新打开', manual_pending_approvals: '还有待审批记录，请先处理完再定稿', finance_month_locked: '财务月份已锁定', finance_payroll_finalized: '工资表已定稿，不能修改本月来源', manual_legacy_month_requires_migration: '本月是历史账本，暂时只读，需先完成历史迁移', manual_not_pending: '这条记录已处理，请刷新', manual_submission_month_mismatch: '企微提交时间与导入月份不一致', manual_work_date_required: '请填写作业日期', manual_detail_invalid: '请核对款号、数量、单价和金额', manual_import_total_mismatch: '导入明细合计与企微总金额不一致' };
   async function api(action, values) {
     const response = await fetch('/api/production/manual-approvals?month=' + encodeURIComponent(month), action ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, values }) } : undefined);
     const body = await response.json();
@@ -73,37 +74,55 @@
   function options(selected) { return '<option value="">请选择员工</option>' + data.employees.map(e => `<option value="${esc(e.id)}" ${e.id === selected ? 'selected' : ''}>${esc(e.name)}</option>`).join(''); }
   function dialog(title, content, submit) {
     document.querySelector('#manual-dialog')?.remove();
-    const el = document.createElement('dialog'); el.id = 'manual-dialog'; el.style.cssText = 'width:min(680px,96vw);max-height:90dvh;border:1px solid #dde3eb;border-radius:12px;padding:20px;overflow:auto';
-    el.innerHTML = `<form><h3>${esc(title)}</h3>${content}<p data-error class="text-danger" role="alert"></p><div class="d-flex gap-2 mt-3"><button type="submit" class="btn btn-primary">${submit.label || '提交'}</button><button type="button" class="btn" data-close>取消</button></div></form>`;
-    document.body.append(el); el.querySelector('[data-close]').onclick = () => el.close();
+    const el = document.createElement('dialog'); el.id = 'manual-dialog'; el.className = 'manual-dialog';
+    el.innerHTML = `<form><header class="manual-dialog-head"><h3>${esc(title)}</h3><button type="button" class="manual-dialog-close" data-close aria-label="关闭">×</button></header><div class="manual-dialog-body">${content}<p data-error class="text-danger mb-0" role="alert"></p></div><footer class="manual-dialog-footer"><span><span class="manual-required">*</span> 为必填项</span><button type="button" class="btn btn-outline-secondary" data-close>取消</button><button type="submit" class="btn btn-primary">${submit.label || '提交审批'}</button></footer></form>`;
+    if (!el.querySelector('[required]')) el.querySelector('.manual-dialog-footer > span').textContent = '';
+    document.body.append(el); el.querySelectorAll('[data-close]').forEach(b => b.onclick = () => el.close());
     el.querySelector('form').onsubmit = e => { e.preventDefault(); Promise.resolve(submit.run(new FormData(e.target), el)).catch(err => { el.querySelector('[data-error]').textContent = err.message; }); };
     el.showModal(); return el;
   }
   async function photo(file) {
-    if (!file.type.startsWith('image/') || file.size > 15000000) throw new Error('请选择 15 MB 以内的图片');
-    const bitmap = await createImageBitmap(file); const scale = Math.min(1, 1200 / Math.max(bitmap.width, bitmap.height));
+    if (!/^image\/(jpeg|png|webp|gif|bmp|avif)$/.test(file.type) || file.size > 15000000) throw new Error('请选择 15 MB 以内的图片');
+    const bitmap = await createImageBitmap(file).catch(() => { throw new Error('无法读取该图片，请转换为 JPG 或 PNG 后上传'); }); const scale = Math.min(1, 1200 / Math.max(bitmap.width, bitmap.height));
     const canvas = document.createElement('canvas'); canvas.width = Math.round(bitmap.width * scale); canvas.height = Math.round(bitmap.height * scale);
     canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height); bitmap.close();
     const value = canvas.toDataURL('image/jpeg', 0.65); if (value.length > 350000) throw new Error('图片内容过大，请换一张较小的照片'); return value;
   }
   function edit(a) {
-    const d = a?.details?.[0] || {}; // Native submissions are deliberately one entry at a time.
+    const d = a?.details?.[0] || {};
+    let images = [...(d.images || [])], imagesBusy = false;
+    const star = '<span class="manual-required" aria-label="必填">*</span>';
+    const workDate = a?.work_date || (month === now().slice(0, 7) ? now() : month + '-01');
     const el = dialog(a ? '修改手工审批' : '新增手工审批', `
-      <label class="form-label">往来单位（员工）<select name="employee_id" class="form-select" required>${options(a?.employee_id || data.self_employee_id)}</select></label>
-      <label class="form-label">作业日期<input type="date" name="work_date" class="form-control" value="${esc(a?.work_date || now())}" required></label>
-      <label class="form-label">款号／手工内容<input name="style" class="form-control" maxlength="500" required value="${esc(d.style)}"></label>
-      <div class="row"><label class="col form-label">数量<input type="number" name="quantity" class="form-control" min="0.001" step="0.001" required value="${esc(d.quantity ?? 1)}"></label>
-      <label class="col form-label">单价（元）<input type="number" name="unit_price" class="form-control" min="0" step="0.01" required value="${esc(d.unit_price)}"></label></div>
-      <label class="form-label">金额（元）<input name="amount" class="form-control" readonly value="${esc(d.amount ?? '')}"></label>
-      <label class="form-label">订单编号（选填）<input name="order_no" class="form-control" maxlength="150" value="${esc(d.order_no)}"></label>
-      <label class="form-label">备注<textarea name="note" class="form-control" maxlength="3000">${esc(d.note)}</textarea></label>
-      <label class="form-label">图片（选填，最多 3 张；重新选择将替换原图片）<input name="photos" type="file" class="form-control" accept="image/*" multiple></label>
-      <small class="text-muted">${a ? '修改后重新进入待审批。' : '按本次提交时间计入月份。'}金额按数量 × 单价自动计算。</small>`, { run: async (f) => {
-        const files = f.getAll('photos').filter(x => x.size); if (files.length > 3) throw new Error('最多上传 3 张图片');
-        const images = files.length ? await Promise.all(files.map(photo)) : d.images || [];
+      <p class="manual-dialog-note">计入月份 <strong>${esc(month)}</strong>${a ? ' · 修改后重新进入待审批' : ''}</p>
+      <div class="manual-form-grid">
+        <label><span class="form-label">往来单位 ${star}</span><select name="employee_id" class="form-select" required>${options(a?.employee_id || (a?.counterparty_profile_id ? 'profile:' + a.counterparty_profile_id : data.self_employee_id))}</select></label>
+        <label><span class="form-label">作业日期 ${star}</span><input type="date" name="work_date" class="form-control" value="${esc(workDate)}" required></label>
+        <label class="manual-form-wide"><span class="form-label">款号／手工内容 ${star}</span><input name="style" class="form-control" placeholder="填写款号或说明做了什么手工" maxlength="500" required value="${esc(d.style)}"></label>
+        <label><span class="form-label">数量 ${star}</span><input type="number" name="quantity" class="form-control" min="0.001" step="0.001" required value="${esc(d.quantity ?? 1)}"></label>
+        <label><span class="form-label">单价（元） ${star}</span><input type="number" name="unit_price" class="form-control" min="0" step="0.01" required placeholder="0.00" value="${esc(d.unit_price)}"></label>
+        <div class="manual-amount-strip manual-form-wide"><label for="manual-amount">金额（元）<small>数量 × 单价，自动计算</small></label><input id="manual-amount" name="amount" readonly aria-label="金额（元）" value="${esc(d.amount != null ? Number(d.amount).toFixed(2) : '0.00')}"></div>
+        <label class="manual-form-wide"><span class="form-label">订单编号 <small>选填</small></span><input name="order_no" class="form-control" maxlength="150" placeholder="有关联订单时填写" value="${esc(d.order_no)}"></label>
+        <label class="manual-form-wide"><span class="form-label">备注 <small>选填</small></span><textarea name="note" class="form-control" rows="2" maxlength="3000" placeholder="补充说明工作内容或费用">${esc(d.note)}</textarea></label>
+        <div class="manual-form-wide"><span class="form-label">附件图片 <small>选填</small></span><div class="manual-upload-box"><label class="btn btn-outline-secondary manual-upload-button" for="manual-photo-input"><i class="ti ti-photo-plus" aria-hidden="true"></i>添加图片</label><input id="manual-photo-input" name="photos" type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/bmp,image/avif" multiple hidden><span class="manual-muted">仅图片，最多 3 张，每张不超过 15 MB</span><div data-photo-previews class="manual-photo-previews"></div><p data-photo-error class="text-danger mb-0" role="alert"></p></div></div>
+      </div>`, { run: async (f) => {
+        if (imagesBusy) throw new Error('图片正在处理，请稍候');
         await mutate(a ? 'edit' : 'submit', { id: a?.id, expected_version: a?.version, employee_id: f.get('employee_id'), work_date: f.get('work_date'), details: [{ style: f.get('style'), quantity: number(f.get('quantity')), unit_price: number(f.get('unit_price')), amount: Math.round(number(f.get('quantity')) * number(f.get('unit_price')) * 100) / 100, order_no: f.get('order_no'), note: f.get('note'), images }] });
       } });
-    el.addEventListener('input', () => { const q = el.querySelector('[name=quantity]').value, p = el.querySelector('[name=unit_price]').value; el.querySelector('[name=amount]').value = q && p ? (Math.round(Number(q) * Number(p) * 100) / 100).toFixed(2) : ''; });
+    function preview() {
+      el.querySelector('[data-photo-previews]').innerHTML = images.map((src, i) => `<div class="manual-photo-item"><button type="button" class="manual-thumb" data-preview="${src}" aria-label="预览附件图片 ${i + 1}"><img src="${src}" alt="附件图片 ${i + 1}"></button><button type="button" class="manual-photo-remove" data-remove-photo="${i}" aria-label="移除附件图片 ${i + 1}">×</button></div>`).join('');
+    }
+    preview();
+    el.querySelector('[name=photos]').onchange = async e => {
+      const files = Array.from(e.target.files); const error = el.querySelector('[data-photo-error]'); error.textContent = '';
+      if (images.length + files.length > 3) { error.textContent = '最多上传 3 张图片，请先移除不需要的图片'; e.target.value = ''; return; }
+      imagesBusy = true; el.querySelector('[type=submit]').disabled = true;
+      try { const added = await Promise.all(files.map(photo)); images.push(...added); preview(); }
+      catch (err) { error.textContent = err.message; }
+      finally { imagesBusy = false; el.querySelector('[type=submit]').disabled = false; e.target.value = ''; }
+    };
+    el.addEventListener('click', e => { const b = e.target.closest('[data-remove-photo]'); if (b && !imagesBusy) { images.splice(Number(b.dataset.removePhoto), 1); preview(); } });
+    el.addEventListener('input', () => { const q = el.querySelector('[name=quantity]').value, p = el.querySelector('[name=unit_price]').value; el.querySelector('[name=amount]').value = (Math.round(Number(q) * Number(p) * 100) / 100).toFixed(2); });
   }
   async function importFile(file) {
     if (!file) return; if (file.size > 15000000) throw new Error('文件超过 15 MB');
@@ -121,25 +140,52 @@
         await mutate('import', { approvals: entries });
       } });
   }
+  const validImages = d => (d.images || []).filter(src => /^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(src));
   function detailHtml(d) {
-    const images = (d.images || []).filter(src => /^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(src));
-    return `<div class="border-top pt-2 mt-2"><strong>${esc(d.style)}</strong><div>${esc(d.quantity)} × ¥${money(d.unit_price)} = <strong>¥${money(d.amount)}</strong></div>${d.order_no ? '<div>订单编号：' + esc(d.order_no) + '</div>' : ''}${d.note ? '<div style="white-space:pre-wrap">' + esc(d.note) + '</div>' : ''}${images.map(src => `<img src="${src}" alt="手工明细附件" loading="lazy" style="max-width:100%;max-height:220px;margin:4px">`).join('')}${d.image_count ? '<small class="text-muted">企微原记录：' + esc(d.image_count) + '</small>' : ''}</div>`;
+    const images = validImages(d);
+    return `<section class="manual-detail"><div class="manual-detail-heading"><strong>${esc(d.style)}</strong><span>¥${money(d.amount)}</span></div>
+      <div class="manual-detail-calculation">${esc(d.quantity)} × ¥${money(d.unit_price)}</div>
+      ${d.order_no ? '<div class="manual-field-row"><span>订单编号</span><strong>' + esc(d.order_no) + '</strong></div>' : ''}
+      ${d.note ? '<p class="manual-detail-note">' + esc(d.note) + '</p>' : ''}
+      ${images.length ? '<div class="manual-thumbnails">' + images.map((src, i) => `<button type="button" class="manual-thumb" data-preview="${src}" aria-label="预览 ${esc(d.style)} 附件图片 ${i + 1}"><img src="${src}" alt="${esc(d.style)} 附件图片 ${i + 1}" loading="lazy"></button>`).join('') + '</div>' : ''}
+      ${!images.length && d.image_count && !/^0/.test(d.image_count) ? '<small class="manual-muted">企微原件 ' + esc(d.image_count) + '</small>' : ''}</section>`;
+  }
+  function cardHtml(a, open) {
+    const sum = a.details.reduce((n, d) => n + Number(d.amount), 0);
+    const owner = a.submitted_by === window.JUN_CONTEXT?.profile?.id;
+    const date = value => new Date(value).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
+    const actions = `${data.is_admin && open && a.status === 'pending' ? `<button class="btn btn-success" data-action="approve" data-id="${a.id}"><i class="ti ti-check" aria-hidden="true"></i>通过</button><button class="btn btn-outline-danger" data-action="reject" data-id="${a.id}">驳回</button>` : ''}${data.can_submit && open && a.source === 'web' && owner && ['pending', 'rejected'].includes(a.status) ? `<button class="btn btn-outline-primary" data-action="edit" data-id="${a.id}">${a.status === 'rejected' ? '修改并重提' : '修改'}</button>${a.status === 'pending' ? `<button class="btn btn-outline-secondary" data-action="cancel" data-id="${a.id}">撤销</button>` : ''}` : ''}`;
+    return `<article class="manual-record-card is-${a.status}"><header class="manual-card-head"><div><h3>${esc(a.employee_name)}</h3><span class="manual-muted">${a.source === 'wecom' ? '企微导入' : '网页提交'} · ${a.details.length} 条明细</span></div><span class="manual-status is-${a.status}">${labels[a.status]}</span></header>
+      <div class="manual-card-total"><span>总金额</span><strong>¥${money(sum)}</strong></div>
+      <div class="manual-card-meta"><div><span>作业日期</span><strong>${esc(a.work_date || '—')}</strong></div><div><span>提交时间</span><strong>${date(a.submitted_at)}</strong></div>${a.completed_at ? '<div><span>审批完成</span><strong>' + date(a.completed_at) + '</strong></div>' : ''}</div>
+      ${a.reason ? '<div class="manual-reason">处理说明：' + esc(a.reason) + '</div>' : ''}
+      <div class="manual-details">${detailHtml(a.details[0])}${a.details.length > 1 ? `<details class="manual-extra-details"><summary>展开其余 ${a.details.length - 1} 条明细</summary>${a.details.slice(1).map(detailHtml).join('')}</details>` : ''}</div>
+      <footer class="manual-card-footer"><div class="manual-approval-number" title="${esc(a.approval_no)}"><span>审批编号</span>${esc(a.approval_no)}</div>${a.source === 'wecom' && /^https:\/\/[^/]*weixin\.qq\.com\//.test(a.raw?.header?.['审批详情'] || '') ? '<a target="_blank" rel="noopener noreferrer" href="' + esc(a.raw.header['审批详情']) + '">企微原审批 <i class="ti ti-external-link" aria-hidden="true"></i></a>' : ''}${actions ? '<div class="manual-card-actions">' + actions + '</div>' : ''}</footer></article>`;
   }
   function render() {
     const open = data.month_state.status === 'open';
-    const approvals = data.approvals; const pending = approvals.filter(a => a.status === 'pending');
+    const approvals = data.approvals, pending = approvals.filter(a => a.status === 'pending');
     const total = approvals.filter(a => a.status === 'approved').reduce((n, a) => n + a.details.reduce((v, d) => v + Number(d.amount), 0), 0);
     const payroll = approvals.filter(a => a.status === 'approved' && a.employee_name === '林敢').reduce((n, a) => n + a.details.reduce((v, d) => v + Number(d.amount), 0), 0);
-    $('#module-toolbar').innerHTML = `<label>提交月份 <input type="month" id="manual-month" class="form-control" value="${esc(month)}"></label><span class="badge bg-${open ? 'blue' : 'green'}-lt">${open ? '未定稿' : '已定稿'}</span>${data.can_submit && open && month === now().slice(0, 7) && !data.legacy_source ? '<button class="btn btn-primary" data-action="new">新增手工审批</button>' : ''}${data.is_admin && !data.legacy_source ? (open ? '<label class="btn">导入企微表格<input id="manual-import" type="file" accept=".xlsx,.xls" hidden></label><button class="btn btn-success" data-action="finalize">本月定稿</button>' : '<button class="btn" data-action="reopen">重新打开</button>') : ''}`;
-    $('#manual-month').onchange = e => { month = e.target.value; const url = new URL(location.href); url.searchParams.set('month', month); history.replaceState(null, '', url); load().catch(e => message(e.message, true)); };
+    $('#module-toolbar').classList.add('manual-toolbar');
+    $('#module-toolbar').innerHTML = `<div class="manual-month-group"><label for="manual-month">计入月份</label><input type="month" id="manual-month" class="form-control" value="${esc(month)}"><span class="manual-status ${open ? '' : 'is-approved'}">${open ? '未定稿' : '已定稿'}</span></div><div class="manual-toolbar-actions">${data.can_submit && open && !data.legacy_source ? '<button class="btn btn-primary" data-action="new"><i class="ti ti-plus" aria-hidden="true"></i>新增手工审批</button>' : ''}${data.is_admin && !data.legacy_source ? (open ? '<label class="btn btn-outline-secondary manual-import-label">导入企微<input id="manual-import" type="file" accept=".xlsx,.xls" hidden></label><button class="btn btn-outline-success" data-action="finalize">本月定稿</button>' : '<button class="btn btn-outline-secondary" data-action="reopen">重新打开</button>') : ''}</div>`;
+    $('#manual-month').onchange = e => { if (!e.target.value) return; month = e.target.value; const url = new URL(location.href); url.searchParams.set('month', month); history.replaceState(null, '', url); load().catch(e => message(e.message, true)); };
     const importer = $('#manual-import'); if (importer) importer.onchange = e => importFile(e.target.files[0]).catch(e => message(e.message, true)).finally(() => { e.target.value = ''; });
     const shown = approvals.filter(a => filter === 'all' || a.status === filter);
-    $('#module-content').innerHTML = `<div class="card mb-3"><div class="card-body">${data.is_admin ? '' : '本人相关记录 · '}已通过 ¥${money(total)}${data.is_admin ? ' · 林敢计薪 ¥' + money(payroll) : ''} · 待审批 ${pending.length} 张<p class="text-muted mt-2 mb-0">按提交时间归月。工资表与月报共同引用林敢的已通过明细。</p></div></div>
-      ${data.legacy_source ? '<div class="alert alert-info">本月为历史账本，保持原始数据。<a href="/jun-pages/finance/sources/?month=' + esc(month) + '&source=manual_work">查看历史来源</a></div>' : ''}
-      <div class="d-flex flex-wrap gap-2 mb-3">${[['all', '全部记录'], ...Object.entries(labels)].map(([k, v]) => `<button class="btn ${filter === k ? 'btn-primary' : ''}" data-filter="${k}">${v}${k === 'pending' ? '（' + pending.length + '）' : ''}</button>`).join('')}</div>
-      <div class="row g-3">${shown.map(a => `<div class="col-12 col-lg-6"><article class="card h-100"><div class="card-body"><div class="d-flex justify-content-between"><h3>${esc(a.employee_name)}</h3><span>${labels[a.status]}</span></div><strong>¥${money(a.details.reduce((n, d) => n + Number(d.amount), 0))}</strong><div class="text-muted" style="overflow-wrap:anywhere">${esc(a.approval_no)} · ${a.source === 'wecom' ? '企微导入' : '网页提交'}</div><div>提交：${new Date(a.submitted_at).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })}</div>${a.work_date ? '<div>作业日期：' + esc(a.work_date) + '</div>' : ''}${a.completed_at ? '<div>审批完成：' + new Date(a.completed_at).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' }) + '</div>' : ''}${a.reason ? '<p>处理说明：' + esc(a.reason) + '</p>' : ''}${a.details.map(detailHtml).join('')}${a.source === 'wecom' && /^https:\/\/[^/]*weixin\.qq\.com\//.test(a.raw?.header?.['审批详情'] || '') ? '<a target="_blank" rel="noopener noreferrer" href="' + esc(a.raw.header['审批详情']) + '">查看企微原审批</a>' : ''}<div class="d-flex gap-2 mt-3">${data.is_admin && open && a.status === 'pending' ? `<button class="btn btn-success" data-action="approve" data-id="${a.id}">通过</button><button class="btn btn-outline-danger" data-action="reject" data-id="${a.id}">驳回</button>` : ''}${data.can_submit && open && a.source === 'web' && a.submitted_by === window.JUN_CONTEXT?.profile?.id && ['pending', 'rejected'].includes(a.status) ? `<button class="btn" data-action="edit" data-id="${a.id}">修改${a.status === 'rejected' ? '并重提' : ''}</button>${a.status === 'pending' ? `<button class="btn" data-action="cancel" data-id="${a.id}">撤销</button>` : ''}` : ''}</div></div></article></div>`).join('') || '<p class="text-muted p-3">本月暂无' + (filter === 'all' ? '' : labels[filter]) + '记录。</p>'}</div>`;
+    $('#module-content').innerHTML = `<div class="manual-summary"><div><span>${data.is_admin ? '' : '本人相关 · '}已通过金额</span><strong>¥${money(total)}</strong></div><div><span>待审批</span><strong>${pending.length}<small> 张</small></strong></div>${data.is_admin ? '<div><span>林敢计薪金额</span><strong>¥' + money(payroll) + '</strong></div>' : ''}</div>
+      ${data.legacy_source ? '<div class="alert alert-info">本月为历史账本。<a href="/jun-pages/finance/sources/?month=' + esc(month) + '&source=manual_work">查看历史来源</a></div>' : ''}
+      <div class="manual-list-toolbar"><div class="manual-tabs" role="group" aria-label="审批状态">${[['all', '全部'], ...Object.entries(labels)].map(([k, v]) => `<button class="manual-tab ${filter === k ? 'is-active' : ''}" aria-pressed="${filter === k}" data-filter="${k}">${v}<span>${k === 'all' ? approvals.length : approvals.filter(a => a.status === k).length}</span></button>`).join('')}</div><span class="manual-muted">共 ${shown.length} 张审批</span></div>
+      <div class="manual-card-list">${shown.map(a => cardHtml(a, open)).join('') || '<div class="manual-empty"><i class="ti ti-clipboard-check" aria-hidden="true"></i><p>本月暂无' + (filter === 'all' ? '' : labels[filter]) + '记录</p></div>'}</div>`;
   }
   document.addEventListener('click', e => {
+    const thumb = e.target.closest('[data-preview]');
+    if (thumb) {
+      if (!/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(thumb.dataset.preview)) return;
+      document.querySelector('#manual-image-viewer')?.remove();
+      const viewer = document.createElement('dialog'); viewer.id = 'manual-image-viewer'; viewer.className = 'manual-image-viewer';
+      viewer.innerHTML = `<button type="button" aria-label="关闭图片预览">×</button><img src="${thumb.dataset.preview}" alt="附件图片预览">`;
+      document.body.append(viewer); viewer.querySelector('button').onclick = () => viewer.close(); viewer.onclick = event => { if (event.target === viewer) viewer.close(); }; viewer.showModal(); return;
+    }
     const f = e.target.closest('[data-filter]'); if (f) { filter = f.dataset.filter; render(); return; }
     const b = e.target.closest('[data-action]'); if (!b || busy) return;
     const action = b.dataset.action, a = data.approvals.find(a => a.id === b.dataset.id);
@@ -147,7 +193,7 @@
     if (action === 'approve') return mutate('review', { id: a.id, expected_version: a.version, status: 'approved' });
     if (['reject', 'cancel', 'reopen', 'finalize'].includes(action)) {
       const reasonNeeded = ['reject', 'reopen'].includes(action);
-      dialog({ reject: '驳回手工审批', cancel: '撤销手工审批', reopen: '重新打开本月', finalize: '本月定稿' }[action], reasonNeeded ? '<label class="form-label">原因<textarea name="reason" class="form-control" required maxlength="1000"></textarea></label>' : `<p>${action === 'finalize' ? '定稿后，本月记录将锁定。需要调整时由管理员填写原因重新打开。' : '确认撤销这条待审批记录？'}</p>`, { run: f => mutate(action === 'reject' ? 'review' : action, { id: a?.id, expected_version: a?.version ?? data.month_state.version, status: 'rejected', reason: f.get('reason') || '' }) });
+      dialog({ reject: '驳回手工审批', cancel: '撤销手工审批', reopen: '重新打开本月', finalize: '本月定稿' }[action], reasonNeeded ? '<label class="form-label">原因<textarea name="reason" class="form-control" required maxlength="1000"></textarea></label>' : `<p>${action === 'finalize' ? '定稿后，本月记录将锁定。需要调整时由管理员填写原因重新打开。' : '确认撤销这条待审批记录？'}</p>`, { label: { reject: '确认驳回', cancel: '确认撤销', reopen: '重新打开', finalize: '确认定稿' }[action], run: f => mutate(action === 'reject' ? 'review' : action, { id: a?.id, expected_version: a?.version ?? data.month_state.version, status: 'rejected', reason: f.get('reason') || '' }) });
     }
   });
   async function load() { data = await api(); render(); }
