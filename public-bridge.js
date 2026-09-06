@@ -100,7 +100,7 @@
   function pagePermission(pathname) {
     if (pathname.startsWith(`${basePath}/admin/users`)) return 'users.manage';
     if (pathname.startsWith(`${basePath}/finance/payroll`)) return null;
-    if (pathname.startsWith(`${basePath}/finance/sources`)) return 'finance.sources.read';
+    if ((pathname.startsWith(`${basePath}/finance/sources`) || pathname.startsWith(`${basePath}/finance/express-bills`))) return 'finance.sources.read';
     if (pathname.startsWith(`${basePath}/finance`)) return 'finance.read';
     if (pathname.startsWith(`${basePath}/production`)) return 'production.read';
     if (pathname.startsWith(`${basePath}/inventory`)) return 'inventory.read';
@@ -154,7 +154,7 @@
 
   function navPermission(pathname) {
     if (pathname.startsWith(`${basePath}/finance/payroll`)) return null;
-    if (pathname.startsWith(`${basePath}/finance/sources`)) return 'finance.sources.read';
+    if ((pathname.startsWith(`${basePath}/finance/sources`) || pathname.startsWith(`${basePath}/finance/express-bills`))) return 'finance.sources.read';
     if (pathname.startsWith(`${basePath}/finance`)) return 'finance.read';
     if (pathname.startsWith(`${basePath}/production`)) return 'production.read';
     if (pathname.startsWith(`${basePath}/inventory`)) return 'inventory.read';

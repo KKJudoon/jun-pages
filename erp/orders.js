@@ -337,7 +337,20 @@
   function openPresetDialog(){const d=document.getElementById('order-preset-dialog');d.querySelector('[name="name"]').value='';d.querySelector('[name="team"]').checked=false;d.querySelector('[name="team"]').closest('label').hidden=!state.presetMeta.can_manage_team;d.querySelector('[name="default"]').checked=false;d.querySelector('[data-error]').hidden=true;d.showModal();}
   function bindPresetDialog(){const d=document.getElementById('order-preset-dialog');d.querySelector('[data-cancel]').addEventListener('click',function(){d.close();});d.querySelector('[data-save]').addEventListener('click',async function(){const name=d.querySelector('[name="name"]').value.trim();const error=d.querySelector('[data-error]');if(!name){error.hidden=false;error.textContent='请填写预设名称';return;}try{await api('/api/erp/v1/orders/query-presets',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:name,scope:d.querySelector('[name="team"]').checked?'team':'personal',set_default:d.querySelector('[name="default"]').checked,config:currentConfig()})});d.close();await loadPresets();render();}catch(exception){error.hidden=false;error.textContent=exception.message;}});}
   async function loadPresets(){const payload=await api('/api/erp/v1/orders/query-presets');state.presets=payload.data?.items||[];state.presetMeta=payload.data||{};}
-  async function renderSync(){try{const status=await api('/api/erp/sync-status');const ok=status.process_alive&&!status.stale&&status.status==='ok';const tone=ok?'success':!status.process_alive?'danger':'warning';const label=!status.process_alive?'同步进程未运行':status.stale?'数据可能过期':status.status==='ok'?'运行中':`同步异常：${status.status}`;syncBar.innerHTML=`<div class="alert alert-${tone} d-flex align-items-center py-2"><i class="ti ti-${ok?'circle-check':'alert-circle'} me-2"></i><div><strong>ERP 同步 ${escapeHtml(label)}</strong><span class="ms-2">最近拉取 ${escapeHtml(status.synced_at||'从未')}</span></div></div>`;}catch(_error){syncBar.innerHTML='<div class="alert alert-secondary py-2">同步状态获取失败</div>';}}
+  async function renderSync(){
+    try{
+      const status=await api('/api/erp/sync-status');
+      // A fresh successful result is the cross-container liveness signal.
+      // process_alive only reports processes visible inside the API container.
+      const fresh=status.status==='ok'&&status.stale!==true&&Boolean(status.synced_at);
+      const ok=fresh;
+      const tone=ok?'success':status.status!=='ok'?'danger':status.stale?'warning':'info';
+      const label=status.status!=='ok'?`同步异常：${status.status}`:status.stale?'数据可能过期':fresh?'数据更新正常':'等待首次同步';
+      syncBar.innerHTML=`<div class="alert alert-${tone} d-flex align-items-center py-2"><i class="ti ti-${ok?'circle-check':'alert-circle'} me-2"></i><div><strong>ERP 同步 ${escapeHtml(label)}</strong><span class="ms-2">最近拉取 ${escapeHtml(status.synced_at||'从未')}</span></div></div>`;
+    }catch(_error){
+      syncBar.innerHTML='<div class="alert alert-secondary py-2">同步状态获取失败</div>';
+    }
+  }
   async function init(){try{await window.JUN_AUTH_READY;bindPresetDialog();await Promise.all([renderSync(),loadPresets()]);const payload=await api('/api/erp/orders');state.orders=payload.orders||[];state.groups=buildGroups(state.orders);const preset=state.presets.find(function(i){return i.id===state.presetMeta.default_id;});if(preset)state.filters={...state.filters,...normalizedConfig(preset.config)};render();}catch(error){app.innerHTML=`<div class="alert alert-danger">订单审核加载失败：${escapeHtml(error.message)}</div>`;}}
   init();
 })();

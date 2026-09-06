@@ -204,14 +204,15 @@
   try {
     const r = await fetch('/api/erp/sync-status');
     const s = await r.json();
-    const alive = s.process_alive;
-    const stale = s.stale;
-    const ok = alive && !stale && s.status === 'ok';
-    const color = ok ? 'success' : (!alive ? 'danger' : (stale ? 'warning' : 'info'));
-    const icon = ok ? 'circle-check' : (!alive ? 'alert-circle' : 'clock');
-    const statusText = !alive ? '同步进程未运行' :
-      (s.status !== 'ok' ? '同步异常: ' + s.status :
-      (stale ? '数据可能过期' : '运行中'));
+    // The API and collector run in separate Starfish containers. A fresh,
+    // successful result is the portable liveness signal; process_alive only
+    // describes whether the API container can see a local collector process.
+    const fresh = s.status === 'ok' && s.stale !== true && Boolean(s.synced_at);
+    const ok = fresh;
+    const color = ok ? 'success' : (s.status !== 'ok' ? 'danger' : (s.stale ? 'warning' : 'info'));
+    const icon = ok ? 'circle-check' : (s.status !== 'ok' ? 'alert-circle' : 'clock');
+    const statusText = s.status !== 'ok' ? '同步异常: ' + s.status :
+      (s.stale ? '数据可能过期' : (fresh ? '数据更新正常' : '等待首次同步'));
     const age = s.age_minutes != null ? (s.age_minutes < 1 ? '刚刚' : Math.round(s.age_minutes) + '分钟前') : '未知';
     bar.innerHTML = `
       <div class="alert alert-${color} d-flex align-items-center py-2" role="alert">

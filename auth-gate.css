@@ -61,7 +61,7 @@ html.jun-auth-error body::before {
   width: 32px;
   height: 32px;
   border-radius: 7px;
-  background-image: url('/jun-pages/assets/avatar-sprite.png');
+  background-image: url('/jun-pages/assets/avatar-sprite.webp');
   background-position: var(--jun-avatar-x, 0%) var(--jun-avatar-y, 0%);
   background-size: 400% 400%;
   image-rendering: pixelated;

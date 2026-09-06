@@ -26,7 +26,7 @@
     taobao_income_order: '淘宝账房订单',
     taobao_platform_charge: '平台运营扣费',
     promotion_charge: '付费推广',
-    logistics_sf: '顺丰物流',
+    logistics_sf: '顺丰快递账单',
     logistics_other: '其他物流',
     manual_work: '手工审批',
     erp_shipment: 'ERP 发货',
@@ -180,7 +180,7 @@
     const companyPayroll = has('finance.payroll.manage') || has('finance.manage')
       ? `<a href="/jun-pages/finance/company-payroll/" ${page === 'finance-company-payroll' ? 'class="active"' : ''}>公司工资表</a>`
       : '';
-    return `<nav class="finance-tabs" aria-label="财务模块"><a href="/jun-pages/finance/" ${['finance-report','finance-operating-analysis'].includes(page) ? 'class="active"' : ''}>财务月报</a>${companyPayroll}<a href="/jun-pages/finance/payroll/" ${page === 'finance-payroll' ? 'class="active"' : ''}>工资条</a>${has('finance.employees.manage') ? `<a href="/jun-pages/finance/employees/" ${page === 'finance-employees' ? 'class="active"' : ''}>员工信息</a>` : ''}</nav>`;
+    return `<nav class="finance-tabs" aria-label="财务模块"><a href="/jun-pages/finance/" ${['finance-report','finance-operating-analysis','finance-express-bills'].includes(page) ? 'class="active"' : ''}>财务月报</a>${companyPayroll}<a href="/jun-pages/finance/payroll/" ${page === 'finance-payroll' ? 'class="active"' : ''}>工资条</a>${has('finance.employees.manage') ? `<a href="/jun-pages/finance/employees/" ${page === 'finance-employees' ? 'class="active"' : ''}>员工信息</a>` : ''}</nav>`;
   }
 
   function reportAnalysisNav() {
@@ -192,6 +192,7 @@
         <span><strong>店铺运营效率</strong><small>每投入 1 元推广带来多少净销售，并和去年同月直接比较</small></span>
         <i class="ti ti-chevron-right"></i>
       </a>
+      ${has('finance.sources.read') ? `<a class="finance-analysis-link" href="/jun-pages/finance/express-bills/?month=${encodeURIComponent(state.month)}"><span class="finance-analysis-link-icon"><i class="ti ti-truck-delivery"></i></span><span><strong>快递费账单</strong><small>查看顺丰月结账单及月报对应金额</small></span><i class="ti ti-chevron-right"></i></a>` : ''}
     </section>`;
   }
 
@@ -676,7 +677,8 @@
     const directEdit = source && has('finance.manage') && state.data.month?.status === 'open'
       ? `<button class="finance-entry-action ${line.status === 'missing' ? 'is-required' : ''}" type="button" data-edit-report-entry='${escapeHtml(JSON.stringify(source))}' title="${line.status === 'missing' ? '填写本月金额' : '编辑本月条目'}">${line.status === 'missing' ? '<i class="ti ti-plus"></i>填写' : '<i class="ti ti-pencil"></i>'}</button>`
       : '';
-    return `<span class="report-row-actions">${directEdit}<button class="finance-icon-button" type="button" data-trace="${escapeHtml(line.line_key)}" title="查看计算依据" aria-label="查看${escapeHtml(line.label)}计算依据"><i class="ti ti-help-circle"></i></button></span>`;
+    const billLink = line.line_key === 'logistics_sf' && has('finance.sources.read') ? `<a class="finance-entry-action" href="/jun-pages/finance/express-bills/?month=${encodeURIComponent(state.month)}">账单</a>` : '';
+    return `<span class="report-row-actions">${billLink}${directEdit}<button class="finance-icon-button" type="button" data-trace="${escapeHtml(line.line_key)}" title="查看计算依据" aria-label="查看${escapeHtml(line.label)}计算依据"><i class="ti ti-help-circle"></i></button></span>`;
   }
 
   function traceAmount(line) {
@@ -699,7 +701,7 @@
       <div class="finance-category-bar"><div style="width:${barWidth.toFixed(1)}%"></div></div>
       <div class="finance-subs-wrap"><table class="finance-subs"><thead><tr><th>子项</th><th>${currentMonth}月</th><th>占收入</th><th>${previousMonth || '-'}月</th><th>环比</th></tr></thead><tbody>${rows.map(function (line) {
         const previous = comparisonValue(line);
-        return `<tr class="${line.status === 'missing' ? 'is-missing' : ''}"><td class="sub-name"><span>${escapeHtml(line.label)}</span>${reportActions(line)}</td><td class="num">${traceAmount(line)}</td><td class="num pct">${line.reference_only ? '' : percent(line.final_amount, income)}</td><td class="num prev">${previous == null ? '—' : amount(previous)}</td><td class="num">${deltaHtml(line.final_amount, previous, goodWhenUp)}</td></tr>`;
+        return `<tr id="finance-line-${escapeHtml(line.line_key)}" class="${line.status === 'missing' ? 'is-missing' : ''}"><td class="sub-name"><span>${escapeHtml(line.label)}</span>${reportActions(line)}</td><td class="num">${traceAmount(line)}</td><td class="num pct">${line.reference_only ? '' : percent(line.final_amount, income)}</td><td class="num prev">${previous == null ? '—' : amount(previous)}</td><td class="num">${deltaHtml(line.final_amount, previous, goodWhenUp)}</td></tr>`;
       }).join('') || '<tr><td colspan="5" class="finance-note">本月无发生额</td></tr>'}</tbody></table></div>${note ? `<div class="finance-category-note">${escapeHtml(note)}</div>` : ''}
     </section>`;
   }
@@ -734,6 +736,7 @@
       const rule=(state.data.recurring_costs||[]).find(function(item){return item.id===instance.recurring_cost_id;});
       showFinanceEntryDialog(rule?{kind:'recurring',record:rule,instance:instance}:{kind:'single',record:instance},instance.parent_key);
     });});
+    if (location.hash === '#finance-line-logistics_sf') { const row = document.getElementById('finance-line-logistics_sf'); row?.classList.add('is-lineage-target'); row?.scrollIntoView({block:'center'}); }
     const requestedEntry=new URLSearchParams(location.search).get('entry');
     if(requestedEntry){const button=[...content.querySelectorAll('[data-edit-report-entry]')].find(function(item){try{return JSON.parse(item.dataset.editReportEntry).id===requestedEntry;}catch(_){return false;}});button?.closest('tr')?.classList.add('is-lineage-target');}
   }
@@ -1323,7 +1326,7 @@
   function sourceCard(batch) {
     const total = batch ? batch.amount_total : null;
     const captured = Boolean(batch?.captured_at);
-    return `<button class="finance-source-item ${state.sourceType === batch?.source_type ? 'active' : ''}" data-source="${escapeHtml(batch?.source_type || '')}"><span>${escapeHtml(sourceLabels[batch?.source_type] || batch?.source_type || '')}</span><strong>${amount(captured ? total : 0)}</strong><small>${captured ? `${integer.format(batch.record_count || 0)} 条 · ${dateTime(batch.captured_at)}` : '本月无采集记录 · 按 0 计'}</small></button>`;
+    return `<button class="finance-source-item ${state.sourceType === batch?.source_type ? 'active' : ''}" data-source="${escapeHtml(batch?.source_type || '')}"><span>${escapeHtml(sourceLabels[batch?.source_type] || batch?.source_type || '')}</span><strong>${amount(captured ? total : batch?.source_type === 'logistics_sf' ? null : 0)}</strong><small>${captured ? `${integer.format(batch.record_count || 0)} 条 · ${dateTime(batch.captured_at)}` : batch?.source_type === 'logistics_sf' ? '本月账单待收取' : '本月无采集记录 · 按 0 计'}</small></button>`;
   }
 
   async function loadSourceRecords() {
@@ -1331,13 +1334,19 @@
     const payload = await api(`/api/finance/sources/records?${query}`);
     state.sourceTotal = payload.total || 0;
     const target = content.querySelector('#source-records');
+    if (page === 'finance-express-bills') {
+      const batch = (state.data.source_batches || []).find(function (item) { return item.source_type === 'logistics_sf'; }) || null;
+      const reportLine = reportMetric('logistics_sf');
+      if ((payload.items || []).some(function (row) { return row.batch_id !== batch?.id; }) || (batch && Number(payload.total) !== Number(batch.record_count))) throw new Error('账单正在更新，请刷新后重试');
+      content.querySelector('#express-bill-summary').innerHTML = expressBillSummary(batch, reportLine, state.month);
+    }
     target.innerHTML = renderRecordTable(payload.items || [], true);
     bindRecordDetails(target);
     bindPager(target, loadSourceRecords);
   }
 
   function renderRecordTable(rows, pager) {
-    return `<div class="finance-table-wrap"><table class="finance-table"><thead><tr><th>时间</th><th>单号 / 参考号</th><th>内容</th><th>往来单位</th><th class="number">数量</th><th class="number">金额</th><th>状态</th><th></th></tr></thead><tbody>${rows.map(function (row) { return `<tr><td>${dateTime(row.occurred_at)}</td><td>${escapeHtml(row.reference_no || row.record_key)}</td><td class="subtle" title="${escapeHtml(row.title)}">${escapeHtml(row.title)}</td><td>${escapeHtml(row.counterparty)}</td><td class="number">${row.quantity == null ? '-' : integer.format(row.quantity)}</td><td class="number">${amount(row.amount)}</td><td>${escapeHtml(row.status)}${row.eligible === false ? '<span class="badge bg-red-lt ms-1">不计入</span>' : ''}</td><td><button class="finance-icon-button" data-record='${escapeHtml(JSON.stringify(row))}' title="查看明细"><i class="ti ti-eye"></i></button></td></tr>`; }).join('') || '<tr><td colspan="8"><div class="finance-empty">暂无明细</div></td></tr>'}</tbody></table></div>${pager ? `<div class="finance-pager"><span class="finance-note">${state.offset + 1}-${Math.min(state.offset + state.limit, state.sourceTotal)} / ${state.sourceTotal}</span><button class="btn btn-sm btn-outline-secondary" data-prev ${state.offset <= 0 ? 'disabled' : ''}><i class="ti ti-chevron-left"></i></button><button class="btn btn-sm btn-outline-secondary" data-next ${state.offset + state.limit >= state.sourceTotal ? 'disabled' : ''}><i class="ti ti-chevron-right"></i></button></div>` : ''}`;
+    return `<div class="finance-table-wrap"><table class="finance-table"><thead><tr><th>时间</th><th>单号 / 参考号</th><th>内容</th><th>往来单位</th><th class="number">数量</th><th class="number">金额</th><th>状态</th><th></th></tr></thead><tbody>${rows.map(function (row) { return `<tr><td>${dateTime(row.occurred_at)}</td><td>${escapeHtml(row.reference_no || row.record_key)}</td><td class="subtle" title="${escapeHtml(row.title)}">${escapeHtml(row.title)}</td><td>${escapeHtml(row.counterparty)}</td><td class="number">${row.quantity == null ? '-' : integer.format(row.quantity)}</td><td class="number">${amount(row.amount)}</td><td>${escapeHtml(row.status)}${row.eligible === false ? '<span class="badge bg-red-lt ms-1">不计入</span>' : ''}</td><td><button class="finance-icon-button" data-record='${escapeHtml(JSON.stringify(row))}' title="查看明细"><i class="ti ti-eye"></i></button></td></tr>`; }).join('') || '<tr><td colspan="8"><div class="finance-empty">暂无明细</div></td></tr>'}</tbody></table></div>${pager ? `<div class="finance-pager"><span class="finance-note">${state.sourceTotal ? state.offset + 1 : 0}-${Math.min(state.offset + state.limit, state.sourceTotal)} / ${state.sourceTotal}</span><button class="btn btn-sm btn-outline-secondary" data-prev ${state.offset <= 0 ? 'disabled' : ''}><i class="ti ti-chevron-left"></i></button><button class="btn btn-sm btn-outline-secondary" data-next ${state.offset + state.limit >= state.sourceTotal ? 'disabled' : ''}><i class="ti ti-chevron-right"></i></button></div>` : ''}`;
   }
 
   function bindRecordDetails(target) {
@@ -1507,12 +1516,36 @@
     });
   }
 
+  function expressBillSummary(batch, line, month) {
+    const reportUrl = `/jun-pages/finance/?month=${encodeURIComponent(month)}#finance-line-logistics_sf`;
+    const link = `<a href="${reportUrl}">查看月报 · 顺丰快递</a>`;
+    if (!batch) return `<div class="finance-empty"><strong>本月账单待收取</strong><p>可通过邮件自动导入，也可从顺丰平台导出后手动导入；未导入账单不代表快递费为 0。</p>${link}</div>`;
+    const matched = line?.trace?.batch?.id === batch.id && numeric(line.final_amount) !== null && numeric(batch.amount_total) !== null
+      && Math.round(Number(line.final_amount) * 100) === Math.round(Number(batch.amount_total) * 100);
+    const accounts = Object.entries(batch.summary?.accounts || {});
+    const origin = batch.summary?.transport === 'agentmail' ? '邮件导入' : batch.summary?.transport === 'sf_portal_download' ? '手动导入（顺丰平台导出）' : '已导入账单（来源未标注）';
+    return `<div class="finance-report-kpis"><article><span>账单应付金额</span><strong>${amount(batch.amount_total)}</strong></article><article><span>有效明细</span><strong>${integer.format(batch.record_count || 0)} 条</strong></article><article><span>月报 · 顺丰快递</span><strong>${amount(line?.final_amount)}</strong></article></div>
+      <p class="finance-note">${matched ? '已对应月报，费用仅计入一次。' : '月报与账单尚未核对一致，请刷新或检查当前月份。'} ${link}</p>
+      <p class="finance-note">${origin} · ${dateTime(batch.captured_at)} · ${escapeHtml(batch.file_name || '')}</p>
+      ${accounts.map(function ([account, info]) { return `<p class="finance-note">月结号 ${escapeHtml(account)} · ${escapeHtml(info.company || '')} · ${escapeHtml(info.workbook || '')}${info.received_at ? ` · 收件 ${dateTime(info.received_at)}` : ''}</p>`; }).join('')}`;
+  }
+
+  async function loadExpressBills() {
+    state.sourceType = 'logistics_sf';
+    state.data = await api(`/api/finance/months/${state.month}`);
+    toolbar.innerHTML = `${monthSelect(state.months, state.month)}<span class="finance-toolbar-spacer"></span><button id="express-refresh" class="btn btn-outline-primary">刷新账单</button>`;
+    toolbar.querySelector('#finance-month').addEventListener('change', async function (event) { setMonth(event.target.value); state.offset = 0; await loadExpressBills(); });
+    toolbar.querySelector('#express-refresh').addEventListener('click', async function () { state.offset = 0; await loadExpressBills(); });
+    content.innerHTML = `${reportTabs()}<section class="finance-section"><div class="finance-section-header"><div><h2>快递费账单</h2><p class="finance-note">邮件导入与手动导入统一按账期归入当月，保留导入来源；月报“顺丰快递”引用同一份有效账单。</p></div></div><div id="express-bill-summary"></div><div id="source-records"><div class="finance-loading">正在读取账单</div></div></section>`;
+    await loadSourceRecords();
+  }
+
   async function loadSources() {
     state.data = await api(`/api/finance/months/${state.month}`);
     const batches = new Map((state.data.source_batches || []).map(function (batch) { return [batch.source_type, batch]; }));
     const requestedSource = new URLSearchParams(location.search).get('source_type');
     if (requestedSource && sourceLabels[requestedSource] && !['manual_work','erp_shipment','pattern_approval'].includes(requestedSource)) state.sourceType = requestedSource;
-    if (!batches.has(state.sourceType)) state.sourceType = Array.from(batches.keys()).find(function (key) { return !['manual_work','erp_shipment','pattern_approval'].includes(key); }) || 'taobao_income_order';
+    if (!requestedSource && !batches.has(state.sourceType)) state.sourceType = Array.from(batches.keys()).find(function (key) { return !['manual_work','erp_shipment','pattern_approval'].includes(key); }) || 'taobao_income_order';
     toolbar.innerHTML = `${monthSelect(state.months, state.month)}<span class="finance-toolbar-spacer"></span>${has('finance.manage') ? '<button class="btn btn-outline-primary" id="add-policy"><i class="ti ti-adjustments me-1"></i>经营调整</button>' : ''}`;
     toolbar.querySelector('#finance-month').addEventListener('change', async function (event) { setMonth(event.target.value); state.offset = 0; await loadSources(); });
     toolbar.querySelector('#add-policy')?.addEventListener('click', function () { showPolicyDialog(null); });
@@ -1539,20 +1572,26 @@
     const rows = [];
     let offset = 0;
     let total = 0;
+    let batch = null;
     do {
       const query = new URLSearchParams({month:month,limit:'500',offset:String(offset),search:search || ''});
       const payload = await api(`/api/erp/shipments?${query}`);
+      if ((payload.items || []).some(function(row){return row.batch_id !== payload.batch?.id;})) throw new Error('发货数据正在更新，请刷新重试');
+      if (offset === 0) batch = payload.batch || null;
+      else if ((batch?.id || null) !== (payload.batch?.id || null)) throw new Error('发货数据正在更新，请刷新重试');
       total = Number(payload.total || 0);
       rows.push(...(payload.items || []));
       offset += 500;
-    } while (offset < total && offset < 10000);
-    return rows;
+    } while (offset < total && offset < 100000);
+    if (rows.length !== total) throw new Error('发货明细读取不完整，请刷新重试');
+    return {rows:rows,batch:batch};
   }
 
   function shipmentDaily(rows, month) {
     const days = new Date(Number(month.slice(0,4)), Number(month.slice(5,7)), 0).getDate();
     const values = Array.from({length:days}, function(){return 0;});
     rows.forEach(function(row){
+      if (row.eligible === false) return;
       const match = String(row.occurred_at || '').match(/(?:^|\D)(\d{4})[-\/]?(\d{1,2})[-\/]?(\d{1,2})/);
       if (!match) return;
       const rowMonth = `${match[1]}-${String(match[2]).padStart(2,'0')}`;
@@ -1584,7 +1623,7 @@
 
   async function loadShipments() {
     const months = rollingMonths();
-    state.month = selectedMonthFromUrl(monthBeforeNow());
+    state.month = selectedMonthFromUrl(monthOffset(monthBeforeNow(), 1));
     const params = new URLSearchParams(location.search);
     const search = params.get('search') || '';
     const defaultCompare = monthOffset(state.month, -1);
@@ -1596,14 +1635,17 @@
     toolbar.querySelector('#shipment-compare').addEventListener('change', async function(event){const url=new URL(location.href);url.searchParams.set('compare',event.target.value);history.replaceState({},'',url);await loadShipments();});
     toolbar.querySelector('#source-search').addEventListener('change', async function(event){const url=new URL(location.href);if(event.target.value.trim())url.searchParams.set('search',event.target.value.trim());else url.searchParams.delete('search');history.replaceState({},'',url);await loadShipments();});
     content.innerHTML = '<div class="finance-loading"><span class="spinner-border spinner-border-sm"></span>正在汇总按日发货数据</div>';
-    const [currentRows,compareRows] = await Promise.all([allShipmentRows(state.month,search),allShipmentRows(state.shipmentCompare,search)]);
+    const [current,comparison] = await Promise.all([allShipmentRows(state.month,search),allShipmentRows(state.shipmentCompare,search)]);
+    const legacyMonths = [[state.month,current],[state.shipmentCompare,comparison]].filter(function(entry){return entry[1].batch && entry[1].batch.basis !== "actual_shipment";}).map(function(entry){return entry[0];});
+    const currentRows = current.rows;
+    const compareRows = comparison.rows;
     const currentDaily = shipmentDaily(currentRows,state.month);
     const compareDaily = shipmentDaily(compareRows,state.shipmentCompare);
     const total = currentDaily.reduce(function(sum,value){return sum+value;},0);
     const compareTotal = compareDaily.reduce(function(sum,value){return sum+value;},0);
-    const change = compareTotal ? (total-compareTotal)/compareTotal*100 : null;
+    const change = !legacyMonths.length && compareTotal ? (total-compareTotal)/compareTotal*100 : null;
     const activeDays = currentDaily.filter(function(value){return value>0;}).length;
-    content.innerHTML = `<section class="shipment-overview"><div class="shipment-kpis"><article><span>${escapeHtml(state.month)} 发货件数</span><strong>${integer.format(total)}</strong><small>${currentRows.length} 条发货记录</small></article><article><span>对比 ${escapeHtml(state.shipmentCompare)}</span><strong>${integer.format(compareTotal)}</strong><small>${change==null?'无可比基数':`${change>=0?'+':''}${change.toFixed(1)}%`}</small></article><article><span>有发货的日期</span><strong>${activeDays}</strong><small>日均 ${activeDays?integer.format(total/activeDays):'0'} 件</small></article></div><div class="shipment-chart-card"><header><div><h2>日粒度发货数量</h2><p>${escapeHtml(state.month)} 以蓝色柱为主；${escapeHtml(state.shipmentCompare)} 用橙色虚线按日期对齐。</p></div><div class="shipment-legend"><span><i class="current"></i>${escapeHtml(state.month)}</span><span><i class="compare"></i>${escapeHtml(state.shipmentCompare)}</span></div></header>${shipmentTrendSvg(currentDaily,compareDaily)}</div></section><section class="finance-section"><div class="finance-section-header"><div><h3>${escapeHtml(state.month)} 发货明细</h3><p class="finance-note mb-0">图表与明细使用同一批原始记录；搜索条件会同时作用于当月和对比月。</p></div></div>${renderRecordTable(currentRows,false)}</section>`;
+    content.innerHTML = `<section class="shipment-overview"><div class="shipment-kpis"><article><span>${escapeHtml(state.month)} 发货工作量（件）</span><strong>${current.batch ? integer.format(total) : "待采集"}</strong><small>${currentRows.filter(function(row){return row.eligible !== false;}).length} 条有效记录 · ${currentRows.filter(function(row){return row.eligible === false;}).length} 条不计入</small></article><article><span>对比 ${escapeHtml(state.shipmentCompare)}</span><strong>${comparison.batch ? integer.format(compareTotal) : "待采集"}</strong><small>${change==null?'无可比基数':`${change>=0?'+':''}${change.toFixed(1)}%`}</small></article><article><span>有发货的日期</span><strong>${activeDays}</strong><small>日均 ${activeDays?integer.format(total/activeDays):'0'} 件</small></article></div><div class="shipment-chart-card"><header><div><h2>日粒度发货数量</h2><p>${escapeHtml(state.month)} 以蓝色柱为主；${escapeHtml(state.shipmentCompare)} 用橙色虚线按日期对齐。</p></div><div class="shipment-legend"><span><i class="current"></i>${escapeHtml(state.month)}</span><span><i class="compare"></i>${escapeHtml(state.shipmentCompare)}</span></div></header>${shipmentTrendSvg(currentDaily,compareDaily)}</div></section><section class="finance-section"><div class="finance-section-header"><div><h3>${escapeHtml(state.month)} 发货明细</h3><p class="finance-note mb-0">${current.batch ? `数据更新于 ${dateTime(current.batch.captured_at)}` : "该月尚未采集"}。按实际发货时间统计实物工作量，已发货后的退款、交易关闭以及赠品均计入；邮费、补价及编号 000 等非实物行不计件数。${legacyMonths.length ? `<strong>${escapeHtml(legacyMonths.join("、"))} 为历史导入数据，尚未按实际工作量重新采集，不能直接与新口径比较。</strong>` : ""}搜索同时作用于当月和对比月。</p></div></div>${renderRecordTable(currentRows,false)}</section>`;
     bindRecordDetails(content);
   }
 
@@ -1634,6 +1676,7 @@
     if (page === 'finance-report') return await loadReport();
     if (page === 'finance-company-payroll') return await loadCompanyPayroll();
     if (page === 'finance-payroll') return await loadPayroll();
+    if (page === 'finance-express-bills') return await loadExpressBills();
     if (page === 'finance-sources') return await loadSources();
     if (page === 'finance-employees') return await loadEmployees();
     throw new Error('未知财务页面');
