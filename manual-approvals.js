@@ -90,17 +90,18 @@
   root.JUN_MANUAL = { parseRows, dateText, labels, photo };
   if (typeof module !== 'undefined') module.exports = root.JUN_MANUAL;
   if (typeof document === 'undefined') return;
-  const style = document.createElement('link'); style.rel = 'stylesheet'; style.href = '/jun-pages/manual-approvals.css?v=20260906-2'; document.head.append(style);
+  const style = document.createElement('link'); style.rel = 'stylesheet'; style.href = '/jun-pages/manual-approvals.css?v=20260909-batch1'; document.head.append(style);
   const $ = s => document.querySelector(s);
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const money = n => Number(n || 0).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const now = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Shanghai' });
   let month = new URLSearchParams(location.search).get('month') || now().slice(0, 7), data, filter = 'all', busy = false;
   const errors = { manual_forbidden: '没有操作权限', manual_submit_forbidden: '没有提交权限', manual_admin_required: '仅管理员可以审批、导入及定稿', manual_version_conflict: '记录已被更新，请刷新后再操作', manual_month_finalized: '本月已定稿，请管理员先重新打开', manual_pending_approvals: '还有待审批记录，请先处理完再定稿', finance_month_locked: '财务月份已锁定', finance_payroll_finalized: '工资表已定稿，不能修改本月来源', manual_import_already_completed: '本月企微文件已经导入，不再接受重复导入', manual_legacy_month_requires_migration: '本月是历史账本，暂时只读，需先完成历史迁移', manual_not_pending: '这条记录已处理，请刷新', manual_submission_month_mismatch: '企微提交时间与导入月份不一致', manual_work_date_required: '请填写作业日期', manual_detail_invalid: '请核对款号、数量、单价和金额', manual_import_total_mismatch: '导入明细合计与企微总金额不一致' };
-  async function api(action, values) {
-    const response = await fetch('/api/production/manual-approvals?month=' + encodeURIComponent(month), action ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, values }) } : undefined);
+  Object.assign(errors, { manual_batch_invalid: '每次可提交 1 至 3 项，请核对申请及附件', manual_request_id_required: '提交标识无效，请刷新后重新填写', manual_request_conflict: '本次提交内容不一致，请核对原提交结果', manual_employee_required: '请选择有效的往来单位', manual_images_invalid: '附件不符合要求，请重新选择图片', manual_detail_too_large: '附件或备注过长，请精简后重试', manual_request_failed: '暂时无法确认提交结果，请重试' });
+  async function api(action, values, signal) {
+    const response = await fetch('/api/production/manual-approvals?month=' + encodeURIComponent(month), action ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, values }), signal } : { signal });
     const body = await response.json();
-    if (!response.ok) { const text = body.detail || body.error || '请求失败'; throw new Error(Object.entries(errors).find(([k]) => text.includes(k))?.[1] || text); }
+    if (!response.ok) { const text = body.detail || body.error || '请求失败'; const error = new Error(Object.entries(errors).find(([k]) => text.includes(k))?.[1] || text); error.confirmedRejection = response.status < 500 && body.error !== 'manual_request_conflict'; throw error; }
     return body;
   }
   function message(text, bad) {
@@ -124,6 +125,20 @@
     el.querySelector('form').onsubmit = e => { e.preventDefault(); Promise.resolve(submit.run(new FormData(e.target), el)).catch(err => { el.querySelector('[data-error]').textContent = err.message; }); };
     el.showModal(); return el;
   }
+  function entryFields(d, employee, workDate, uid) {
+    const star = '<span class="manual-required" aria-label="必填">*</span>';
+    return `      <div class="manual-form-grid">
+        <label><span class="form-label">往来单位 ${star}</span><select name="employee_id" class="form-select" required>${options(employee)}</select></label>
+        <label><span class="form-label">作业日期 ${star}</span><input type="date" name="work_date" class="form-control" value="${esc(workDate)}" required></label>
+        <label class="manual-form-wide"><span class="form-label">款号／手工内容 ${star}</span><input name="style" class="form-control" placeholder="填写款号或说明做了什么手工" maxlength="500" required value="${esc(d.style)}"></label>
+        <label><span class="form-label">数量 ${star}</span><input type="number" name="quantity" class="form-control" min="0.001" step="0.001" required value="${esc(d.quantity ?? 1)}"></label>
+        <label><span class="form-label">单价（元） ${star}</span><input type="number" name="unit_price" class="form-control" min="0" step="0.01" required placeholder="0.00" value="${esc(d.unit_price)}"></label>
+        <div class="manual-amount-strip manual-form-wide"><label for="${uid}-amount">金额（元）<small>数量 × 单价，自动计算</small></label><input id="${uid}-amount" name="amount" readonly aria-label="金额（元）" value="${esc(d.amount != null ? Number(d.amount).toFixed(2) : '0.00')}"></div>
+        <label class="manual-form-wide"><span class="form-label">订单编号 <small>选填</small></span><input name="order_no" class="form-control" maxlength="150" placeholder="有关联订单时填写" value="${esc(d.order_no)}"></label>
+        <label class="manual-form-wide"><span class="form-label">备注 <small>选填</small></span><textarea name="note" class="form-control" rows="2" maxlength="3000" placeholder="补充说明工作内容或费用">${esc(d.note)}</textarea></label>
+        <div class="manual-form-wide"><span class="form-label">附件图片 <small>选填</small></span><div class="manual-upload-box"><label class="btn btn-outline-secondary manual-upload-button" for="${uid}-photos"><i class="ti ti-photo-plus" aria-hidden="true"></i>添加图片</label><input id="${uid}-photos" name="photos" type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/bmp,image/avif" multiple hidden><span class="manual-muted">最多 3 张，每张原图不超过 15 MB，将自动压缩</span><p data-photo-status class="manual-muted mb-0" role="status" aria-live="polite"></p><div data-photo-previews class="manual-photo-previews"></div><p data-photo-error class="text-danger mb-0" role="alert"></p></div></div>
+      </div>`;
+  }
   function edit(a) {
     const d = a?.details?.[0] || {};
     let images = [...(d.images || [])], imagesBusy = false;
@@ -131,17 +146,7 @@
     const workDate = a?.work_date || (month === now().slice(0, 7) ? now() : month + '-01');
     const el = dialog(a ? '修改手工审批' : '新增手工审批', `
       <p class="manual-dialog-note">计入月份 <strong>${esc(month)}</strong>${a ? ' · 修改后重新进入待审批' : ''}</p>${a?.details?.length > 1 ? `<p class="manual-dialog-note">本次编辑第 1 条明细，其余 ${a.details.length - 1} 条明细保留。</p>` : ''}
-      <div class="manual-form-grid">
-        <label><span class="form-label">往来单位 ${star}</span><select name="employee_id" class="form-select" required>${options(a?.employee_id || (a?.counterparty_profile_id ? 'profile:' + a.counterparty_profile_id : data.self_employee_id))}</select></label>
-        <label><span class="form-label">作业日期 ${star}</span><input type="date" name="work_date" class="form-control" value="${esc(workDate)}" required></label>
-        <label class="manual-form-wide"><span class="form-label">款号／手工内容 ${star}</span><input name="style" class="form-control" placeholder="填写款号或说明做了什么手工" maxlength="500" required value="${esc(d.style)}"></label>
-        <label><span class="form-label">数量 ${star}</span><input type="number" name="quantity" class="form-control" min="0.001" step="0.001" required value="${esc(d.quantity ?? 1)}"></label>
-        <label><span class="form-label">单价（元） ${star}</span><input type="number" name="unit_price" class="form-control" min="0" step="0.01" required placeholder="0.00" value="${esc(d.unit_price)}"></label>
-        <div class="manual-amount-strip manual-form-wide"><label for="manual-amount">金额（元）<small>数量 × 单价，自动计算</small></label><input id="manual-amount" name="amount" readonly aria-label="金额（元）" value="${esc(d.amount != null ? Number(d.amount).toFixed(2) : '0.00')}"></div>
-        <label class="manual-form-wide"><span class="form-label">订单编号 <small>选填</small></span><input name="order_no" class="form-control" maxlength="150" placeholder="有关联订单时填写" value="${esc(d.order_no)}"></label>
-        <label class="manual-form-wide"><span class="form-label">备注 <small>选填</small></span><textarea name="note" class="form-control" rows="2" maxlength="3000" placeholder="补充说明工作内容或费用">${esc(d.note)}</textarea></label>
-        <div class="manual-form-wide"><span class="form-label">附件图片 <small>选填</small></span><div class="manual-upload-box"><label class="btn btn-outline-secondary manual-upload-button" for="manual-photo-input"><i class="ti ti-photo-plus" aria-hidden="true"></i>添加图片</label><input id="manual-photo-input" name="photos" type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/bmp,image/avif" multiple hidden><span class="manual-muted">最多 3 张，每张原图不超过 15 MB，将自动压缩</span><p data-photo-status class="manual-muted mb-0" role="status" aria-live="polite"></p><div data-photo-previews class="manual-photo-previews"></div><p data-photo-error class="text-danger mb-0" role="alert"></p></div></div>
-      </div>`, { run: async (f) => {
+      ${entryFields(d, a?.employee_id || (a?.counterparty_profile_id ? 'profile:' + a.counterparty_profile_id : data.self_employee_id), workDate, 'manual-edit')}`, { run: async (f) => {
         if (imagesBusy) throw new Error('图片正在处理，请稍候');
         await mutate(a ? 'edit' : 'submit', { id: a?.id, expected_version: a?.version, employee_id: f.get('employee_id'), work_date: f.get('work_date'), details: [{ style: f.get('style'), quantity: number(f.get('quantity')), unit_price: number(f.get('unit_price')), amount: Math.round(number(f.get('quantity')) * number(f.get('unit_price')) * 100) / 100, order_no: f.get('order_no'), note: f.get('note'), images }, ...(a?.details || []).slice(1)] });
       } });
@@ -168,6 +173,105 @@
     };
     el.addEventListener('click', e => { const b = e.target.closest('[data-remove-photo]'); if (b && !imagesBusy) { images.splice(Number(b.dataset.removePhoto), 1); preview(); } });
     el.addEventListener('input', () => { const q = el.querySelector('[name=quantity]').value, p = el.querySelector('[name=unit_price]').value; el.querySelector('[name=amount]').value = (Math.round(Number(q) * Number(p) * 100) / 100).toFixed(2); });
+  }
+  function createBatch() {
+    const entries = []; let sequence = 0, imagesBusy = false, sending = false, pending, uncertain = false;
+    const el = dialog('新增手工审批', `<p class="manual-dialog-note">计入月份 <strong>${esc(month)}</strong> · 每项分别审批，最多 3 项</p><div data-batch-items></div><button type="button" class="btn btn-outline-primary manual-add-entry" data-add-entry>＋ 再加一项</button>`, {
+      label: '提交审批（1项）', run: async () => {
+        if (sending || imagesBusy) return;
+        if (!pending) {
+          const values = entries.map(row => {
+            const get = name => row.el.querySelector(`[name=${name}]`).value;
+            const quantity = number(get('quantity')), unitPrice = number(get('unit_price'));
+            return { employee_id: get('employee_id'), work_date: get('work_date'), details: [{ style: get('style').trim(), quantity, unit_price: unitPrice, amount: Math.round(quantity * unitPrice * 100) / 100, order_no: get('order_no'), note: get('note'), images: [...row.images] }] };
+          });
+          pending = { request_id: crypto.randomUUID(), entries: values }; uncertain = false;
+          if (new TextEncoder().encode(JSON.stringify(pending)).length > 3500000) { pending = null; throw new Error('附件总量过大，请减少图片后重试'); }
+        }
+        sending = true; busy = true; lock();
+        const controller = new AbortController(), timer = setTimeout(() => controller.abort(), 45000);
+        const error = el.querySelector('[data-error]'); error.textContent = '正在提交，请稍候…';
+        try {
+          const result = await api('submit_batch', pending, controller.signal);
+          if (!Array.isArray(result.approval_ids) || result.approval_ids.length !== pending.entries.length) throw new Error('提交结果未确认');
+          const count = pending.entries.length; pending = null; sending = false; el.close();
+          message(`已提交 ${count} 项审批，等待分别审批`, false);
+          const refresh = new AbortController(), refreshTimer = setTimeout(() => refresh.abort(), 10000);
+          try { await load(refresh.signal); } catch (_) { message(`已提交 ${count} 项审批，列表刷新失败，请刷新页面查看`, false); }
+          finally { clearTimeout(refreshTimer); }
+        } catch (err) {
+          if (err.confirmedRejection && !uncertain) { pending = null; error.textContent = err.message; }
+          else { uncertain = true; error.textContent = '提交结果暂未确认，内容已保留。请点“重试提交”核对，不会重复生成审批。'; }
+        } finally { clearTimeout(timer); sending = false; busy = false; lock(); }
+      }
+    });
+    // Pending requests keep the original payload and ID until the server confirms them.
+    const beforeUnload = event => { if (pending) { event.preventDefault(); event.returnValue = ''; } };
+    window.addEventListener('beforeunload', beforeUnload);
+    el.addEventListener('close', () => window.removeEventListener('beforeunload', beforeUnload));
+    el.addEventListener('cancel', event => { if (sending || pending) event.preventDefault(); });
+    function lock() {
+      const frozen = sending || Boolean(pending);
+      entries.forEach(row => {
+        row.el.querySelector('fieldset').disabled = frozen;
+        row.el.querySelector('[name=photos]').disabled = frozen || imagesBusy;
+        row.el.querySelectorAll('[data-remove-photo],[data-remove-entry]').forEach(button => button.disabled = frozen || imagesBusy);
+      });
+      el.querySelectorAll('[data-close]').forEach(button => button.disabled = frozen);
+      const add = el.querySelector('[data-add-entry]'); add.disabled = frozen || imagesBusy; add.hidden = entries.length >= 3;
+      const submit = el.querySelector('[type=submit]'); submit.disabled = sending || imagesBusy;
+      submit.textContent = sending ? '正在提交…' : pending ? '重试提交' : `提交审批（${entries.length}项）`;
+    }
+    function renumber() {
+      entries.forEach((row, i) => { row.el.querySelector('h4').textContent = `申请 ${i + 1}`; row.el.querySelector('[data-remove-entry]').hidden = entries.length === 1; });
+      lock();
+    }
+    function addEntry() {
+      if (entries.length >= 3 || imagesBusy || sending || pending) return;
+      const previous = entries.at(-1)?.el;
+      const employee = previous?.querySelector('[name=employee_id]').value || data.self_employee_id;
+      const workDate = previous?.querySelector('[name=work_date]').value || (month === now().slice(0, 7) ? now() : month + '-01');
+      const section = document.createElement('section'), uid = `manual-batch-${++sequence}`;
+      section.className = 'manual-batch-entry'; section.dataset.entry = uid;
+      section.innerHTML = `<header class="manual-entry-head"><h4 tabindex="-1"></h4><button type="button" class="btn btn-outline-secondary" data-remove-entry>移除</button></header><fieldset>${entryFields({}, employee, workDate, uid)}</fieldset>`;
+      const row = { el: section, images: [] }; entries.push(row); el.querySelector('[data-batch-items]').append(section);
+      const preview = () => {
+        section.querySelector('[data-photo-previews]').innerHTML = row.images.map((src, i) => `<div class="manual-photo-item"><button type="button" class="manual-thumb" data-preview="${src}" aria-label="预览附件图片 ${i + 1}"><img src="${src}" alt="附件图片 ${i + 1}"></button><button type="button" class="manual-photo-remove" data-remove-photo="${i}" aria-label="移除附件图片 ${i + 1}">×</button></div>`).join('');
+      };
+      section.querySelector('[name=photos]').onchange = async event => {
+        if (imagesBusy || sending || pending) return;
+        const input = event.target, files = Array.from(input.files || []);
+        const error = section.querySelector('[data-photo-error]'), status = section.querySelector('[data-photo-status]'); error.textContent = ''; status.textContent = '';
+        if (row.images.length + files.length > 3) { error.textContent = '每项最多上传 3 张图片，请先移除不需要的图片'; input.value = ''; return; }
+        if (!files.length) return;
+        imagesBusy = true; lock();
+        try {
+          for (let i = 0; i < files.length; i++) {
+            if (!el.open) break;
+            status.textContent = `正在压缩图片 ${i + 1}/${files.length}…`;
+            const value = await photo(files[i]);
+            if (!el.open) break;
+            row.images.push(value); preview(); lock();
+          }
+          status.textContent = el.open ? '图片已处理，可预览后提交' : '';
+        } catch (err) { error.textContent = err.message; status.textContent = ''; }
+        finally { imagesBusy = false; input.value = ''; lock(); }
+      };
+      section.addEventListener('click', event => {
+        if (imagesBusy || sending || pending) return;
+        const removePhoto = event.target.closest('[data-remove-photo]');
+        if (removePhoto) { row.images.splice(Number(removePhoto.dataset.removePhoto), 1); preview(); }
+        if (event.target.closest('[data-remove-entry]') && entries.length > 1) { entries.splice(entries.indexOf(row), 1); row.images.length = 0; section.remove(); renumber(); }
+      });
+      section.addEventListener('input', () => {
+        const quantity = Number(section.querySelector('[name=quantity]').value), price = Number(section.querySelector('[name=unit_price]').value);
+        section.querySelector('[name=amount]').value = (Math.round(quantity * price * 100) / 100).toFixed(2);
+      });
+      renumber(); if (entries.length > 1) section.querySelector('h4').focus();
+    }
+    el.querySelector('[data-add-entry]').onclick = addEntry;
+    addEntry();
+    el.querySelector('.manual-dialog-footer > span').innerHTML = '<span class="manual-required">*</span> 为必填项';
   }
   async function importFile(file) {
     if (!file) return; if (file.size > 15000000) throw new Error('文件超过 15 MB');
@@ -235,13 +339,13 @@
     const f = e.target.closest('[data-filter]'); if (f) { filter = f.dataset.filter; render(); return; }
     const b = e.target.closest('[data-action]'); if (!b || busy) return;
     const action = b.dataset.action, a = data.approvals.find(a => a.id === b.dataset.id);
-    if (action === 'new') return edit(); if (action === 'edit') return edit(a);
+    if (action === 'new') return createBatch(); if (action === 'edit') return edit(a);
     if (action === 'approve') return mutate('review', { id: a.id, expected_version: a.version, status: 'approved' });
     if (['reject', 'cancel', 'reopen', 'finalize'].includes(action)) {
       const reasonNeeded = ['reject', 'reopen'].includes(action);
       dialog({ reject: '驳回手工审批', cancel: '撤销手工审批', reopen: '重新打开本月', finalize: '本月定稿' }[action], reasonNeeded ? '<label class="form-label">原因<textarea name="reason" class="form-control" required maxlength="1000"></textarea></label>' : `<p>${action === 'finalize' ? '定稿后，本月记录将锁定。需要调整时由管理员填写原因重新打开。' : '确认撤销这条待审批记录？'}</p>`, { label: { reject: '确认驳回', cancel: '确认撤销', reopen: '重新打开', finalize: '确认定稿' }[action], run: f => mutate(action === 'reject' ? 'review' : action, { id: a?.id, expected_version: a?.version ?? data.month_state.version, status: 'rejected', reason: f.get('reason') || '' }) });
     }
   });
-  async function load() { data = await api(); render(); }
+  async function load(signal) { data = await api(undefined, undefined, signal); render(); }
   Promise.resolve(window.JUN_AUTH_READY).then(() => { month = window.JUN_PAGE_STATE?.resolveMonth(month) || month; window.JUN_PAGE_STATE?.rememberMonth(month, false); return load(); }).catch(e => { $('#module-content').textContent = ''; message(e.message, true); });
 })(typeof window !== 'undefined' ? window : globalThis);

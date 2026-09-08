@@ -70,6 +70,14 @@ body[data-jun-page="production-manual"] .finance-shell,body[data-jun-page="produ
 .manual-dialog-note { color:#66758a; font-size:13px; margin:0 0 16px; }.manual-dialog-note strong { color:#182433; }
 .manual-form-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }.manual-form-grid>label { margin:0; min-width:0; }
 .manual-form-wide { grid-column:1/-1; }
+.manual-batch-entry { min-width:0; padding:0 0 20px; }
+.manual-batch-entry+.manual-batch-entry { padding-top:20px; border-top:2px solid #dce2e9; }
+.manual-entry-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; }
+.manual-entry-head h4 { margin:0; font-size:16px; font-weight:700; }
+.manual-entry-head .btn { min-height:36px; }
+.manual-batch-entry fieldset { min-width:0; border:0; margin:0; padding:0; }
+.manual-add-entry { width:100%; min-height:44px; }
+.manual-add-entry[hidden],.manual-entry-head [hidden] { display:none; }
 .manual-dialog .form-label { display:block; margin-bottom:6px; color:#344256; font-size:13px; font-weight:600; }
 .manual-dialog .form-label small { color:#8490a2; font-size:12px; font-weight:400; margin-left:4px; }
 .manual-required { color:#d63939; font-weight:700; }
