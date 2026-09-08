@@ -1682,7 +1682,7 @@
   async function init() {
     await window.JUN_AUTH_READY;
     markNavigation();
-    if (page === 'production-manual') { const script = document.createElement('script'); script.src = '/jun-pages/manual-approvals.js?v=20260908-1'; script.onerror = () => renderError(new Error('手工审批页面加载失败，请刷新重试')); document.head.appendChild(script); return; }
+    if (page === 'production-manual') { const script = document.createElement('script'); script.src = '/jun-pages/manual-approvals.js?v=20260908-photo2'; script.onerror = () => renderError(new Error('手工审批页面加载失败，请刷新重试')); document.head.appendChild(script); return; }
     if (page === 'production-pattern') { const script = document.createElement('script'); script.src = '/jun-pages/pattern-approvals.js?v=20260906-1'; script.onerror = () => renderError(new Error('制版审批页面加载失败，请刷新重试')); document.head.appendChild(script); return; }
     if (page === 'erp-shipments') return await loadShipments();
     if (page === 'finance-operating-analysis') return await loadOperatingAnalysis();

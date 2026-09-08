@@ -44,7 +44,50 @@
     }
     return result;
   }
-  root.JUN_MANUAL = { parseRows, dateText, labels };
+  // The database accepts JPEG data URLs of at most 350,000 characters per image.
+  // Try readable dimensions first, then reduce quality and dimensions as needed.
+  async function photo(file) {
+    if (!/^image\/(jpeg|png|webp|gif|bmp|avif)$/.test(file.type) || file.size > 15000000) throw new Error('请选择 15 MB 以内的图片');
+    let source, release;
+    if (typeof createImageBitmap === 'function') {
+      try { source = await createImageBitmap(file); release = () => source.close(); } catch (_) { /* Safari may need the image decoder. */ }
+    }
+    if (!source) {
+      const url = URL.createObjectURL(file), img = new Image();
+      try { await new Promise((resolve, reject) => { img.onload = resolve; img.onerror = reject; img.src = url; }); }
+      catch (_) { URL.revokeObjectURL(url); throw new Error('无法读取该图片，请转换为 JPG 或 PNG 后上传'); }
+      source = img; release = () => { img.src = ''; URL.revokeObjectURL(url); };
+    }
+    const canvas = document.createElement('canvas');
+    try {
+      const width = source.naturalWidth || source.width, height = source.naturalHeight || source.height;
+      if (!width || !height) throw new Error('无法读取该图片，请转换为 JPG 或 PNG 后上传');
+      const edge = Math.max(width, height);
+      let scale = Math.min(1, 2400 / edge, Math.sqrt(4000000 / (width * height)));
+      const minimumScale = Math.min(scale, 640 / edge);
+      for (;;) {
+        canvas.width = Math.max(1, Math.round(width * scale)); canvas.height = Math.max(1, Math.round(height * scale));
+        const ctx = canvas.getContext('2d');
+        if (!ctx) throw new Error('图片处理失败，请重新选择图片');
+        ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(source, 0, 0, canvas.width, canvas.height);
+        for (const quality of [0.86, 0.76, 0.66, 0.56]) {
+          const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', quality));
+          if (!blob || blob.type !== 'image/jpeg') throw new Error('图片处理失败，请重新选择图片');
+          if (23 + 4 * Math.ceil(blob.size / 3) > 350000) continue;
+          const value = await new Promise((resolve, reject) => {
+            const reader = new FileReader(); reader.onload = () => resolve(reader.result);
+            reader.onerror = () => reject(new Error('图片处理失败，请重新选择图片')); reader.readAsDataURL(blob);
+          });
+          if (typeof value === 'string' && value.length <= 350000 && /^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(value)) return value;
+        }
+        if (scale <= minimumScale) break;
+        scale = Math.max(minimumScale, scale * 0.8);
+      }
+      throw new Error('图片压缩后仍过大，请裁剪或拆成多张图片');
+    } finally { release(); canvas.width = canvas.height = 1; }
+  }
+  root.JUN_MANUAL = { parseRows, dateText, labels, photo };
   if (typeof module !== 'undefined') module.exports = root.JUN_MANUAL;
   if (typeof document === 'undefined') return;
   const style = document.createElement('link'); style.rel = 'stylesheet'; style.href = '/jun-pages/manual-approvals.css?v=20260906-2'; document.head.append(style);
@@ -81,13 +124,6 @@
     el.querySelector('form').onsubmit = e => { e.preventDefault(); Promise.resolve(submit.run(new FormData(e.target), el)).catch(err => { el.querySelector('[data-error]').textContent = err.message; }); };
     el.showModal(); return el;
   }
-  async function photo(file) {
-    if (!/^image\/(jpeg|png|webp|gif|bmp|avif)$/.test(file.type) || file.size > 15000000) throw new Error('请选择 15 MB 以内的图片');
-    const bitmap = await createImageBitmap(file).catch(() => { throw new Error('无法读取该图片，请转换为 JPG 或 PNG 后上传'); }); const scale = Math.min(1, 1200 / Math.max(bitmap.width, bitmap.height));
-    const canvas = document.createElement('canvas'); canvas.width = Math.round(bitmap.width * scale); canvas.height = Math.round(bitmap.height * scale);
-    canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height); bitmap.close();
-    const value = canvas.toDataURL('image/jpeg', 0.65); if (value.length > 350000) throw new Error('图片内容过大，请换一张较小的照片'); return value;
-  }
   function edit(a) {
     const d = a?.details?.[0] || {};
     let images = [...(d.images || [])], imagesBusy = false;
@@ -104,7 +140,7 @@
         <div class="manual-amount-strip manual-form-wide"><label for="manual-amount">金额（元）<small>数量 × 单价，自动计算</small></label><input id="manual-amount" name="amount" readonly aria-label="金额（元）" value="${esc(d.amount != null ? Number(d.amount).toFixed(2) : '0.00')}"></div>
         <label class="manual-form-wide"><span class="form-label">订单编号 <small>选填</small></span><input name="order_no" class="form-control" maxlength="150" placeholder="有关联订单时填写" value="${esc(d.order_no)}"></label>
         <label class="manual-form-wide"><span class="form-label">备注 <small>选填</small></span><textarea name="note" class="form-control" rows="2" maxlength="3000" placeholder="补充说明工作内容或费用">${esc(d.note)}</textarea></label>
-        <div class="manual-form-wide"><span class="form-label">附件图片 <small>选填</small></span><div class="manual-upload-box"><label class="btn btn-outline-secondary manual-upload-button" for="manual-photo-input"><i class="ti ti-photo-plus" aria-hidden="true"></i>添加图片</label><input id="manual-photo-input" name="photos" type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/bmp,image/avif" multiple hidden><span class="manual-muted">仅图片，最多 3 张，每张不超过 15 MB</span><div data-photo-previews class="manual-photo-previews"></div><p data-photo-error class="text-danger mb-0" role="alert"></p></div></div>
+        <div class="manual-form-wide"><span class="form-label">附件图片 <small>选填</small></span><div class="manual-upload-box"><label class="btn btn-outline-secondary manual-upload-button" for="manual-photo-input"><i class="ti ti-photo-plus" aria-hidden="true"></i>添加图片</label><input id="manual-photo-input" name="photos" type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/bmp,image/avif" multiple hidden><span class="manual-muted">最多 3 张，每张原图不超过 15 MB，将自动压缩</span><p data-photo-status class="manual-muted mb-0" role="status" aria-live="polite"></p><div data-photo-previews class="manual-photo-previews"></div><p data-photo-error class="text-danger mb-0" role="alert"></p></div></div>
       </div>`, { run: async (f) => {
         if (imagesBusy) throw new Error('图片正在处理，请稍候');
         await mutate(a ? 'edit' : 'submit', { id: a?.id, expected_version: a?.version, employee_id: f.get('employee_id'), work_date: f.get('work_date'), details: [{ style: f.get('style'), quantity: number(f.get('quantity')), unit_price: number(f.get('unit_price')), amount: Math.round(number(f.get('quantity')) * number(f.get('unit_price')) * 100) / 100, order_no: f.get('order_no'), note: f.get('note'), images }, ...(a?.details || []).slice(1)] });
@@ -114,12 +150,21 @@
     }
     preview();
     el.querySelector('[name=photos]').onchange = async e => {
-      const files = Array.from(e.target.files); const error = el.querySelector('[data-photo-error]'); error.textContent = '';
+      const input = e.target;
+      if (imagesBusy) return;
+      const files = Array.from(input.files); const error = el.querySelector('[data-photo-error]'), status = el.querySelector('[data-photo-status]'); error.textContent = ''; status.textContent = '';
+      if (!files.length) return;
       if (images.length + files.length > 3) { error.textContent = '最多上传 3 张图片，请先移除不需要的图片'; e.target.value = ''; return; }
-      imagesBusy = true; el.querySelector('[type=submit]').disabled = true;
-      try { const added = await Promise.all(files.map(photo)); images.push(...added); preview(); }
+      imagesBusy = true; input.disabled = true; el.querySelector('[type=submit]').disabled = true;
+      try {
+        for (let i = 0; i < files.length; i++) {
+          status.textContent = `正在压缩图片 ${i + 1}/${files.length}…`;
+          images.push(await photo(files[i])); preview();
+        }
+        status.textContent = '图片已处理，可预览后提交';
+      }
       catch (err) { error.textContent = err.message; }
-      finally { imagesBusy = false; el.querySelector('[type=submit]').disabled = false; e.target.value = ''; }
+      finally { if (error.textContent) status.textContent = ''; imagesBusy = false; input.disabled = false; el.querySelector('[type=submit]').disabled = false; input.value = ''; }
     };
     el.addEventListener('click', e => { const b = e.target.closest('[data-remove-photo]'); if (b && !imagesBusy) { images.splice(Number(b.dataset.removePhoto), 1); preview(); } });
     el.addEventListener('input', () => { const q = el.querySelector('[name=quantity]').value, p = el.querySelector('[name=unit_price]').value; el.querySelector('[name=amount]').value = (Math.round(Number(q) * Number(p) * 100) / 100).toFixed(2); });
