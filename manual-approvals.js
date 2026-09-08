@@ -94,7 +94,7 @@
     const star = '<span class="manual-required" aria-label="必填">*</span>';
     const workDate = a?.work_date || (month === now().slice(0, 7) ? now() : month + '-01');
     const el = dialog(a ? '修改手工审批' : '新增手工审批', `
-      <p class="manual-dialog-note">计入月份 <strong>${esc(month)}</strong>${a ? ' · 修改后重新进入待审批' : ''}</p>
+      <p class="manual-dialog-note">计入月份 <strong>${esc(month)}</strong>${a ? ' · 修改后重新进入待审批' : ''}</p>${a?.details?.length > 1 ? `<p class="manual-dialog-note">本次编辑第 1 条明细，其余 ${a.details.length - 1} 条明细保留。</p>` : ''}
       <div class="manual-form-grid">
         <label><span class="form-label">往来单位 ${star}</span><select name="employee_id" class="form-select" required>${options(a?.employee_id || (a?.counterparty_profile_id ? 'profile:' + a.counterparty_profile_id : data.self_employee_id))}</select></label>
         <label><span class="form-label">作业日期 ${star}</span><input type="date" name="work_date" class="form-control" value="${esc(workDate)}" required></label>
@@ -107,7 +107,7 @@
         <div class="manual-form-wide"><span class="form-label">附件图片 <small>选填</small></span><div class="manual-upload-box"><label class="btn btn-outline-secondary manual-upload-button" for="manual-photo-input"><i class="ti ti-photo-plus" aria-hidden="true"></i>添加图片</label><input id="manual-photo-input" name="photos" type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/bmp,image/avif" multiple hidden><span class="manual-muted">仅图片，最多 3 张，每张不超过 15 MB</span><div data-photo-previews class="manual-photo-previews"></div><p data-photo-error class="text-danger mb-0" role="alert"></p></div></div>
       </div>`, { run: async (f) => {
         if (imagesBusy) throw new Error('图片正在处理，请稍候');
-        await mutate(a ? 'edit' : 'submit', { id: a?.id, expected_version: a?.version, employee_id: f.get('employee_id'), work_date: f.get('work_date'), details: [{ style: f.get('style'), quantity: number(f.get('quantity')), unit_price: number(f.get('unit_price')), amount: Math.round(number(f.get('quantity')) * number(f.get('unit_price')) * 100) / 100, order_no: f.get('order_no'), note: f.get('note'), images }] });
+        await mutate(a ? 'edit' : 'submit', { id: a?.id, expected_version: a?.version, employee_id: f.get('employee_id'), work_date: f.get('work_date'), details: [{ style: f.get('style'), quantity: number(f.get('quantity')), unit_price: number(f.get('unit_price')), amount: Math.round(number(f.get('quantity')) * number(f.get('unit_price')) * 100) / 100, order_no: f.get('order_no'), note: f.get('note'), images }, ...(a?.details || []).slice(1)] });
       } });
     function preview() {
       el.querySelector('[data-photo-previews]').innerHTML = images.map((src, i) => `<div class="manual-photo-item"><button type="button" class="manual-thumb" data-preview="${src}" aria-label="预览附件图片 ${i + 1}"><img src="${src}" alt="附件图片 ${i + 1}"></button><button type="button" class="manual-photo-remove" data-remove-photo="${i}" aria-label="移除附件图片 ${i + 1}">×</button></div>`).join('');
