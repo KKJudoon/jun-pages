@@ -99,10 +99,20 @@
   const errors = { manual_forbidden: '没有操作权限', manual_submit_forbidden: '没有提交权限', manual_admin_required: '仅管理员可以审批、导入及定稿', manual_version_conflict: '记录已被更新，请刷新后再操作', manual_month_finalized: '本月已定稿，请管理员先重新打开', manual_pending_approvals: '还有待审批记录，请先处理完再定稿', finance_month_locked: '财务月份已锁定', finance_payroll_finalized: '工资表已定稿，不能修改本月来源', manual_import_already_completed: '本月企微文件已经导入，不再接受重复导入', manual_legacy_month_requires_migration: '本月是历史账本，暂时只读，需先完成历史迁移', manual_not_pending: '这条记录已处理，请刷新', manual_submission_month_mismatch: '企微提交时间与导入月份不一致', manual_work_date_required: '请填写作业日期', manual_detail_invalid: '请核对款号、数量、单价和金额', manual_import_total_mismatch: '导入明细合计与企微总金额不一致' };
   Object.assign(errors, { manual_batch_invalid: '每次可提交 1 至 3 项，请核对申请及附件', manual_request_id_required: '提交标识无效，请刷新后重新填写', manual_request_conflict: '本次提交内容不一致，请核对原提交结果', manual_employee_required: '请选择有效的往来单位', manual_images_invalid: '附件不符合要求，请重新选择图片', manual_detail_too_large: '附件或备注过长，请精简后重试', manual_request_failed: '暂时无法确认提交结果，请重试' });
   async function api(action, values, signal) {
+    const run = async () => {
     const response = await fetch('/api/production/manual-approvals?month=' + encodeURIComponent(month), action ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, values }), signal } : { signal });
     const body = await response.json();
     if (!response.ok) { const text = body.detail || body.error || '请求失败'; const error = new Error(Object.entries(errors).find(([k]) => text.includes(k))?.[1] || text); error.confirmedRejection = response.status < 500 && body.error !== 'manual_request_conflict'; throw error; }
     return body;
+    };
+    if (!signal) return run();
+    // The login bridge can await auth before starting native fetch; bound that wait too.
+    return new Promise((resolve, reject) => {
+      const aborted = () => reject(new DOMException('请求已取消', 'AbortError'));
+      if (signal.aborted) { aborted(); return; }
+      signal.addEventListener('abort', aborted, { once: true });
+      run().then(resolve, reject).finally(() => signal.removeEventListener('abort', aborted));
+    });
   }
   function message(text, bad) {
     let el = $('#manual-message'); if (!el) { el = document.createElement('div'); el.id = 'manual-message'; $('#module-toolbar').after(el); }
