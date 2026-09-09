@@ -927,6 +927,7 @@
   }
 
   function payrollManualInputKey(row, key) {
+    if (payrollComponent(row, key)?.source_kind === 'business_show') return null;
     const type = payrollRuleType(row);
     const mapping = {
       fixed: {sales_commission:'sales_commission', other:'other_amount'},
@@ -1161,7 +1162,7 @@
     if (ruleType === 'production_manager') addField('其他', 'other_amount', false);
     if (ruleType === 'warehouse') addField('其他', 'other_amount', false);
     if (ruleType === 'pattern_points') { addField('带薪假期福利', 'paid_leave_amount'); addField('绩效奖金', 'performance_bonus'); addField('其他', 'other_amount', false); }
-    if (ruleType === 'planning_submission') { addField('企划提报订单金额', 'sales_amount'); addField('走秀合作', 'show_cooperation_amount'); addField('其他', 'other_amount', false); }
+    if (ruleType === 'planning_submission') { addField('企划提报订单金额', 'sales_amount'); if (!row?.components?.some(item => item.source_kind === 'business_show')) addField('走秀合作', 'show_cooperation_amount'); addField('其他', 'other_amount', false); }
     if (ruleType === 'design_submission') { addField('项目工资', 'project_amount'); addField('销售提成', 'sales_commission'); addField('其他', 'other_amount', false); }
     if (!directNames.length) return;
     const sourceSummary = (row?.components || []).filter(function (item) { return item.input_key; }).map(function (item) { return `<div><span>${escapeHtml(item.label)}</span><strong>${amount(item.amount)}</strong></div>`; }).join('');

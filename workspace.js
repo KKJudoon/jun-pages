@@ -5,12 +5,14 @@
     {id:'operations',name:'运营',icon:'dashboard'}, {id:'erp',name:'ERP',icon:'clipboard-check'},
     {id:'production',name:'生产',icon:'building-factory-2'}, {id:'finance',name:'财务',icon:'report-money'},
     {id:'customer',name:'客服',icon:'messages'},
+    {id:'business',name:'商务',icon:'briefcase'},
     {id:'system',name:'系统管理',icon:'settings'},
   ];
   const pages = [
     {path:'/',name:'运营总览',area:'operations',permission:'operations.overview.read',icon:'dashboard'},
     {path:'/sycm/',name:'生意参谋',area:'operations',permission:'operations.sycm.read',icon:'chart-bar'},
     {path:'/marketing-safety/',name:'营销安全',area:'operations',permission:'operations.marketing.read',icon:'shield-exclamation'},
+    {path:'/business/shows/',name:'走秀活动申报',area:'business',permission:'business.show.read',icon:'briefcase'},
     {path:'/customer/wecom-sales/',name:'企业微信销售',area:'customer',permission:'customer.sales.read',icon:'messages'},
     {path:'/erp/',name:'订单审核',area:'erp',permission:'orders.read',icon:'clipboard-check'},
     {path:'/inventory/',name:'库存明细',area:'erp',permission:'inventory.read',icon:'building-warehouse'},
