@@ -1170,7 +1170,8 @@
     const element = dialog('finance-payroll-input-dialog', `${employee.employee_name} · 本月工资源数据`, `<p class="finance-note">这里只能维护无法自动生成或引用的数据。自动金额、公式结果和实发金额均不可修改。</p>${sourceSummary ? `<div class="company-payroll-current">${sourceSummary}</div>` : ''}<div class="employee-form-grid">${directFields}</div><label>来源与确认说明<textarea class="form-control" rows="3" name="reason" required placeholder="说明这笔数据来自哪里或为何确认">${escapeHtml(existing?.reason || '')}</textarea></label><p class="finance-note">${escapeHtml(approved)}</p><div class="finance-error" data-message hidden></div><footer><button class="btn btn-outline-secondary" value="cancel">取消</button><button class="btn btn-primary" type="button" data-save>确认源数据并重算</button></footer>`);
     if (focusInputKey) element.querySelector(`[name="${focusInputKey}"]`)?.focus();
     element.querySelector('[data-save]').addEventListener('click', async function () {
-      const values = {};
+      const values = row?.components?.some(item => item.source_kind === 'business_show') && inputs.show_cooperation_amount != null
+        ? {show_cooperation_amount: inputs.show_cooperation_amount} : {};
       directNames.forEach(function (name) { const input = element.querySelector(`[name="${name}"]`); if (input?.value !== '') values[name] = Number(input.value); });
       const message = element.querySelector('[data-message]');
       try {
