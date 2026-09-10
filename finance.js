@@ -878,6 +878,19 @@
     return `<div class="payroll-payout-heading ${kind === 'non_corporate' ? 'is-non-corporate' : ''}"><strong>${kind === 'non_corporate' ? '非对公发放' : '对公发放'}</strong><span>${group.length} 人 · 实发 ${amount(total)}</span></div>`;
   }
 
+  function payrollReimbursements() {
+    if (state.payrollSelfService || window.JUN_CONTEXT?.profile?.role !== 'admin') return '';
+    const bill = state.data?.source_totals?.logistics_sf;
+    const reimbursement = bill ? numeric(bill.amount_total) : null;
+    const billLink = (window.JUN_CONTEXT?.permissions || []).includes('finance.sources.read')
+      ? `<a href="/jun-pages/finance/express-bills/?month=${encodeURIComponent(state.month)}">查看账单<i class="ti ti-chevron-right" aria-hidden="true"></i></a>` : '';
+    return `<section class="payroll-reimbursements" aria-labelledby="payroll-reimbursements-title">
+      <header><h2 id="payroll-reimbursements-title">报销</h2><span>${escapeHtml(state.month)} · 每月报销项目</span></header>
+      <div class="payroll-reimbursement-row"><div><strong>快递费</strong><small>${reimbursement == null ? '本月快递账单尚未收取' : '本月快递账单金额'}</small></div>
+      <div class="payroll-reimbursement-amount"><small>报销金额</small><strong>${reimbursement == null ? '待收账单' : amount(reimbursement)}</strong></div>${billLink}</div>
+    </section>`;
+  }
+
   function renderPayroll() {
     const sorted = payrollSortedRows();
     const rows = sorted.filter(function(row) { return payoutKind(row) === 'corporate'; }).concat(sorted.filter(function(row) { return payoutKind(row) === 'non_corporate'; }));
@@ -907,6 +920,7 @@
           <div class="payroll-payment-state">${adminControl}</div>
         </article>`;
       }).join('') || '<div class="finance-empty">尚未生成本月工资快照。</div>'}</div>
+      ${payrollReimbursements()}
     </div>`;
     content.querySelectorAll('[data-payroll-detail]').forEach(function (button) { button.addEventListener('click', function () { showPayrollDetail(button.dataset.payrollDetail); }); });
     content.querySelectorAll('[data-payroll-paid]').forEach(function (checkbox) { checkbox.addEventListener('change', function () { setPayrollPaid(checkbox.dataset.payrollPaid, checkbox.checked, checkbox); }); });

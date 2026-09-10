@@ -612,3 +612,15 @@ th.company-payroll-name { z-index: 5 !important; background: #f6f8fb !important;
 .payroll-payment-row.is-non-corporate{background:#fffaf0;border-left:4px solid #b87500}
 .payroll-payment-row.is-non-corporate .payroll-payment-bank{color:#714500}
 @media print{.payroll-payout-heading{break-after:avoid}.payroll-payment-row.is-non-corporate{border-left:4px solid #714500}}
+
+.payroll-reimbursements{margin-top:24px;border:1px solid #d4dfe8;border-radius:8px;overflow:hidden;break-inside:avoid}
+.payroll-reimbursements header{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:12px 16px;background:#edf3f8}
+.payroll-reimbursements h2{margin:0;font-size:16px;color:#24425a}
+.payroll-reimbursements header span{font-size:12px;color:#52667a}
+.payroll-reimbursement-row{display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:16px;background:#fff}
+.payroll-reimbursement-row>div:first-child{flex:1;min-width:120px}
+.payroll-reimbursement-row strong,.payroll-reimbursement-row small{display:block}
+.payroll-reimbursement-row small{margin-top:4px;font-size:12px;color:#64748b}
+.payroll-reimbursement-amount{text-align:right;min-width:110px}
+.payroll-reimbursement-amount strong{font-size:20px;color:#24425a}
+.payroll-reimbursement-row a{font-size:13px;white-space:nowrap}
