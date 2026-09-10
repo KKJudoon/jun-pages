@@ -95,12 +95,13 @@
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const money = n => Number(n || 0).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const now = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Shanghai' });
-  let month = new URLSearchParams(location.search).get('month') || now().slice(0, 7), data, filter = 'all', busy = false;
+  let month = new URLSearchParams(location.search).get('month') || now().slice(0, 7), data, filter = 'all', busy = false, loading = false, loadVersion = 0, activeLoad;
+  const attachmentCache = new Map();
   const errors = { manual_forbidden: '没有操作权限', manual_submit_forbidden: '没有提交权限', manual_admin_required: '仅管理员可以审批、导入及定稿', manual_version_conflict: '记录已被更新，请刷新后再操作', manual_month_finalized: '本月已定稿，请管理员先重新打开', manual_pending_approvals: '还有待审批记录，请先处理完再定稿', finance_month_locked: '财务月份已锁定', finance_payroll_finalized: '工资表已定稿，不能修改本月来源', manual_import_already_completed: '本月企微文件已经导入，不再接受重复导入', manual_legacy_month_requires_migration: '本月是历史账本，暂时只读，需先完成历史迁移', manual_not_pending: '这条记录已处理，请刷新', manual_submission_month_mismatch: '企微提交时间与导入月份不一致', manual_work_date_required: '请填写作业日期', manual_detail_invalid: '请核对款号、数量、单价和金额', manual_import_total_mismatch: '导入明细合计与企微总金额不一致' };
   Object.assign(errors, { manual_batch_invalid: '每次可提交 1 至 3 项，请核对申请及附件', manual_request_id_required: '提交标识无效，请刷新后重新填写', manual_request_conflict: '本次提交内容不一致，请核对原提交结果', manual_employee_required: '请选择有效的往来单位', manual_images_invalid: '附件不符合要求，请重新选择图片', manual_detail_too_large: '附件或备注过长，请精简后重试', manual_request_failed: '暂时无法确认提交结果，请重试' });
-  async function api(action, values, signal) {
+  async function api(action, values, signal, requestedMonth = month, approvalId) {
     const run = async () => {
-    const response = await fetch('/api/production/manual-approvals?month=' + encodeURIComponent(month), action ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, values }), signal } : { signal });
+    const response = await fetch('/api/production/manual-approvals?month=' + encodeURIComponent(requestedMonth) + (!action ? (approvalId ? '&approval_id=' + encodeURIComponent(approvalId) : '&list=1') : ''), action ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, values }), signal } : { signal });
     const body = await response.json();
     if (!response.ok) { const text = body.detail || body.error || '请求失败'; const error = new Error(Object.entries(errors).find(([k]) => text.includes(k))?.[1] || text); error.confirmedRejection = response.status < 500 && body.error !== 'manual_request_conflict'; throw error; }
     return body;
@@ -300,14 +301,29 @@
       } });
   }
   const validImages = d => (d.images || []).filter(src => /^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(src));
-  function detailHtml(d) {
+  function imagesHtml(images) {
+    return '<div class="manual-thumbnails">' + images.map((src, i) => `<button type="button" class="manual-thumb" data-preview="${src}" aria-label="预览附件图片 ${i + 1}"><img src="${src}" alt="附件图片 ${i + 1}" loading="lazy"></button>`).join('') + '</div>';
+  }
+  async function fullApproval(id) {
+    const requestedMonth = month, key = `${requestedMonth}:${id}`;
+    if (!attachmentCache.has(key)) {
+      const controller = new AbortController(), timer = setTimeout(() => controller.abort(), 20000);
+      try {
+        const response = await api(undefined, undefined, controller.signal, requestedMonth, id);
+        attachmentCache.set(key, response.approval);
+      } finally { clearTimeout(timer); }
+    }
+    if (requestedMonth !== month) throw new Error('月份已切换，请重新打开记录');
+    return attachmentCache.get(key);
+  }
+  function detailHtml(d, approvalId, detailIndex) {
     const images = validImages(d);
     return `<section class="manual-detail"><div class="manual-detail-heading"><strong>${esc(d.style)}</strong><span>¥${money(d.amount)}</span></div>
       <div class="manual-detail-calculation">${esc(d.quantity)} × ¥${money(d.unit_price)}</div>
       ${d.order_no ? '<div class="manual-field-row"><span>订单编号</span><strong>' + esc(d.order_no) + '</strong></div>' : ''}
       ${d.note ? '<p class="manual-detail-note">' + esc(d.note) + '</p>' : ''}
-      ${images.length ? '<div class="manual-thumbnails">' + images.map((src, i) => `<button type="button" class="manual-thumb" data-preview="${src}" aria-label="预览 ${esc(d.style)} 附件图片 ${i + 1}"><img src="${src}" alt="${esc(d.style)} 附件图片 ${i + 1}" loading="lazy"></button>`).join('') + '</div>' : ''}
-      ${!images.length && d.image_count && !/^0/.test(d.image_count) ? '<small class="manual-muted">企微原件 ' + esc(d.image_count) + '</small>' : ''}</section>`;
+      ${images.length ? imagesHtml(images) : d.has_images ? `<div><button type="button" class="btn btn-outline-secondary" data-attachments="${esc(approvalId)}" data-detail-index="${detailIndex}">查看附件（${esc(d.image_count)} 张）</button></div>` : ''}
+      ${!images.length && !d.has_images && d.image_count && !/^0/.test(d.image_count) ? '<small class="manual-muted">企微原件 ' + esc(d.image_count) + '</small>' : ''}</section>`;
   }
   function cardHtml(a, open) {
     const sum = a.details.reduce((n, d) => n + Number(d.amount), 0);
@@ -318,7 +334,7 @@
       <div class="manual-card-total"><span>总金额</span><strong>¥${money(sum)}</strong></div>
       <div class="manual-card-meta"><div><span>作业日期</span><strong>${esc(a.work_date || '—')}</strong></div><div><span>提交时间</span><strong>${date(a.submitted_at)}</strong></div>${a.completed_at ? '<div><span>审批完成</span><strong>' + date(a.completed_at) + '</strong></div>' : ''}</div>
       ${a.reason ? '<div class="manual-reason">处理说明：' + esc(a.reason) + '</div>' : ''}
-      <div class="manual-details">${detailHtml(a.details[0])}${a.details.length > 1 ? `<details class="manual-extra-details"><summary>展开其余 ${a.details.length - 1} 条明细</summary>${a.details.slice(1).map(detailHtml).join('')}</details>` : ''}</div>
+      <div class="manual-details">${detailHtml(a.details[0], a.id, 0)}${a.details.length > 1 ? `<details class="manual-extra-details"><summary>展开其余 ${a.details.length - 1} 条明细</summary>${a.details.slice(1).map((detail,index) => detailHtml(detail,a.id,index+1)).join('')}</details>` : ''}</div>
       <footer class="manual-card-footer"><div class="manual-approval-number" title="${esc(a.approval_no)}"><span>审批编号</span>${esc(a.approval_no)}</div>${a.source === 'wecom' && /^https:\/\/[^/]*weixin\.qq\.com\//.test(a.raw?.header?.['审批详情'] || '') ? '<a target="_blank" rel="noopener noreferrer" href="' + esc(a.raw.header['审批详情']) + '">企微原审批 <i class="ti ti-external-link" aria-hidden="true"></i></a>' : ''}${actions ? '<div class="manual-card-actions">' + actions + '</div>' : ''}</footer></article>`;
   }
   function render() {
@@ -337,7 +353,19 @@
       <div class="manual-list-toolbar"><div class="manual-tabs" role="group" aria-label="审批状态">${[['all', '全部'], ...Object.entries(labels)].map(([k, v]) => `<button class="manual-tab ${filter === k ? 'is-active' : ''}" aria-pressed="${filter === k}" data-filter="${k}">${v}<span>${k === 'all' ? approvals.length : approvals.filter(a => a.status === k).length}</span></button>`).join('')}</div><span class="manual-muted">共 ${shown.length} 张审批</span></div>
       <div class="manual-card-list">${shown.map(a => cardHtml(a, open)).join('') || '<div class="manual-empty"><i class="ti ti-clipboard-check" aria-hidden="true"></i><p>本月暂无' + (filter === 'all' ? '' : labels[filter]) + '记录</p></div>'}</div>`;
   }
-  document.addEventListener('click', e => {
+  document.addEventListener('click', async e => {
+    const retry = e.target.closest('[data-manual-retry]');
+    if (retry) { load().catch(error => message(error.message,true)); return; }
+    const attachment = e.target.closest('[data-attachments]');
+    if (attachment) {
+      attachment.disabled = true;
+      const label = attachment.textContent; attachment.textContent = '正在加载附件…';
+      try {
+        const approval = await fullApproval(attachment.dataset.attachments);
+        if (attachment.isConnected) attachment.parentElement.innerHTML = imagesHtml(validImages(approval.details[Number(attachment.dataset.detailIndex)]));
+      } catch(error) { message(error.name === 'AbortError' ? '附件加载超时，请重试' : error.message,true); attachment.disabled=false; attachment.textContent=label; }
+      return;
+    }
     const thumb = e.target.closest('[data-preview]');
     if (thumb) {
       if (!/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(thumb.dataset.preview)) return;
@@ -346,16 +374,49 @@
       viewer.innerHTML = `<button type="button" aria-label="关闭图片预览">×</button><img src="${thumb.dataset.preview}" alt="附件图片预览">`;
       document.body.append(viewer); viewer.querySelector('button').onclick = () => viewer.close(); viewer.onclick = event => { if (event.target === viewer) viewer.close(); }; viewer.showModal(); return;
     }
+    if (loading || data?.month !== month) return;
     const f = e.target.closest('[data-filter]'); if (f) { filter = f.dataset.filter; render(); return; }
     const b = e.target.closest('[data-action]'); if (!b || busy) return;
     const action = b.dataset.action, a = data.approvals.find(a => a.id === b.dataset.id);
-    if (action === 'new') return createBatch(); if (action === 'edit') return edit(a);
+    if (action === 'new') return createBatch();
+    if (action === 'edit') {
+      b.disabled=true;
+      try { edit(await fullApproval(a.id)); }
+      catch(error) { message(error.name === 'AbortError' ? '读取审批超时，请重试' : error.message,true); }
+      finally { b.disabled=false; }
+      return;
+    }
     if (action === 'approve') return mutate('review', { id: a.id, expected_version: a.version, status: 'approved' });
     if (['reject', 'cancel', 'reopen', 'finalize'].includes(action)) {
       const reasonNeeded = ['reject', 'reopen'].includes(action);
       dialog({ reject: '驳回手工审批', cancel: '撤销手工审批', reopen: '重新打开本月', finalize: '本月定稿' }[action], reasonNeeded ? '<label class="form-label">原因<textarea name="reason" class="form-control" required maxlength="1000"></textarea></label>' : `<p>${action === 'finalize' ? '定稿后，本月记录将锁定。需要调整时由管理员填写原因重新打开。' : '确认撤销这条待审批记录？'}</p>`, { label: { reject: '确认驳回', cancel: '确认撤销', reopen: '重新打开', finalize: '确认定稿' }[action], run: f => mutate(action === 'reject' ? 'review' : action, { id: a?.id, expected_version: a?.version ?? data.month_state.version, status: 'rejected', reason: f.get('reason') || '' }) });
     }
   });
-  async function load(signal) { data = await api(undefined, undefined, signal); render(); }
-  Promise.resolve(window.JUN_AUTH_READY).then(() => { month = window.JUN_PAGE_STATE?.resolveMonth(month) || month; window.JUN_PAGE_STATE?.rememberMonth(month, false); return load(); }).catch(e => { $('#module-content').textContent = ''; message(e.message, true); });
+  async function load(signal) {
+    const version = ++loadVersion, requestedMonth = month;
+    activeLoad?.abort();
+    const controller = new AbortController(); activeLoad = controller;
+    const abort = () => controller.abort();
+    if (signal?.aborted) abort(); else signal?.addEventListener('abort',abort,{once:true});
+    const timer = setTimeout(abort,20000);
+    loading = true;
+    $('#manual-message')?.remove();
+    document.querySelectorAll('[data-action]').forEach(button => button.disabled=true);
+    $('#module-content').innerHTML = `<div class="manual-empty" role="status">正在加载 ${esc(requestedMonth)} 手工审批…</div>`;
+    try {
+      const result = await api(undefined,undefined,controller.signal,requestedMonth);
+      if (version !== loadVersion || requestedMonth !== month) return;
+      data = result; attachmentCache.clear(); render();
+    } catch(error) {
+      if (version !== loadVersion) return;
+      $('#module-content').innerHTML = `<div class="manual-empty"><p>${error.name === 'AbortError' ? '加载超时，请重试' : '暂时无法加载本月审批'}</p><button type="button" class="btn btn-outline-primary" data-manual-retry>重新加载 ${esc(requestedMonth)}</button></div>`;
+      // Keep the retry control visible, including on first load.
+      message(error.name === 'AbortError' ? '加载超时，请重试' : error.message,true);
+      throw error;
+    } finally {
+      clearTimeout(timer); signal?.removeEventListener('abort',abort);
+      if (version === loadVersion) loading = false;
+    }
+  }
+  Promise.resolve(window.JUN_AUTH_READY).then(() => { month = window.JUN_PAGE_STATE?.resolveMonth(month) || month; window.JUN_PAGE_STATE?.rememberMonth(month, false); return load(); }).catch(e => { message(e.name === 'AbortError' ? '加载超时，请重试' : e.message, true); });
 })(typeof window !== 'undefined' ? window : globalThis);
