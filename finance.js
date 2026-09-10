@@ -1064,7 +1064,13 @@
     const workbook = XLSX.read(await file.arrayBuffer(), {type: 'array', cellDates: true});
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const raw = XLSX.utils.sheet_to_json(sheet, {defval: '', raw: false});
-    const rows = raw.filter(function (item) { return String(item['姓名'] || '').trim(); }).map(function (item, index) {
+    const rows = raw.filter(function (item) {
+      const name = String(item['姓名'] || '').trim();
+      // Our export includes a footer. Exclude only explicit, unnumbered totals;
+      // unknown employee rows must still reach the server's identity checks.
+      const summary = !String(item['工号'] || '').trim() && /^(合计|总计|小计)$/.test(name.replace(/\s/g, ''));
+      return name && !summary;
+    }).map(function (item, index) {
       const numberOrNull = function (value, label) { if (value == null || String(value).trim() === '') return null; const parsed = Number(String(value).replace(/,/g, '')); if (!Number.isFinite(parsed)) throw new Error(`${item['姓名'] || `第 ${index + 2} 行`}的${label}不是有效数字`); return parsed; };
       const netPay = numberOrNull(item['实发金额'], '实发金额');
       const tax = numberOrNull(item['个税（财务核定）'] ?? item['个人所得税'], '个税');
