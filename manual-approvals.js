@@ -316,13 +316,38 @@
     if (requestedMonth !== month) throw new Error('月份已切换，请重新打开记录');
     return attachmentCache.get(key);
   }
+  function previewStorageUrl(value) {
+    if (!value) return '';
+    try {const url=new URL(value,location.origin),at=url.pathname.indexOf('/storage/v1/render/image/');
+      return at<0?'':String(window.JUN_CONFIG.supabaseUrl).replace(/\/$/,'')+url.pathname.slice(at)+url.search;
+    } catch (_) {return '';}
+  }
+  function approvalThumbnails(detail,approvalId,detailIndex) {
+    return '<div class="manual-thumbnails">'+Array.from({length:Number(detail.image_count)||0},(_,index)=>{
+      const src=previewStorageUrl(detail.thumbnail_urls?.[index]);
+      return `<button type="button" class="manual-thumb" data-approval-photo="${esc(approvalId)}" data-detail-index="${detailIndex}" data-image-index="${index}" aria-label="查看附件原图 ${index+1}">${src?`<img src="${esc(src)}" width="240" height="320" loading="lazy" decoding="async" alt="附件缩略图 ${index+1}">`:'<span>预览暂不可用<br>点开原图</span>'}</button>`;
+    }).join('')+'</div>';
+  }
+  async function showApprovalPhoto(button) {
+    button.disabled=true;
+    try {
+      const approval=await fullApproval(button.dataset.approvalPhoto);
+      const source=validImages(approval.details[Number(button.dataset.detailIndex)])[Number(button.dataset.imageIndex)];
+      if(!source)throw new Error('附件已更新，请刷新后查看');
+      document.querySelector('#manual-image-viewer')?.remove();
+      const viewer=document.createElement('dialog');viewer.id='manual-image-viewer';viewer.className='manual-image-viewer';
+      viewer.innerHTML=`<button type="button" aria-label="关闭图片预览">×</button><img src="${source}" alt="附件原图">`;
+      document.body.append(viewer);viewer.querySelector('button').onclick=()=>viewer.close();viewer.onclick=event=>{if(event.target===viewer)viewer.close();};viewer.showModal();
+    } catch(error) {message(error.name==='AbortError'?'原图加载超时，请重试':error.message,true);}
+    finally {button.disabled=false;}
+  }
   function detailHtml(d, approvalId, detailIndex) {
     const images = validImages(d);
     return `<section class="manual-detail"><div class="manual-detail-heading"><strong>${esc(d.style)}</strong><span>¥${money(d.amount)}</span></div>
       <div class="manual-detail-calculation">${esc(d.quantity)} × ¥${money(d.unit_price)}</div>
       ${d.order_no ? '<div class="manual-field-row"><span>订单编号</span><strong>' + esc(d.order_no) + '</strong></div>' : ''}
       ${d.note ? '<p class="manual-detail-note">' + esc(d.note) + '</p>' : ''}
-      ${images.length ? imagesHtml(images) : d.has_images ? `<div><button type="button" class="btn btn-outline-secondary" data-attachments="${esc(approvalId)}" data-detail-index="${detailIndex}">查看附件（${esc(d.image_count)} 张）</button></div>` : ''}
+      ${images.length ? imagesHtml(images) : d.has_images ? approvalThumbnails(d,approvalId,detailIndex) : ''}
       ${!images.length && !d.has_images && d.image_count && !/^0/.test(d.image_count) ? '<small class="manual-muted">企微原件 ' + esc(d.image_count) + '</small>' : ''}</section>`;
   }
   function cardHtml(a, open) {
@@ -354,6 +379,7 @@
       <div class="manual-card-list">${shown.map(a => cardHtml(a, open)).join('') || '<div class="manual-empty"><i class="ti ti-clipboard-check" aria-hidden="true"></i><p>本月暂无' + (filter === 'all' ? '' : labels[filter]) + '记录</p></div>'}</div>`;
   }
   document.addEventListener('click', async e => {
+    const original=e.target.closest('[data-approval-photo]');if(original){await showApprovalPhoto(original);return;}
     const retry = e.target.closest('[data-manual-retry]');
     if (retry) { load().catch(error => message(error.message,true)); return; }
     const attachment = e.target.closest('[data-attachments]');

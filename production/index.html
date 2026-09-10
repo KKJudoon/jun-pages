@@ -714,9 +714,10 @@
     canvas.getContext('2d').drawImage(bitmap,0,0,canvas.width,canvas.height);bitmap.close?.();
     let blob=null;
     for(const quality of [.84,.74,.64]){blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/webp',quality));if(blob&&blob.size<=1048576)break;}
-    if(!blob||blob.size>1048576)throw new Error('图片压缩后仍超过 1MB');
+    if(blob&&blob.type!=='image/webp')blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/jpeg',.8));
+    if(!blob||!['image/webp','image/jpeg'].includes(blob.type)||blob.size>1048576)throw new Error('图片压缩后仍超过 1MB');
     const base=(file.name||'审批图片').replace(/\.[^.]+$/,'').slice(0,150)||'审批图片';
-    return new File([blob],`${base}.webp`,{type:'image/webp',lastModified:Date.now()});
+    return new File([blob],`${base}.${blob.type==='image/jpeg'?'jpg':'webp'}`,{type:blob.type,lastModified:Date.now()});
   }
   async function productionFileSha256(file){const digest=await crypto.subtle.digest('SHA-256',await file.arrayBuffer());return [...new Uint8Array(digest)].map(value=>value.toString(16).padStart(2,'0')).join('');}
   async function productionUploadImages(request,files){
@@ -735,7 +736,7 @@
     if(offset<0)throw new Error('审批图片地址无效');
     return String(window.JUN_CONFIG.supabaseUrl).replace(/\/$/,'')+url.pathname.slice(offset)+url.search;
   }
-  function productionAttachmentGallery(request){const items=request.attachments||[];if(!items.length)return '';return `<section class="mt-3"><div class="form-label">审批图片（${items.length}）</div><div class="production-attachment-grid">${items.map((item,index)=>`<button class="production-attachment-thumb" type="button" data-production-image="${productionEscape(productionAttachmentUrl(item.signed_url))}" data-production-image-title="审批图片 ${index+1}"><img src="${productionEscape(productionAttachmentUrl(item.signed_url))}" alt="审批图片 ${index+1}" loading="lazy"/></button>`).join('')}</div></section>`;}
+  function productionAttachmentGallery(request){const items=request.attachments||[];if(!items.length)return '';return `<section class="mt-3"><div class="form-label">审批图片（${items.length}）</div><div class="production-attachment-grid">${items.map((item,index)=>`<button class="production-attachment-thumb" type="button" data-production-image="${productionEscape(productionAttachmentUrl(item.signed_url))}" data-production-image-title="审批图片 ${index+1}">${item.thumbnail_url?`<img src="${productionEscape(productionAttachmentUrl(item.thumbnail_url))}" alt="审批图片 ${index+1}" loading="lazy" decoding="async" width="240" height="320"/>`:'<span>预览暂不可用，点开原图</span>'}</button>`).join('')}</div></section>`;}
 
   async function productionApi(path,options={}){const response=await fetch(path,options);const payload=await response.json().catch(()=>({}));if(!response.ok){const error=new Error(productionErrorLabels[payload.error]||productionErrorLabels[payload.detail]||payload.detail||payload.error||'请求失败');error.payload=payload;throw error;}return payload;}
   function productionAlert(message,type='secondary'){document.getElementById('production-alert').innerHTML=message?`<div class="alert alert-${type} py-2 mb-2">${productionEscape(message)}</div>`:'';}
