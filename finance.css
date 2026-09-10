@@ -605,3 +605,10 @@ th.company-payroll-name { z-index: 5 !important; background: #f6f8fb !important;
   .finance-report-kpis article, .finance-report-card, .finance-report-category, .payroll-card { box-shadow: none; border: 1px solid #ddd; }
   .payroll-total-band { print-color-adjust: exact; }
 }
+
+/* Payout groups: text labels retain meaning in monochrome print and for color blindness. */
+.payroll-payout-heading{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:12px 16px;background:#edf3f8;color:#24425a;font-size:14px;flex-wrap:wrap}
+.payroll-payout-heading.is-non-corporate{background:#fff0cc;color:#714500;border-left:4px solid #b87500;margin-top:18px}
+.payroll-payment-row.is-non-corporate{background:#fffaf0;border-left:4px solid #b87500}
+.payroll-payment-row.is-non-corporate .payroll-payment-bank{color:#714500}
+@media print{.payroll-payout-heading{break-after:avoid}.payroll-payment-row.is-non-corporate{border-left:4px solid #714500}}
