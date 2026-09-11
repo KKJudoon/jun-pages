@@ -619,7 +619,7 @@
   const productionRequestLabels={pending:['待审批','bg-yellow-lt'],approved:['已批准','bg-green-lt'],rejected:['已驳回','bg-red-lt'],cancelled:['已撤回','bg-secondary-lt'],not_required:['原始记录','bg-secondary-lt']};
   const productionReasonConfig={
     bulk_backfill:{label:'大货补录',fields:[]},work_hours_entry:{label:'工时录入',fields:[]},custom_entry:{label:'定制款',fields:[]},sample_entry:{label:'样衣录入',fields:[]},
-    price_correction:{hint:"审核通过后，将同步更新该商品的标准工价；其他原因不更新商品工价；其他计工记录和已发工资不重算。",label:'改工价',fields:['unit_price']},quantity_correction:{label:'数量修正',fields:['quantity']},counterparty_correction:{label:'往来单位修正',fields:['worker_name']},
+    price_correction:{hint:"审核通过后，将同步更新该商品的标准工价，后续采集按中台工价入库；其他原因不更新商品工价，已审批的单条调整和已结算月份保持原结果。",label:'改工价',fields:['unit_price']},quantity_correction:{label:'数量修正',fields:['quantity']},counterparty_correction:{label:'往来单位修正',fields:['worker_name']},
     production_attribute:{label:'生产属性调整',fields:['work_type','value_attribution','cutting_type']},basic_info_correction:{label:'基础资料修正',fields:['work_date','product_code','color','size']},
     supplement:{label:'补价',fields:['supplement']},custom_adjustment:{label:'定制款调价',fields:['unit_price','supplement']},sample_reclassification:{label:'样衣',fields:['unit_price','work_type','value_attribution']},payroll_inclusion:{label:'计入/排除调整',fields:['include_in_payroll','exclusion_reason']},manual_addition:{label:'新增计工（旧）',fields:[]},other:{label:'其他',fields:['note']},legacy_import:{label:'历史审批迁入',fields:[]}
   };
@@ -828,13 +828,21 @@
     }).join('')||'<div class="text-secondary">暂无审批记录</div>';
     document.getElementById('production-history-dialog').showModal();
   }
+  function productionLinePrice(line){
+    const amount=line.unit_price===null?'<span class="text-danger">待确认</span>':productionMoney(line.unit_price);
+    const snapshot=line.source?.labor_price_snapshot;
+    if(snapshot?.source!=='catalog')return amount;
+    const source=line.changed?'已审批工价':snapshot.match_status==='matched'?'中台工价':'中台工价待确认';
+    const original=snapshot.erp_unit_price==null?'未填写':productionMoney(snapshot.erp_unit_price);
+    return `${amount}<small class="d-block text-secondary" title="${productionEscape('采集原价：'+original)}">${source}</small>`;
+  }
   function productionLineCell(line,key,canEdit){
     const pending=(line.pending_requests||[])[0];
     const rejected=line.latest_rejected_request;const marker=productionRejectedMarker(rejected);
     const cells={
       date:`<span title="${productionEscape(productionDate(line.work_date))}">${productionEscape(productionShortDate(line.work_date))}</span>`,
       product:`<div class="production-product">${productionImage(line)}<div class="production-product-meta"><div class="production-code">${productionEscape(line.product_code)}</div><small>${productionEscape([line.color,line.size].filter(Boolean).join(' / ')||'无规格')}</small>${productionLineHistoryButton(line)}</div></div>`,
-      quantity:productionNumber(line.quantity),unit_price:line.unit_price===null?'<span class="text-danger">待确认</span>':productionMoney(line.unit_price),supplement:productionMoney(line.supplement),amount:`<strong>${productionMoney(line.amount)}</strong>`,
+      quantity:productionNumber(line.quantity),unit_price:productionLinePrice(line),supplement:productionMoney(line.supplement),amount:`<strong>${productionMoney(line.amount)}</strong>`,
       counterparty:`<div>${productionEscape(line.worker_name)}</div>${line.counterparty_included?'<span class="badge bg-green-lt mt-1">单位计入</span>':'<span class="badge bg-red-lt mt-1">单位不计入</span>'}`,
       type:productionEscape(line.work_type),attribution:productionEscape(line.value_attribution),
       change:pending?`${productionBadge('pending')}<div class="small text-secondary mt-1">${productionEscape(pending.request_no)}</div>`:line.changed?productionBadge('approved'):productionBadge('not_required'),
@@ -850,7 +858,7 @@
     const change=pending?`${productionBadge('pending')} <span class="production-card-muted">${productionEscape(pending.request_no)}</span>`:line.changed?productionBadge('approved'):productionBadge('not_required');
     const calculation=line.pending_only?'<span class="text-warning">待审批，暂不计入</span>':line.eligible?'<span class="text-success">计入</span>':`<span class="text-danger">不计入</span>${line.exclusion_reason?` <span class="production-card-muted">${productionEscape(line.exclusion_reason)}</span>`:''}`;
     const counterparty=`${productionEscape(line.worker_name)} ${line.counterparty_included?'<span class="badge bg-green-lt">单位计入</span>':'<span class="badge bg-red-lt">单位不计入</span>'}`;
-    return `<article class="production-record-card ${line.eligible?'':'is-excluded'} ${line.changed?'is-changed':''} ${pending?'is-pending':''}"><div class="production-card-head"><div class="production-card-product">${productionImage(line)}<div><div class="production-card-title">${productionEscape(line.product_code)}</div><div class="production-card-muted">${productionEscape([line.color,line.size].filter(Boolean).join(' / ')||'无规格')} · ${productionEscape(productionShortDate(line.work_date))}</div>${productionLineHistoryButton(line)}</div></div><div class="production-card-action">${action}</div></div><div class="production-card-grid">${productionCardField('数量',productionNumber(line.quantity))}${productionCardField('金额',`<strong>${productionMoney(line.amount)}</strong>`)}${productionCardField('单价',line.unit_price===null?'<span class="text-danger">待确认</span>':productionMoney(line.unit_price))}${productionCardField('补价',productionMoney(line.supplement))}${productionCardField('往来单位',counterparty,true)}${productionCardField('类型',productionEscape(line.work_type))}${productionCardField('产值归属',productionEscape(line.value_attribution))}${productionCardField('裁床',productionEscape(line.cutting_type||'—'))}${productionCardField('变更',change)}${productionCardField('计算状态',calculation,true)}</div></article>`;
+    return `<article class="production-record-card ${line.eligible?'':'is-excluded'} ${line.changed?'is-changed':''} ${pending?'is-pending':''}"><div class="production-card-head"><div class="production-card-product">${productionImage(line)}<div><div class="production-card-title">${productionEscape(line.product_code)}</div><div class="production-card-muted">${productionEscape([line.color,line.size].filter(Boolean).join(' / ')||'无规格')} · ${productionEscape(productionShortDate(line.work_date))}</div>${productionLineHistoryButton(line)}</div></div><div class="production-card-action">${action}</div></div><div class="production-card-grid">${productionCardField('数量',productionNumber(line.quantity))}${productionCardField('金额',`<strong>${productionMoney(line.amount)}</strong>`)}${productionCardField('单价',productionLinePrice(line))}${productionCardField('补价',productionMoney(line.supplement))}${productionCardField('往来单位',counterparty,true)}${productionCardField('类型',productionEscape(line.work_type))}${productionCardField('产值归属',productionEscape(line.value_attribution))}${productionCardField('裁床',productionEscape(line.cutting_type||'—'))}${productionCardField('变更',change)}${productionCardField('计算状态',calculation,true)}</div></article>`;
   }
   function productionPendingCreateLines(){
     return (productionState.data?.requests||[]).filter(request=>request.request_type==='create'&&request.status==='pending').map(request=>{
@@ -986,7 +994,7 @@
     reason.innerHTML=reasonCodes.map(code=>'<option value="'+productionEscape(code)+'">'+productionEscape(productionReasonConfig[code].label)+'</option>').join('');
     reason.value=!create&&values.work_type==='样衣'?'sample_reclassification':reasonCodes[0];productionHandleReasonChange();
     document.getElementById('production-editor-title').textContent=create?'新增计工申请':'提交调整申请';
-    document.getElementById('production-editor-source').textContent=create?'手工新增计工':line.source_row_no?'ERP 原始行 '+line.source_row_no:'已批准加项';
+    document.getElementById('production-editor-source').textContent=(create?'手工新增计工':line.source_row_no?'ERP 原始行 '+line.source_row_no:'已批准加项')+(line?.source?.labor_price_snapshot?.source==='catalog'?' · 工价来源：中台 · 采集原价：'+(line.source.labor_price_snapshot.erp_unit_price==null?'未填写':productionMoney(line.source.labor_price_snapshot.erp_unit_price)):'');
     document.getElementById('production-original').hidden=create;
     document.getElementById('production-original').innerHTML=create?'':[['日期',productionDate(line.work_date)],['商品编号',line.product_code],['数量',productionNumber(line.quantity)],['当前金额',productionMoney(line.amount)],['往来单位',line.worker_name],['类型',line.work_type],['产值归属',line.value_attribution],['裁床',line.cutting_type]].map(item=>'<div class="production-original-item"><span>'+item[0]+'</span><strong>'+productionEscape(item[1])+'</strong></div>').join('');
     productionSetRejectedSnapshot('production-rejected-snapshot',line?.latest_rejected_request,productionFieldLabels,(field,value)=>productionEscape(productionValue(field,value)));
