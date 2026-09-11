@@ -624,3 +624,7 @@ th.company-payroll-name { z-index: 5 !important; background: #f6f8fb !important;
 .payroll-reimbursement-amount{text-align:right;min-width:110px}
 .payroll-reimbursement-amount strong{font-size:20px;color:#24425a}
 .payroll-reimbursement-row a{font-size:13px;white-space:nowrap}
+
+#finance-social-amounts-dialog { width: min(900px, calc(100vw - 24px)); }
+#finance-social-amounts-dialog table { min-width: 660px; }
+#finance-social-amounts-dialog input[data-amount] { min-width: 105px; }

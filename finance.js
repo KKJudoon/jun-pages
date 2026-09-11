@@ -1040,7 +1040,16 @@
 
   function exportPayroll() {
     const headers = ['月份','工号','姓名','部门','职位','应发金额','个税（财务核定）','个人社保扣除（财务填写）','个人医保扣除（财务填写）','个人失业扣除（财务填写）','公司承担医社保','实发金额','电话','身份证号','工资发放方式','工资账号','银行（开户行）','财务备注'];
-    const rows = payrollSortedRows().filter(function (row) { return row.payload?.requires_finance_accounting !== false; });
+    const rows = payrollSortedRows().filter(function (row) { return row.payload?.requires_finance_accounting !== false; }).map(function (row) {
+      if (row.payload?.has_social_insurance !== true) return row;
+      const defaults = (state.data?.social_amounts?.rows || []).find(function (item) { return item.employee_id === row.employee_id; })?.values;
+      if (!defaults) return row;
+      const parts = row.payload?.personal_social_components || {};
+      return {...row, employer_social_insurance: defaults.employer ?? row.employer_social_insurance,
+        payload: {...row.payload, personal_social_components: {
+          social: defaults.social ?? parts.social, medical: defaults.medical ?? parts.medical, unemployment: defaults.unemployment ?? parts.unemployment
+        }}};
+    });
     if (!rows.length) { window.alert('本月没有需要财务核算的员工'); return; }
     const values = [headers].concat(rows.map(function (row) {
       const parts = payrollSocialParts(row);
@@ -1107,7 +1116,7 @@
       const combinedSocial = numberOrNull(item['个人医社保扣除（财务填写）'] ?? item['个人医社保扣除'], '个人医社保');
       const socialParts = ['个人社保扣除（财务填写）','个人医保扣除（财务填写）','个人失业扣除（财务填写）'].map(function (key) { return numberOrNull(item[key], key.replace('（财务填写）','')); });
       const hasSocialParts = socialParts.some(function (value) { return value != null; });
-      return {employee_no: String(item['工号'] || '').trim(), row_key: `${String(item['姓名']).trim()}-${index + 1}`, employee_name: String(item['姓名']).trim(), gross_pay: numberOrNull(item['应发金额'], '应发金额'), income_tax: tax == null && netPay != null ? 0 : tax, personal_social_insurance: combinedSocial != null ? combinedSocial : hasSocialParts ? socialParts.reduce(function (sum, value) { return sum + Number(value || 0); }, 0) : null, personal_social_components: hasSocialParts ? {social: socialParts[0], medical: socialParts[1], unemployment: socialParts[2]} : null, employer_social_insurance: numberOrNull(item['公司承担医社保'], '公司承担医社保'), net_pay: netPay, note: String(item['财务备注'] ?? item['备注'] ?? '').trim()};
+      return {employee_no: String(item['工号'] || '').trim(), row_key: `${String(item['姓名']).trim()}-${index + 1}`, employee_name: String(item['姓名']).trim(), gross_pay: numberOrNull(item['应发金额'], '应发金额'), income_tax: tax == null && netPay != null ? 0 : tax, personal_social_insurance: combinedSocial != null ? combinedSocial : hasSocialParts ? socialParts.reduce(function (sum, value) { return sum + Number(value || 0); }, 0) : null, personal_social_combined_provided: combinedSocial != null, personal_social_components: hasSocialParts ? {social: socialParts[0], medical: socialParts[1], unemployment: socialParts[2]} : null, employer_social_insurance: numberOrNull(item['公司承担医社保'], '公司承担医社保'), net_pay: netPay, note: String(item['财务备注'] ?? item['备注'] ?? '').trim()};
     });
     if (!rows.length) throw new Error('工资核算表中没有有效人员行');
     const saved = await api(`/api/finance/payroll/${state.month}/import`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({stage: 'finance_return', file_name: file.name, file_sha256: await sha256(file), rows: rows, summary: {row_count: rows.length}})});
@@ -1133,6 +1142,45 @@
     renderPayroll();
   }
 
+  async function showPayrollSocialAmounts() {
+    const month = state.month;
+    const data = await api(`/api/finance/payroll/${month}/social-amounts`);
+    const rows = data.rows || [];
+    const keys = ['social', 'medical', 'unemployment', 'employer'];
+    const labels = ['个人社保', '个人医保', '个人失业', '公司医社保'];
+    const history = (data.history || []).map(function (item) {
+      return `<li>${escapeHtml(item.month)} · ${escapeHtml(item.employee_name)}：个人 ${amount(Number(item.social) + Number(item.medical) + Number(item.unemployment))}，公司 ${amount(item.employer)} · ${escapeHtml(item.note || '金额调整')}<small> ${escapeHtml(dateTime(item.changed_at))}</small></li>`;
+    }).join('');
+    const element = dialog('finance-social-amounts-dialog', `${month} · 医社保金额调整`, `<p class="finance-note">填写每月实际扣缴金额。有参保的员工默认沿用最近月份，导给财务时预填；财务回表留空沿用，填写新金额（包括 0）则覆盖。已发工资的个人扣款保持不变，公司支出可在此补齐。</p><div class="table-responsive"><table class="table"><thead><tr><th>员工</th>${labels.map(label => `<th>${label}</th>`).join('')}</tr></thead><tbody>${rows.map(function (row, index) {
+      return `<tr><td>${escapeHtml(row.employee_name)}<small class="d-block">${row.values?.source_month ? `沿用/核定：${escapeHtml(row.values.source_month)}` : '尚未设置'}${row.self_funded ? ' · 全部自费' : ''}${row.paid ? ' · 已发工资' : ''}</small></td>${keys.map(function (key) {
+        const frozen = row.paid && (key !== 'employer' || row.self_funded);
+        return `<td><input class="form-control" aria-label="${escapeHtml(row.employee_name)} ${labels[keys.indexOf(key)]}" type="number" min="0" max="9999999" step="0.01" data-row="${index}" data-amount="${key}" value="${escapeHtml(row.values?.[key] ?? '')}" ${frozen ? 'readonly' : ''}></td>`;
+      }).join('')}</tr>`;
+    }).join('') || '<tr><td colspan="5">本月没有参保员工</td></tr>'}</tbody></table></div><label>调整说明<input class="form-control" name="note" maxlength="1000" placeholder="例如：按财务确认金额调整公司部分"></label>${history ? `<details><summary>调整记录</summary><ul class="finance-note">${history}</ul></details>` : ''}<div class="finance-error" data-message hidden></div><footer><button class="btn btn-outline-secondary" value="cancel">取消</button><button class="btn btn-primary" type="button" data-save ${rows.length ? '' : 'disabled'}>保存金额</button></footer>`);
+    element.querySelector('[data-save]').addEventListener('click', async function (event) {
+      const button = event.currentTarget;
+      button.disabled = true;
+      try {
+        const changed = rows.map(function (row, index) {
+          const values = Object.fromEntries(keys.map(function (key) {
+            const value = element.querySelector(`[data-row="${index}"][data-amount="${key}"]`).value.trim();
+            return [key, value === '' ? null : Number(value)];
+          }));
+          if (keys.every(key => values[key] === (row.values?.[key] ?? null))) return null;
+          if (keys.some(key => values[key] == null || !Number.isFinite(values[key]) || values[key] < 0 || values[key] > 9999999 || Math.abs(values[key] * 100 - Math.round(values[key] * 100)) > 0.00001)) throw new Error(`${row.employee_name}：请填齐四项金额，最多两位小数；无扣缴的项目填 0`);
+          return {...values, employee_id: row.employee_id, revision: row.values?.revision ?? null};
+        }).filter(Boolean);
+        if (changed.length) await api(`/api/finance/payroll/${month}/social-amounts`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({rows: changed, note: element.querySelector('[name="note"]').value})});
+        element.close();
+        await loadCompanyPayroll();
+      } catch (error) {
+        button.disabled = false;
+        const message = element.querySelector('[data-message]'); message.hidden = false; const errors = {finance_social_conflict: '金额已被其他操作修改，请关闭后重新打开再调整', finance_social_paid_personal_frozen: '这笔工资已发放，个人扣款不能修改，请重新打开核对', finance_social_paid_employer_frozen: '这笔工资已发放，全自费员工的代缴金额不能修改', finance_month_locked: '本月已锁定，无法修改金额'};
+        message.textContent = Object.entries(errors).find(([key]) => error.message.includes(key))?.[1] || error.message;
+      }
+    });
+  }
+
   async function loadCompanyPayroll() {
     if (!has('finance.payroll.manage') && !has('finance.manage')) throw new Error('没有查看公司工资表的权限');
     const canManagePayroll = has('finance.payroll.manage') || has('finance.manage');
@@ -1146,8 +1194,11 @@
     const businessMonth = currentBusinessMonth();
     const currentMonthOpened = state.months.some(function (item) { return item.month === businessMonth; });
     const openCurrentMonth = has('finance.manage') && !currentMonthOpened ? `<button id="payroll-open-current-month" class="btn btn-primary"><i class="ti ti-calendar-plus me-1"></i>提前打开 ${businessMonth.replace('-', '年')}月工资表</button>` : '';
-    toolbar.innerHTML = `${monthSelect(state.months, state.month)}${snapshot ? `<span class="finance-status ${snapshot.status === 'final' ? 'is-ready' : 'is-missing'}">${frozen ? '工资已发 · 已冻结' : snapshot.status === 'final' ? '财务已核定' : snapshot.status === 'awaiting_finance' ? '待财务核定' : '工资草稿'}</span>` : '<span class="finance-status is-missing">尚未核算</span>'}<span class="finance-toolbar-spacer"></span>${openCurrentMonth}${has('finance.manage') && state.data.month.status === 'open' && !frozen ? '<button id="payroll-recalculate" class="btn btn-outline-primary"><i class="ti ti-calculator me-1"></i>重新核算</button>' : ''}${canManagePayroll ? `<button id="payroll-export" class="btn btn-outline-primary" ${payrollRows().length ? '' : 'disabled'}><i class="ti ti-file-export me-1"></i>导出给财务</button>` : ''}${canManagePayroll && payrollRows().length && !frozen ? '<label class="btn btn-primary mb-0"><i class="ti ti-file-import me-1"></i>导入财务回表<input id="payroll-import" type="file" accept=".xlsx,.xls" hidden></label>' : ''}`;
+    toolbar.innerHTML = `${monthSelect(state.months, state.month)}${snapshot ? `<span class="finance-status ${snapshot.status === 'final' ? 'is-ready' : 'is-missing'}">${frozen ? '工资已发 · 已冻结' : snapshot.status === 'final' ? '财务已核定' : snapshot.status === 'awaiting_finance' ? '待财务核定' : '工资草稿'}</span>` : '<span class="finance-status is-missing">尚未核算</span>'}<span class="finance-toolbar-spacer"></span>${openCurrentMonth}${has('finance.manage') && state.data.month.status === 'open' ? '<button id="payroll-social-amounts" class="btn btn-outline-primary">医社保金额调整</button>' : ''}${has('finance.manage') && state.data.month.status === 'open' && !frozen ? '<button id="payroll-recalculate" class="btn btn-outline-primary"><i class="ti ti-calculator me-1"></i>重新核算</button>' : ''}${canManagePayroll ? `<button id="payroll-export" class="btn btn-outline-primary" ${payrollRows().length ? '' : 'disabled'}><i class="ti ti-file-export me-1"></i>导出给财务</button>` : ''}${canManagePayroll && payrollRows().length && !frozen ? '<label class="btn btn-primary mb-0"><i class="ti ti-file-import me-1"></i>导入财务回表<input id="payroll-import" type="file" accept=".xlsx,.xls" hidden></label>' : ''}`;
     toolbar.querySelector('#finance-month').addEventListener('change', async function (event) { setMonth(event.target.value); state.companyPayrollModule = 'all'; await loadCompanyPayroll(); });
+    toolbar.querySelector('#payroll-social-amounts')?.addEventListener('click', async function () {
+      try { await showPayrollSocialAmounts(); } catch (error) { window.alert(error.message); }
+    });
     toolbar.querySelector('#payroll-export')?.addEventListener('click', async function () {
       try { state.data = await api(`/api/finance/months/${state.month}`); exportPayroll(); }
       catch (error) { window.alert(error.message); }
