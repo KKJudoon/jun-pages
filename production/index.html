@@ -619,7 +619,7 @@
   const productionRequestLabels={pending:['待审批','bg-yellow-lt'],approved:['已批准','bg-green-lt'],rejected:['已驳回','bg-red-lt'],cancelled:['已撤回','bg-secondary-lt'],not_required:['原始记录','bg-secondary-lt']};
   const productionReasonConfig={
     bulk_backfill:{label:'大货补录',fields:[]},work_hours_entry:{label:'工时录入',fields:[]},custom_entry:{label:'定制款',fields:[]},sample_entry:{label:'样衣录入',fields:[]},
-    price_correction:{hint:"审核通过后，将同步更新该商品的标准工价；其他原因不更新商品工价，历史计工和工资保留原金额。",label:'改工价',fields:['unit_price']},quantity_correction:{label:'数量修正',fields:['quantity']},counterparty_correction:{label:'往来单位修正',fields:['worker_name']},
+    price_correction:{hint:"审核通过后，将同步更新该商品的标准工价；其他原因不更新商品工价；其他计工记录和已发工资不重算。",label:'改工价',fields:['unit_price']},quantity_correction:{label:'数量修正',fields:['quantity']},counterparty_correction:{label:'往来单位修正',fields:['worker_name']},
     production_attribute:{label:'生产属性调整',fields:['work_type','value_attribution','cutting_type']},basic_info_correction:{label:'基础资料修正',fields:['work_date','product_code','color','size']},
     supplement:{label:'补价',fields:['supplement']},custom_adjustment:{label:'定制款调价',fields:['unit_price','supplement']},sample_reclassification:{label:'样衣',fields:['unit_price','work_type','value_attribution']},payroll_inclusion:{label:'计入/排除调整',fields:['include_in_payroll','exclusion_reason']},manual_addition:{label:'新增计工（旧）',fields:[]},other:{label:'其他',fields:['note']},legacy_import:{label:'历史审批迁入',fields:[]}
   };
