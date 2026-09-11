@@ -715,7 +715,7 @@
       </div>
     </div>
     <div class="spot-filter-row mt-2">
-      <div class="spot-filter-control"><label class="form-label mb-1" for="spot-sort-by">排序</label><select id="spot-sort-by" class="form-select"><option value="priority">库存优先级</option><option value="product_code">款号</option><option value="sku_code">SKU</option><option value="warehouse_name">仓库</option><option value="color">颜色</option><option value="size">尺码</option><option value="stock_qty">实际库存</option><option value="sellable_qty">可销售库存</option><option value="occupied_qty">占用</option><option value="remaining_size_count">可售尺码数</option><option value="sku_count">可售 SKU 数</option><option value="taobao_price">淘宝价</option><option value="minimum_discount_price">最低折扣价</option><option value="erp_net_outbound_total">ERP累计净出库</option><option value="erp_net_outbound_30d">ERP近30天净出库</option></select></div>
+      <div class="spot-filter-control"><label class="form-label mb-1" for="spot-sort-by">排序</label><select id="spot-sort-by" class="form-select"><option value="priority">库存优先级</option><option value="product_code">款号</option><option value="sku_code">SKU</option><option value="warehouse_name">仓库</option><option value="color">颜色</option><option value="size">尺码</option><option value="stock_qty">实际库存</option><option value="sellable_qty">可销售库存</option><option value="occupied_qty">占用</option><option value="remaining_size_count">可售尺码数</option><option value="sku_count">可售 SKU 数</option><option value="taobao_price">淘宝价</option><option value="labor_price">工价</option><option value="minimum_discount_price">最低折扣价</option><option value="erp_net_outbound_total">ERP累计净出库</option><option value="erp_net_outbound_30d">ERP近30天净出库</option></select></div>
       <button id="spot-sort-dir" class="btn btn-outline-secondary" type="button" title="切换升降序"><i class="ti ti-sort-ascending"></i><span class="ms-1">升序</span></button>
       <div class="spot-filter-control"><label class="form-label mb-1" for="spot-page-size">每页</label><select id="spot-page-size" class="form-select"><option value="50">50 条</option><option value="100" selected>100 条</option><option value="250">250 条</option></select></div>
       <div id="spot-filter-summary" class="spot-filter-summary text-secondary small ms-lg-auto"></div>
@@ -965,6 +965,7 @@ const spotColumns = {
     {key:'taobao_status', label:'淘宝状态'},
     {key:'match_method', label:'匹配方式'},
     {key:'taobao_price', label:'淘宝价', sort:'taobao_price', numeric:true},
+    {key:'labor_price', label:'工价', sort:'labor_price', numeric:true},
     {key:'minimum_discount_price', label:'最低折扣价', sort:'minimum_discount_price', numeric:true},
     {key:'erp_net_outbound_total', label:'ERP累计净出库', sort:'erp_net_outbound_total', numeric:true},
     {key:'erp_net_outbound_30d', label:'ERP近30天净出库', sort:'erp_net_outbound_30d', numeric:true},
@@ -986,6 +987,7 @@ const spotColumns = {
     {key:'taobao_status', label:'淘宝状态'},
     {key:'match_method', label:'匹配方式'},
     {key:'taobao_price', label:'淘宝价', sort:'taobao_price', numeric:true},
+    {key:'labor_price', label:'工价', sort:'labor_price', numeric:true},
     {key:'minimum_discount_price', label:'最低折扣价', sort:'minimum_discount_price', numeric:true},
     {key:'erp_net_outbound_total', label:'ERP累计净出库', sort:'erp_net_outbound_total', numeric:true},
     {key:'erp_net_outbound_30d', label:'ERP近30天净出库', sort:'erp_net_outbound_30d', numeric:true},
@@ -1016,8 +1018,8 @@ function availableSpotColumns(mode=spotState.viewMode) {
   );
 }
 spotState.visibleColumns = {
-  product: ['image','product','tags','taobao_status','match_method','taobao_price','minimum_discount_price','erp_net_outbound_total','erp_net_outbound_30d','sellable_qty','stock_qty','sizes'],
-  sku: ['image','product','tags','taobao_status','match_method','taobao_price','erp_net_outbound_total','erp_net_outbound_30d','size','sellable_qty','stock_qty','product_stock_qty']
+  product: ['image','product','tags','taobao_status','match_method','taobao_price','labor_price','minimum_discount_price','erp_net_outbound_total','erp_net_outbound_30d','sellable_qty','stock_qty','sizes'],
+  sku: ['image','product','tags','taobao_status','match_method','taobao_price','labor_price','erp_net_outbound_total','erp_net_outbound_30d','size','sellable_qty','stock_qty','product_stock_qty']
 };
 spotState.columnWidths = {product: {}, sku: {}};
 const spotDefaultColumnWidths = {
@@ -1025,7 +1027,7 @@ const spotDefaultColumnWidths = {
   product_stock_qty:104, sizes:190, sku_count:88, occupied_qty:84,
   warehouses:130, warehouse:110, colors:140, color:90, size:78,
   sku_coverage:96, flags:160, tags:150, taobao_status:110,
-  match_method:150, taobao_price:88, minimum_discount_price:152,
+  match_method:150, taobao_price:88, labor_price:88, minimum_discount_price:152,
   erp_net_outbound_total:104, erp_net_outbound_30d:104
 };
 const spotFilterDefinitions = [
@@ -1097,7 +1099,7 @@ let spotInventoryPreferencesServerUpdatedAt = null;
 
 function currentSpotInventoryPreferences() {
   return {
-    version: 5,
+    version: 6,
     visibleColumns: {
       product: [...spotState.visibleColumns.product],
       sku: [...spotState.visibleColumns.sku]
@@ -1132,6 +1134,9 @@ function applySpotInventoryPreferences(preferences) {
             && !columns.includes('minimum_discount_price')) {
           const anchor = Math.max(0, columns.indexOf('taobao_price') + 1);
           columns.splice(anchor, 0, 'minimum_discount_price');
+        }
+        if (Number(preferences.version || 0) < 6 && !columns.includes('labor_price')) {
+          columns.splice(Math.max(0, columns.indexOf('taobao_price') + 1), 0, 'labor_price');
         }
         spotState.visibleColumns[mode] = normalizeSpotVisibleColumns(mode, columns);
       }
@@ -2206,6 +2211,11 @@ function spotColgroup() {
   ).join('')}</colgroup>`;
 }
 
+function spotLaborPrice(value) {
+  const price = Number(value ?? 0);
+  return Number.isFinite(price) ? price.toLocaleString('zh-CN', {minimumFractionDigits:2, maximumFractionDigits:4}) : '—';
+}
+
 function spotColumnCell(item, key) {
   const cells = {
     image: `<td class="spot-image-cell spot-sticky-image">${spotImage(item)}</td>`,
@@ -2217,6 +2227,7 @@ function spotColumnCell(item, key) {
     match_method: spotMatchMethodCell(item),
     taobao_price: `<td class="qty-cell">${spotTaobaoPrices(item)}</td>`,
     minimum_discount_price: spotDiscountCell(item),
+    labor_price: `<td class="qty-cell" title="商品标准工价；仅改工价审批通过后更新">${spotLaborPrice(item.labor_price)}</td>`,
     erp_net_outbound_total: `<td class="qty-cell">${spotErpOutbound(item, 'total')}</td>`,
     erp_net_outbound_30d: `<td class="qty-cell">${spotErpOutbound(item, '30d')}</td>`,
     category: `<td class="text-nowrap">${esc(item.subcategory_label || item.category_label || '-')}</td>`,
@@ -3397,7 +3408,7 @@ function currentSpotPresetConfig() {
       ? [...spotState[key]] : spotState[key];
   });
   const config = {
-    version: 6,
+    version: 7,
     filters,
     sort: {by: spotState.sortBy, dir: spotState.sortDir},
     pagination: {limit: spotState.limit},
@@ -3473,6 +3484,9 @@ function applySpotPresetConfig(config) {
               && !columns.includes('minimum_discount_price')) {
             const anchor = Math.max(0, columns.indexOf('taobao_price') + 1);
             columns.splice(anchor, 0, 'minimum_discount_price');
+          }
+          if (Number(config?.version || 0) < 7 && !columns.includes('labor_price')) {
+            columns.splice(Math.max(0, columns.indexOf('taobao_price') + 1), 0, 'labor_price');
           }
           spotState.visibleColumns[mode] = normalizeSpotVisibleColumns(mode, columns);
         }
