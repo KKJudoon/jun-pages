@@ -1,8 +1,8 @@
 (function(){
   'use strict';
-  const labels={ok:'成功',complete:'全链路完成',import_pending:'待导入中台',scheduled:'未到采集日期',pending:'待采集',running:'采集中',error:'失败',retry:'等待重试',waiting_login:'待登录',offline:'调度器离线',stale:'数据未更新',unknown:'暂无结果'};
+  const labels={ok:'成功',complete:'全链路完成',import_pending:'待导入中台',scheduled:'未到采集日期',pending:'待采集',running:'采集中',error:'失败',retry:'等待重试',waiting_login:'待登录',offline:'调度器离线',stale:'数据未更新',unknown:'暂无结果',missed:'未按期完成',timeout:'执行超时'};
   const channelLabels={manual_import:'手动导入',automatic_collection:'自动采集',agentmail:'邮件导入',sf_portal_download:'顺丰平台导入',existing:'已有中台数据'};
-  const attention=r=>['error','retry','waiting_login','offline','stale','unknown','import_pending'].includes(r.status)||r.publication_status==='error'||r.alert_active;
+  const attention=r=>['error','retry','waiting_login','offline','stale','unknown','import_pending','missed','timeout'].includes(r.status)||['error','stale','unknown'].includes(r.publication_status)||r.alert_active;
   const pending=r=>['scheduled','pending','waiting_login','retry','running'].includes(r.status);
   const escape=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const date=v=>{if(!v)return '暂无记录';const d=new Date(v);return isNaN(d)?'暂无记录':d.toLocaleString('zh-CN',{timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});};
@@ -14,6 +14,13 @@
     $('connection').className=stale?'warning':'';
     $('connection').textContent=stale?'状态同步已中断或过期，下方为最后收到的记录，请勿视为实时状态。':'Starfish 状态已连接 · 更新于 '+date(data.generated_at)+' · 每30秒刷新';
     const rows=data.collectors||[];
+    const notices=data.notifications||{},policy=notices.policy||{};
+    $('notification-policy').textContent=policy.exceptions==='email'&&policy.feishu_enabled===false?
+      '日常 / 完成 / 恢复：只留本页 · 异常持续2分钟后邮件通知一次，不循环催促 · 登录协助仍走邮件 · 飞书已关闭'+(notices.pending_notifications?' · '+notices.pending_notifications+'项异常邮件待发送':''):
+      '尚未同步到新的提醒规则；请以最新状态为准。';
+    $('active-issues').innerHTML=(notices.active_issues||[]).map(r=>`<article class="collector-issue"><strong>${escape(r.name)} · ${escape(r.problem)}</strong><p>${escape(r.detail)}</p><small>首次发现：${date(r.started_at)}</small></article>`).join('')||'<p class="collector-muted">'+(stale?'状态已过期，暂不能确认是否有异常。':!notices.active_issues?'异常记录尚未同步。':'当前没有已确认的活动故障。')+'</p>';
+    const delivery={email:'异常邮件已发送',email_pending:'异常邮件待发送',dashboard:'仅页面记录',feishu:'历史飞书记录（已停用）'};
+    $('notification-events').innerHTML=(notices.recent_events||[]).map(r=>`<article class="collector-event"><header><strong>${escape(r.title)}</strong><small>${date(r.created_at)} · ${escape(delivery[r.channel]||'页面记录')}</small></header><p>${escape(r.detail)}</p></article>`).join('')||'<p class="collector-muted">暂无运行记录。</p>';
     $('summary').innerHTML=[['采集与检查任务',rows.length],['需要关注',rows.filter(attention).length],['月度待处理',rows.filter(r=>r.month&&pending(r)).length],['成功 / 全链路完成',rows.filter(r=>['ok','complete'].includes(r.status)).length]].map(([k,v])=>`<div>${k}<strong>${v}</strong></div>`).join('');
     const filtered=rows.filter(r=>(!$('group').value||r.group===$('group').value)&&(!$('month').value||r.month===$('month').value)&&(!$('status').value||($('status').value==='attention'?attention(r):$('status').value==='pending'?pending(r):['ok','complete'].includes(r.status))));
     $('collectors').innerHTML=filtered.map(r=>{

@@ -13,7 +13,7 @@
   <link rel="stylesheet" href="/jun-pages/vendor/tabler.min.css">
   <link rel="stylesheet" href="/jun-pages/vendor/tabler-icons.min.css">
   <link rel="stylesheet" href="/jun-pages/auth-gate.css?v=20260810-4">
-  <link rel="stylesheet" href="/jun-pages/collector-status.css">
+  <link rel="stylesheet" href="/jun-pages/collector-status.css?v=20260913-quiet">
   <script src="/jun-pages/vendor/supabase.js"></script>
   <script src="/jun-pages/config.js?v=20260805-3"></script>
   <script src="/jun-pages/device.js"></script>
@@ -25,7 +25,8 @@
 <div class="collector-heading"><div><p class="text-secondary">系统管理 · Starfish</p><h1>采集器状态</h1><p>查看采集计划、执行结果和数据去向。时间均为北京时间。</p></div><button id="refresh" class="btn btn-primary" type="button">刷新状态</button></div>
 <div id="connection" role="status" aria-live="polite">正在读取 Starfish 状态…</div>
 <div id="summary" class="collector-summary"></div>
+<section class="collector-notifications" aria-label="异常与提醒记录"><h2>异常与提醒记录</h2><p id="notification-policy">正在读取提醒规则…</p><div id="active-issues"></div><details><summary>查看最近运行记录（完成、恢复、异常）</summary><div id="notification-events"></div></details></section>
 <section class="collector-filters" aria-label="筛选采集任务"><label>分类<select id="group"><option value="">全部分类</option><option>日常采集</option><option>月度采集</option><option>数据发布</option><option>健康检查</option></select></label><label>账期<select id="month"><option value="">全部月份</option></select></label><label>状态<select id="status"><option value="">全部状态</option><option value="attention">需要关注</option><option value="pending">待采集</option><option value="complete">已成功</option></select></label></section>
 <div id="collectors" class="collector-grid"></div>
-<p class="collector-footnote">每30秒自动刷新。采集状态与通知读取同一个健康结果；月度项目只有原件校验、导入中台和回读均完成，才显示“全链路完成”。</p>
-</main><script src="/jun-pages/collector-status.js"></script></body></html>
+<p class="collector-footnote">每30秒刷新已有状态，不触发实际采集或查邮箱。日常、完成和恢复结果只留在本页，确认异常才发邮件，不再发飞书。月度项目只有原件校验、导入中台和回读均完成，才显示“全链路完成”。</p>
+</main><script src="/jun-pages/collector-status.js?v=20260913-quiet"></script></body></html>
