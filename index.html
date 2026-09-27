@@ -221,8 +221,6 @@
           <strong>ERP 同步</strong>: ${statusText}
           <span class="text-secondary ms-2">|</span>
           <span class="ms-2">最近拉取: ${s.synced_at || '从未'} (${age})</span>
-          <span class="text-secondary ms-2">|</span>
-          <span class="ms-2">待审核 ${s.pending_count} / 历史 ${s.history_count}</span>
         </div>
       </div>`;
   } catch(e) {}
@@ -230,8 +228,7 @@
 
 document.addEventListener('DOMContentLoaded', async () => {
   try {
-    // Keep the ERP overview responsive when an optional analytics endpoint is slow.
-    // The original cards remain unchanged; SYCM and inventory fill in as they arrive.
+    // The payment-month cards and optional module summaries fill independently.
     const fetchJson = (url, timeoutMs = 8000) => {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -242,12 +239,43 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
     const sycmPromise = fetchJson('/api/sycm/overview');
     const inventoryPromise = fetchJson('/api/erp/inventory/summary');
+    const paidMonthPromise = fetchJson('/api/erp/paid-month-summary', 15000);
     const erpRes = await fetch('/api/erp/stats', {signal: AbortSignal.timeout(8000)});
     const s = erpRes.ok ? await erpRes.json() : null;
     const sycm = null;
     const inventory = null;
 
-    if (!s) { document.getElementById('overview').innerHTML = '<div class="alert alert-warning">无法加载数据</div>'; return; }
+    const money = value => Number(value).toLocaleString('zh-CN', {minimumFractionDigits:2, maximumFractionDigits:2});
+    const paidMonthCards = data => {
+      if (!data || !data.quality?.ok || !data.groups) return '<div class="alert alert-warning mb-0">ERP 付款月汇总暂不可用，请检查订单数据与同步状态。</div>';
+      const month = /^20\d{2}-(0[1-9]|1[0-2])$/.test(data.month) ? data.month : '当月';
+      const groups = data.groups;
+      const synced = /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}/.exec(String(data.synced_at || ''))?.[0]?.replace('T',' ') || '未知';
+      const cards = [
+        ['交易成功 · 无退款标记', 'success_no_refund', 'primary', '本页主指标'],
+        ['交易成功 · 有退款标记', 'success_refund_marked', 'warning', '原订单额，不计入主指标'],
+        ['尚未交易成功', 'not_successful', 'secondary', '已付款或已发货等状态'],
+        ['交易关闭 / ERP 已删除', 'closed_or_deleted', 'danger', '不计入主指标'],
+      ];
+      return `<div class="card">
+        <div class="card-header d-block">
+          <h3 class="card-title">${month} 付款订单 · 当前交易状态</h3>
+          <div class="text-secondary small mt-1">ERP 付款时间归月，共 ${groups.all.count} 笔，原订单额 &yen;${money(groups.all.amount)}。数据更新于 ${synced}${data.stale ? ' · ERP 同步可能延迟' : ''}。</div>
+        </div>
+        <div class="card-body"><div class="row g-3">
+          ${cards.map(([label,key,color,note]) => `<div class="col-sm-6 col-lg-3"><div class="card h-100" style="border-left:4px solid var(--tblr-${color})"><div class="card-body"><div class="subheader">${label}</div><div class="h1 mb-1">&yen;${money(groups[key].amount)}</div><div class="text-secondary">${groups[key].count} 笔 · ${note}</div></div></div></div>`).join('')}
+        </div><p class="text-secondary small mb-0 mt-3">状态和退款标记取当前 ERP 采集结果；此处统计的是付款月订单的完成进度，不是实际确认收货发生月的收入。有退款标记的订单按整单排除，部分退款后的实收金额不由现有 ERP 数据推算。</p></div>
+      </div>`;
+    };
+    const showPaidMonth = () => paidMonthPromise.then(data => {
+      const node = document.getElementById('overview-paid-month');
+      if (node) node.innerHTML = paidMonthCards(data);
+    });
+    if (!s) {
+      document.getElementById('overview').innerHTML = '<div class="col-12" id="overview-paid-month"><div class="card"><div class="card-body text-secondary">ERP 付款月汇总加载中...</div></div></div><div class="col-12"><div class="alert alert-warning">其他运营数据暂不可用</div></div>';
+      showPaidMonth();
+      return;
+    }
 
     const renderSycmCard = (data) => {
       const current = data ? (data.current_month || {
@@ -306,45 +334,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       </div>`;
 
     document.getElementById('overview').innerHTML = `
-      <!-- ERP 概览卡片 -->
-      <div class="col-sm-6 col-lg-3">
-        <div class="card stat-card">
-          <div class="card-body">
-            <div class="d-flex align-items-center">
-              <div class="subheader">待审核订单</div>
-            </div>
-            <div class="h1 mb-0">${s.pending_count}</div>
-            <div class="text-secondary mt-1">合计 &yen;${s.pending_amount.toLocaleString()}</div>
-          </div>
-        </div>
-      </div>
-      <div class="col-sm-6 col-lg-3">
-        <div class="card stat-card">
-          <div class="card-body">
-            <div class="subheader">缺货订单</div>
-            <div class="h1 mb-0 ${s.out_of_stock > 0 ? 'text-danger' : ''}">${s.out_of_stock}</div>
-            <div class="text-secondary mt-1">占待审核 ${s.pending_count > 0 ? Math.round(s.out_of_stock/s.pending_count*100) : 0}%</div>
-          </div>
-        </div>
-      </div>
-      <div class="col-sm-6 col-lg-3">
-        <div class="card stat-card">
-          <div class="card-body">
-            <div class="subheader">已发货 (近30天)</div>
-            <div class="h1 mb-0">${s.history_count}</div>
-            <div class="text-secondary mt-1">合计 &yen;${s.history_amount.toLocaleString()}</div>
-          </div>
-        </div>
-      </div>
-      <div class="col-sm-6 col-lg-3">
-        <div class="card stat-card">
-          <div class="card-body">
-            <div class="subheader">SKU 品种数</div>
-            <div class="h1 mb-0">${Object.keys(s.sku_breakdown).length}</div>
-            <div class="text-secondary mt-1">总件数 ${Object.values(s.sku_breakdown).reduce((a,b)=>a+b, 0)}</div>
-          </div>
-        </div>
-      </div>
+      <div class="col-12" id="overview-paid-month"><div class="card"><div class="card-body text-secondary">ERP 付款月汇总加载中...</div></div></div>
 
       <!-- 模块入口 -->
       <div class="col-12 mt-3">
@@ -357,7 +347,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                   <div class="card-body text-center py-4">
                     <i class="ti ti-package mb-2" style="font-size:2rem"></i>
                     <div class="fw-bold">ERP 订单</div>
-                    <div class="text-secondary small">${s.pending_count} 待审核</div>
+                    <div class="text-secondary small">查看订单与发货</div>
                   </div>
                 </a>
               </div>
@@ -419,6 +409,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         </div>
       </div>
     `;
+
+    showPaidMonth();
 
     // Optional cards update independently; a slow SYCM/inventory response no longer
     // holds the complete overview hostage.
