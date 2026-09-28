@@ -3,10 +3,10 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>订单审核 — 生意中台</title>
+  <title>订单情况 — 生意中台</title>
   <link rel="stylesheet" href="/jun-pages/vendor/tabler.min.css"/>
   <link rel="stylesheet" href="/jun-pages/vendor/tabler-icons.min.css"/>
-  <link rel="stylesheet" href="/jun-pages/erp/orders.css?v=20260811-3"/>
+  <link rel="stylesheet" href="/jun-pages/erp/orders.css?v=20260929-1"/>
 
   <link rel="stylesheet" href="/jun-pages/auth-gate.css?v=20260810-4">
   <link rel="icon" type="image/png" sizes="32x32" href="/jun-pages/assets/jun-icon-32.png">
@@ -41,7 +41,7 @@
             <li class="nav-item">
               <a class="nav-link active" href="/jun-pages/erp/">
                 <span class="nav-link-icon"><i class="ti ti-clipboard-check"></i></span>
-                <span class="nav-link-title">订单审核</span>
+                <span class="nav-link-title">订单情况</span>
               </a>
             </li>
             <li class="nav-item">
@@ -145,19 +145,19 @@
       <div class="page-header d-print-none">
         <div class="container-xl">
           <div class="page-pretitle">生意中台 · ERP</div>
-          <h2 class="page-title">订单审核</h2>
+          <h2 class="page-title">订单情况</h2>
         </div>
       </div>
       <!-- Page body -->
       <div class="page-body">
         <div class="container-xl">
           <nav class="nav nav-tabs mb-3" aria-label="ERP 数据模块">
-            <a class="nav-link active" href="/jun-pages/erp/"><i class="ti ti-clipboard-check me-2"></i>订单审核</a>
+            <a class="nav-link active" href="/jun-pages/erp/"><i class="ti ti-clipboard-check me-2"></i>订单情况</a>
             <a class="nav-link" href="/jun-pages/inventory/"><i class="ti ti-building-warehouse me-2"></i>库存明细</a>
             <a class="nav-link" href="/jun-pages/erp/shipments/"><i class="ti ti-truck-delivery me-2"></i>发货情况</a>
           </nav>
           <div id="sync-bar" class="mb-3"></div>
-          <div id="erp-app"><p class="text-secondary">正在读取订单与 SKU 图片...</p></div>
+          <div id="erp-app"><p class="text-secondary">正在读取订单情况…</p></div>
 
         </div>
       </div>
@@ -185,7 +185,7 @@
       </a>
       <a href="/jun-pages/erp/" class="tab-item active">
         <i class="ti ti-clipboard-check"></i>
-        <span>审核</span>
+        <span>订单</span>
       </a>
       <a href="/jun-pages/inventory/" class="tab-item ">
         <i class="ti ti-building-warehouse"></i>
@@ -199,7 +199,8 @@
   </nav>
 
   <script src="/jun-pages/vendor/tabler.min.js"></script>
-  <script src="/jun-pages/erp/orders.js?v=20260905-1"></script>
+  <script src="/jun-pages/erp/orders.js?v=20260929-1"></script>
 
+<script src="/jun-pages/erp/order-center.js?v=20260929-1"></script>
 </body>
 </html>

@@ -14,7 +14,7 @@
     {path:'/marketing-safety/',name:'营销安全',area:'operations',permission:'operations.marketing.read',icon:'shield-exclamation'},
     {path:'/business/shows/',name:'走秀活动申报',area:'business',permission:'business.show.read',icon:'briefcase'},
     {path:'/customer/wecom-sales/',name:'企业微信销售',area:'customer',permission:'customer.sales.read',icon:'messages'},
-    {path:'/erp/',name:'订单审核',area:'erp',permission:'orders.read',icon:'clipboard-check'},
+    {path:'/erp/',name:'订单情况',area:'erp',permission:'orders.read',icon:'clipboard-check'},
     {path:'/inventory/',name:'库存明细',area:'erp',permission:'inventory.read',icon:'building-warehouse'},
     {path:'/erp/shipments/',name:'发货情况',area:'erp',permission:'orders.read',icon:'truck-delivery',month:true},
     {path:'/production/',name:'生产记工',area:'production',permission:'production.read',icon:'building-factory-2',month:true},

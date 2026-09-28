@@ -1,5 +1,6 @@
 (function () {
   'use strict';
+  if(new URLSearchParams(location.search).get('view')!=='workflow')return;
 
   const app = document.getElementById('erp-app');
   const syncBar = document.getElementById('sync-bar');
@@ -24,7 +25,7 @@
   }
 
   async function api(path, options) {
-    const response = await fetch(path, options);
+    const response = await fetch(path, {...options, signal: AbortSignal.timeout(20000)});
     const payload = await response.json().catch(function(){return {};});
     if (!response.ok) throw new Error(payload.detail || payload.error || `HTTP ${response.status}`);
     return payload;
@@ -351,6 +352,6 @@
       syncBar.innerHTML='<div class="alert alert-secondary py-2">同步状态获取失败</div>';
     }
   }
-  async function init(){try{await window.JUN_AUTH_READY;bindPresetDialog();await Promise.all([renderSync(),loadPresets()]);const payload=await api('/api/erp/orders');state.orders=payload.orders||[];state.groups=buildGroups(state.orders);const preset=state.presets.find(function(i){return i.id===state.presetMeta.default_id;});if(preset)state.filters={...state.filters,...normalizedConfig(preset.config)};render();}catch(error){app.innerHTML=`<div class="alert alert-danger">订单审核加载失败：${escapeHtml(error.message)}</div>`;}}
+  async function init(){try{await window.JUN_AUTH_READY;bindPresetDialog();renderSync();const [payload]=await Promise.all([api('/api/erp/orders'),loadPresets().catch(function(){state.presets=[];state.presetMeta={};})]);state.orders=payload.orders||[];state.groups=buildGroups(state.orders);const preset=state.presets.find(function(i){return i.id===state.presetMeta.default_id;});if(preset)state.filters={...state.filters,...normalizedConfig(preset.config)};render();}catch(error){app.innerHTML=`<div class="alert alert-danger">处理进度加载失败：${escapeHtml(error.message)}</div>`;}}
   init();
 })();
