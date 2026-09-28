@@ -226,7 +226,13 @@
     'role.updated': ['ti-shield-cog', '更新角色资料'],
     'role.deleted': ['ti-shield-x', '删除角色'],
     'role.permissions_updated': ['ti-shield-lock', '更新角色权限'],
-    'profile.updated': ['ti-id', '更新个人资料']
+    'profile.updated': ['ti-id', '更新个人资料'],
+    'access.read': ['ti-eye', '读取业务数据'],
+    'access.denied': ['ti-shield-x', '访问被拒绝'],
+    'auth.session_seen': ['ti-device-desktop', '会话访问'],
+    'auth.login': ['ti-login', '账号登录'],
+    'auth.logout': ['ti-logout', '账号退出'],
+    'auth.user_updated_password': ['ti-key', '修改登录密码']
   };
 
   async function loadAudit() {
@@ -235,7 +241,10 @@
       const label = eventLabels[event.event_type] || ['ti-history', event.event_type];
       const actor = event.actor_name || event.actor_username || '系统';
       const target = event.target_name || event.target_username || event.metadata?.username || '';
-      return `<article class="audit-item"><span class="audit-icon"><i class="ti ${label[0]}"></i></span><div><strong>${escapeHtml(label[1])}</strong><small>${escapeHtml(actor)}${target ? ` → ${escapeHtml(target)}` : ''}</small></div><time>${formatDate(event.created_at)}</time></article>`;
+      const source = event.metadata?.source_ip || '';
+      const route = event.metadata?.route || '';
+      const details = [source ? `IP ${source}` : '', route, event.metadata?.status ? `HTTP ${event.metadata.status}` : ''].filter(Boolean).join(' · ');
+      return `<article class="audit-item"><span class="audit-icon"><i class="ti ${label[0]}"></i></span><div><strong>${escapeHtml(label[1])}</strong><small>${escapeHtml(actor)}${target ? ` → ${escapeHtml(target)}` : ''}</small>${details ? `<small>${escapeHtml(details)}</small>` : ''}</div><time>${formatDate(event.created_at)}</time></article>`;
     }).join('') || '<div class="empty-state">暂无安全日志</div>';
   }
 

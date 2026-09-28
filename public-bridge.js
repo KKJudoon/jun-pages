@@ -434,6 +434,7 @@
     const response = await edgeFetch('/api/auth/bootstrap', {method: 'GET'}, session);
     const context = await response.json().catch(function () { return {}; });
     if (response.status === 423) { redirectToLogin('device'); return null; }
+    if (context.error === 'mfa_required') { redirectToLogin('mfa'); return null; }
     if (response.status === 428 || context.error === 'password_change_required') { redirectToLogin('password'); return null; }
     if (!response.ok) {
       if (['account_disabled', 'profile_not_found', 'invalid_session'].includes(context.error)) await client.auth.signOut();
@@ -483,6 +484,10 @@
     if (response.status === 401) { await client.auth.signOut(); redirectToLogin('expired'); }
     if (response.status === 423) redirectToLogin('device');
     if (response.status === 428) redirectToLogin('password');
+    if (response.status === 403) {
+      const error = await response.clone().json().catch(function () { return {}; });
+      if (error.error === 'mfa_required') redirectToLogin('mfa');
+    }
     return response;
   };
 

@@ -15,6 +15,9 @@
   const deviceTime = document.getElementById('device-time');
   const passwordPanel = document.getElementById('password-panel');
   const passwordSubmit = document.getElementById('password-submit');
+  const mfaPanel = document.getElementById('mfa-panel');
+  const mfaSubmit = document.getElementById('mfa-submit');
+  let mfaFactorId = null;
   const basePath = config.pagesBasePath.replace(/\/$/, '');
   const query = new URLSearchParams(window.location.search);
   let pollTimer = null;
@@ -66,6 +69,7 @@
     fields.hidden = false;
     devicePanel.hidden = true;
     passwordPanel.hidden = true;
+    mfaPanel.hidden = true;
     message.textContent = text || '';
     submit.disabled = false;
   }
@@ -95,6 +99,17 @@
 
   async function handleBootstrap(session) {
     const result = await edgeBootstrap(session);
+    if (result.payload.error === 'mfa_required') {
+      stopPolling();
+      const factors = await client.auth.mfa.listFactors();
+      mfaFactorId = factors.data?.totp?.find(function (factor) { return factor.status === 'verified'; })?.id;
+      if (factors.error || !mfaFactorId) { showLogin('两步验证暂时无法读取，请稍后重试。'); return; }
+      fields.hidden = devicePanel.hidden = passwordPanel.hidden = true;
+      mfaPanel.hidden = false;
+      message.textContent = '';
+      document.getElementById('mfa-code').focus();
+      return;
+    }
     if (result.response.ok) {
       if (result.payload.profile?.must_change_password) { showPassword(result.payload); return; }
       window.location.replace(safeReturnPath(result.payload));
@@ -161,6 +176,23 @@
   });
 
   document.getElementById('device-refresh').addEventListener('click', checkExistingSession);
+  mfaSubmit.addEventListener('click', async function () {
+    const code = document.getElementById('mfa-code').value.trim();
+    if (!/^[0-9]{6}$/.test(code) || !mfaFactorId) { message.textContent = '请输入 6 位验证码。'; return; }
+    mfaSubmit.disabled = true;
+    try {
+      const result = await client.auth.mfa.challengeAndVerify({factorId: mfaFactorId, code});
+      document.getElementById('mfa-code').value = '';
+      if (result.error) { message.textContent = '验证码无效或已过期，请重试。'; return; }
+      mfaPanel.hidden = true;
+      await checkExistingSession();
+    } catch (_) { message.textContent = '验证服务暂时不可用，请稍后重试。'; }
+    finally { mfaSubmit.disabled = false; }
+  });
+  document.getElementById('mfa-code').addEventListener('keydown', function (event) {
+    if (event.key === 'Enter') { event.preventDefault(); mfaSubmit.click(); }
+  });
+  document.getElementById('mfa-logout').addEventListener('click', async function () { await client.auth.signOut(); showLogin('已退出登录。'); });
   document.getElementById('device-logout').addEventListener('click', async function () { stopPolling(); await client.auth.signOut(); showLogin('已退出登录。'); });
 
   async function initialize() {

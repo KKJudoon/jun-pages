@@ -69,6 +69,14 @@
         <p class="password-hint">至少 12 位，并包含大小写字母、数字和符号。</p>
         <button id="password-submit" type="button">保存新密码并进入</button>
       </section>
+      <section id="mfa-panel" hidden>
+        <h3>两步验证</h3>
+        <label for="mfa-code">验证器中的 6 位验证码</label>
+        <input id="mfa-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}">
+        <button type="button" id="mfa-submit">验证并进入</button>
+        <button type="button" id="mfa-logout">换个账号登录</button>
+        <p class="password-hint">验证器丢失时，请联系维护者核实身份后恢复。</p>
+      </section>
       <p id="login-message" role="alert" aria-live="polite"></p>
     </form>
   </main>

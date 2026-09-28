@@ -37,6 +37,7 @@
       <button type="button" data-tab="roles"><i class="ti ti-shield-lock"></i>角色权限</button>
       <button type="button" data-tab="approvals"><i class="ti ti-device-mobile-check"></i>登录审批<span class="tab-badge" id="approval-badge" hidden></span></button>
       <button type="button" data-tab="audit"><i class="ti ti-history"></i>安全日志</button>
+      <button type="button" data-tab="my-security"><i class="ti ti-lock"></i>我的两步验证</button>
     </nav>
 
     <section class="admin-panel active" data-panel="users">
@@ -56,8 +57,19 @@
     </section>
 
     <section class="admin-panel" data-panel="audit">
-      <div class="panel-toolbar"><div><h2>安全审计记录</h2><p>保留账号、密码、权限和登录设备的重要管理动作。</p></div><button class="btn btn-outline-secondary" id="refresh-audit"><i class="ti ti-refresh"></i>刷新</button></div>
+      <div class="panel-toolbar"><div><h2>安全审计记录</h2><p>查看账号、来源 IP、登录、业务读取及重要管理动作。</p></div><button class="btn btn-outline-secondary" id="refresh-audit"><i class="ti ti-refresh"></i>刷新</button></div>
       <div class="audit-list" id="audit-list"></div>
+    </section>
+    <section class="admin-panel" data-panel="my-security">
+      <div class="panel-toolbar"><div><h2>保护我的账号</h2><p id="mfa-status">正在检查两步验证状态…</p></div><button type="button" class="btn btn-primary" id="mfa-enroll" hidden>绑定验证器</button></div>
+      <div id="mfa-enrollment" hidden>
+        <p>用你的验证器扫描二维码，再输入验证码完成绑定。请保存好验证器的恢复资料。</p>
+        <img id="mfa-qr" alt="验证器绑定二维码" width="220" height="220">
+        <label for="mfa-enroll-code">6 位验证码</label>
+        <input class="form-control" id="mfa-enroll-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" style="max-width:220px">
+        <button type="button" class="btn btn-primary mt-3" id="mfa-verify">确认绑定</button>
+      </div>
+      <p id="mfa-message" role="status"></p>
     </section>
   </main>
 
@@ -109,5 +121,6 @@
   </dialog>
 
   <script src="/jun-pages/admin-users.js?v=20260810-5"></script>
+  <script src="/jun-pages/account-security.js?v=20260929-1"></script>
 </body>
 </html>
