@@ -1,6 +1,5 @@
 (function () {
   'use strict';
-  if(new URLSearchParams(location.search).get('view')!=='workflow')return;
 
   const app = document.getElementById('erp-app');
   const syncBar = document.getElementById('sync-bar');
@@ -152,9 +151,15 @@
     return refund + closed;
   }
 
+  function orderDetailButton(id) {
+    const raw = String(id || '').trim();
+    // Only known Taobao split suffixes are aliases; manual IDs stay intact.
+    const canonical = /^[0-9]{15,24}(-[0-9]+)+$/.test(raw) ? raw.replace(/(-[0-9]+)+$/, '') : raw;
+    return raw ? `<button type="button" class="order-detail-trigger" data-order-detail="${escapeHtml(canonical)}" aria-label="查看订单 ${escapeHtml(raw)} 的详情" aria-haspopup="dialog">详情</button>` : '';
+  }
   function orderIdentity(group, cell) {
     const tag = cell || 'div';
-    const ids = group.records.map(function(order){return `<button type="button" class="order-id order-id-copy" data-copy-order-id="${escapeHtml(order.id)}" aria-label="复制订单编号 ${escapeHtml(order.id)}"><span>${escapeHtml(order.id)}</span><i class="ti ti-copy"></i><em data-copy-label>复制</em></button>`;}).join('');
+    const ids = group.records.map(function(order){return `<div class="order-identity-row"><button type="button" class="order-id order-id-copy" data-copy-order-id="${escapeHtml(order.id)}" aria-label="复制订单编号 ${escapeHtml(order.id)}"><span>${escapeHtml(order.id)}</span><i class="ti ti-copy"></i><em data-copy-label>复制</em></button>${orderDetailButton(order.id)}</div>`;}).join('');
     const docs = unique(group.records,'vchcode').map(function(value){return `<small>管家婆 ${escapeHtml(value)}</small>`;}).join('');
     return `<${tag} class="order-col-order"><div class="order-group-label">${group.merged?badge(`合并发货 · ${group.records.length} 单`,'is-merge'):group.split?badge(`分批记录 · ${group.records.length} 条`,'is-split'):''}${badge(group.shop,'is-shop')}</div><div class="order-ids">${ids}</div>${docs}<small>${escapeHtml(group.records[0]?.summary || '')}</small></${tag}>`;
   }
@@ -172,7 +177,7 @@
   }
   function mobileOrderIds(group) {
     const ids=[...new Set(group.records.map(function(order){return String(order.id||'').trim();}).filter(Boolean))];
-    return `<div class="order-card-identities">${ids.map(function(id){return `<button type="button" class="order-copy-id" data-copy-order-id="${escapeHtml(id)}" aria-label="复制订单编号 ${escapeHtml(id)}"><span>订单</span><strong>${escapeHtml(id)}</strong><i class="ti ti-copy"></i><em data-copy-label>复制</em></button>`;}).join('')}</div>`;
+    return `<div class="order-card-identities">${ids.map(function(id){return `<div class="order-identity-row"><button type="button" class="order-copy-id" data-copy-order-id="${escapeHtml(id)}" aria-label="复制订单编号 ${escapeHtml(id)}"><span>订单</span><strong>${escapeHtml(id)}</strong><i class="ti ti-copy"></i><em data-copy-label>复制</em></button>${orderDetailButton(id)}</div>`;}).join('')}</div>`;
   }
   function isReadyStockTrack(track) {
     return /现货/.test(String(track.order?.seller_memo||'')) && track.item?.in_stock_sku === true;
