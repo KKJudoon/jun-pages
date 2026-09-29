@@ -79,6 +79,18 @@ th.order-col-order { z-index: 5; background: #f5f7fa; }
 .order-badge.is-partial { background: #e8f2ff; color: #225b95; }
 .order-badge.is-danger { background: #ffe4e2; color: #a72c20; }
 .order-badge.is-after-sale { background: #fce9f1; color: #922459; font-weight: 700; }
+
+.order-monthly-summary { margin-bottom: 16px; padding: 16px; border: 1px solid #e2e8f0; border-radius: 10px; background: #fff; }
+.order-monthly-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
+.order-monthly-header h3 { margin: 0; font-size: 17px; }
+.order-monthly-header label { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.order-monthly-header input { width: 160px; }
+.order-monthly-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; }
+.order-monthly-card { padding: 13px; border: 1px solid #e2e8f0; border-radius: 8px; background: #f8fafc; }
+.order-monthly-card strong { display: block; margin: 6px 0 2px; font-size: 22px; font-variant-numeric: tabular-nums; }
+.order-monthly-card small, .order-monthly-note { color: #667085; }
+.order-monthly-note { margin: 11px 0 0; font-size: 12px; line-height: 1.5; }
+@media (max-width: 760px) { .order-monthly-grid { grid-template-columns: 1fr; } }
 .order-badge.is-closed { background: #f1f1f1; color: #666; }
 .order-badge.is-process { background: #e9f0fb; color: #385e8f; }
 .order-badge.is-sync { background: #eef4e6; color: #496c20; }
