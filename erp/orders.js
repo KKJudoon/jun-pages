@@ -108,6 +108,7 @@
       const arrangedCount = activeRecords.filter(isArranged).length;
       const shippedCount = activeRecords.filter(isShipped).length;
       const refundCount = records.filter(isRefund).length;
+      const afterSaleCount = [...new Map(records.map(function(order){return [baseOrderId(order.id),Number(order.after_sale_count)||0];})).values()].reduce(function(sum,count){return sum+count;},0);
       const paidAt = records.map(function(order){return order.paid_at || '';}).filter(Boolean).sort().at(-1) || '';
       const promises = records.map(function(order){return remarkShipTime(order.seller_memo, order.paid_at || paidAt);});
       let workflowStage = 'unarranged';
@@ -120,7 +121,7 @@
       }).concat(items.map(function(item){return [item.sku,item.sku_full,item.name,item.color,item.size,item.taobao_title,item.taobao_sku_props].join(' ');})).join(' ').toLocaleLowerCase();
       return {
         key:key, records:records, items:items, itemTracks:itemTracks, searchable:searchable, workflowStage:workflowStage,
-        activeCount:activeRecords.length, arrangedCount:arrangedCount, shippedCount:shippedCount, closedCount:closedCount, refundCount:refundCount,
+        activeCount:activeRecords.length, arrangedCount:arrangedCount, shippedCount:shippedCount, closedCount:closedCount, refundCount:refundCount, afterSaleCount:afterSaleCount,
         hasRefund:refundCount > 0, allClosed:closedCount === records.length,
         arrangedState:!activeRecords.length ? 'no' : arrangedCount === activeRecords.length ? 'yes' : arrangedCount ? 'partial' : 'no',
         outOfStock:items.some(function(item){return item.out_of_stock;}) || records.some(function(order){return Boolean(order.audit_fail_reason);}),
@@ -146,10 +147,12 @@
   }
   function workflowTone(group) { return `is-workflow-${group.workflowStage}`; }
   function exceptionBadges(group) {
+    const afterSale = afterSaleBadge(group);
     const refund = group.hasRefund ? badge(group.refundCount === group.records.length ? '退款 / 售后' : '含退款记录','is-danger') : '';
     const closed = group.closedCount ? badge(group.allClosed ? '交易关闭' : '含关闭记录','is-closed') : '';
-    return refund + closed;
+    return afterSale + refund + closed;
   }
+  function afterSaleBadge(group) { return group.afterSaleCount ? badge(`售后 ${group.afterSaleCount} 条`,'is-after-sale') : ''; }
 
   function orderDetailButton(id) {
     const raw = String(id || '').trim();
@@ -161,7 +164,7 @@
     const tag = cell || 'div';
     const ids = group.records.map(function(order){return `<div class="order-identity-row"><button type="button" class="order-id order-id-copy" data-copy-order-id="${escapeHtml(order.id)}" aria-label="复制订单编号 ${escapeHtml(order.id)}"><span>${escapeHtml(order.id)}</span><i class="ti ti-copy"></i><em data-copy-label>复制</em></button>${orderDetailButton(order.id)}</div>`;}).join('');
     const docs = unique(group.records,'vchcode').map(function(value){return `<small>管家婆 ${escapeHtml(value)}</small>`;}).join('');
-    return `<${tag} class="order-col-order"><div class="order-group-label">${group.merged?badge(`合并发货 · ${group.records.length} 单`,'is-merge'):group.split?badge(`分批记录 · ${group.records.length} 条`,'is-split'):''}${badge(group.shop,'is-shop')}</div><div class="order-ids">${ids}</div>${docs}<small>${escapeHtml(group.records[0]?.summary || '')}</small></${tag}>`;
+    return `<${tag} class="order-col-order"><div class="order-group-label">${group.merged?badge(`合并发货 · ${group.records.length} 单`,'is-merge'):group.split?badge(`分批记录 · ${group.records.length} 条`,'is-split'):''}${afterSaleBadge(group)}${badge(group.shop,'is-shop')}</div><div class="order-ids">${ids}</div>${docs}<small>${escapeHtml(group.records[0]?.summary || '')}</small></${tag}>`;
   }
   function renderOrderCell(group) { return orderIdentity(group,'td'); }
   function renderWorkflowCell(group) { return `<td>${badge(workflowLabel(group),workflowTone(group))}${orderProgressMarkup(group,'table')}<small>${group.workflowStage==='arranged'?'已进入管家婆安排，尚无实际发货记录':group.workflowStage==='unarranged'?'管家婆尚未标记已安排':''}</small></td>`; }
@@ -242,7 +245,7 @@
     ['returns','退款 / 退货','已发货'],
     ['all','全部订单','含已完成 / 已关闭'],
   ];
-  function defaultFilters() { return {version:2,tab:'pending',production:'all',q:'',stock:'all',tags:[],shop:'all',status:'all',refund:'all',dateFrom:'',dateTo:'',deadline:'all',sortBy:'promise',sortDir:'asc',columns:[...defaultColumns]}; }
+  function defaultFilters() { return {version:2,tab:'pending',production:'all',q:'',stock:'all',tags:[],shop:'all',status:'all',refund:'all',afterSale:'all',dateFrom:'',dateTo:'',deadline:'all',sortBy:'promise',sortDir:'asc',columns:[...defaultColumns]}; }
   function infoButton(topic,label) { return `<button type="button" class="order-info-button" data-order-help="${topic}" aria-label="${escapeHtml(label)}" aria-haspopup="dialog"><i class="ti ti-info-circle" aria-hidden="true"></i></button>`; }
   function completed(order) { return order.trade_status === '交易成功'; }
   function hasShipment(order) { return isShipped(order) || ['已发货','卖家已发货','部分发货','交易成功'].includes(order.trade_status); }
@@ -272,6 +275,8 @@
     if(f.refund==='yes'&&!isRefund(order))return false;
     if(f.refund==='no'&&isRefund(order))return false;
     if(f.refund==='active'&&!/退款中|退货中|待.*退|申请|处理中/.test(String(order.refund_status||'')+' '+String(order.trade_status||'')))return false;
+    if(f.afterSale==='yes'&&!(Number(order.after_sale_count)>0))return false;
+    if(f.afterSale==='no'&&Number(order.after_sale_count)>0)return false;
     if(f.production==='unarranged'&&(isArranged(order)||isShipped(order)||isClosed(order)||completed(order)))return false;
     if(f.production==='arranged'&&(!isArranged(order)||isShipped(order)||isClosed(order)||completed(order)))return false;
     const out=(order.items||[]).some(item=>item.out_of_stock);
@@ -331,7 +336,7 @@
       if(old.orderState==='all'&&!old.stage)next.tab='all';
       if(old.sort){const pair={promise_asc:['promise','asc'],deadline_asc:['deadline','asc'],paid_desc:['paid','desc'],paid_asc:['paid','asc'],amount_desc:['amount','desc']}[old.sort];if(pair)[next.sortBy,next.sortDir]=pair;}
     }
-    for(const [key,valid] of Object.entries({tab:orderViews.map(v=>v[0]),production:['all','arranged','unarranged'],stock:['all','out','ready','issue'],status:['all','ongoing','completed','closed','open','unpaid','shipped_any','partial'],refund:['all','yes','no','active'],deadline:['all','soon','overdue','missing'],sortBy:['promise','deadline','paid','amount'],sortDir:['asc','desc']}))if(!valid.includes(next[key]))next[key]=defaultFilters()[key];
+    for(const [key,valid] of Object.entries({tab:orderViews.map(v=>v[0]),production:['all','arranged','unarranged'],stock:['all','out','ready','issue'],status:['all','ongoing','completed','closed','open','unpaid','shipped_any','partial'],refund:['all','yes','no','active'],afterSale:['all','yes','no'],deadline:['all','soon','overdue','missing'],sortBy:['promise','deadline','paid','amount'],sortDir:['asc','desc']}))if(!valid.includes(next[key]))next[key]=defaultFilters()[key];
     if(next.tab!=='all')next.status='all';
     next.q=String(next.q||'');next.shop=String(next.shop||'all');
     next.tags=Array.isArray(next.tags)?[...new Set(next.tags.map(v=>String(v||'').trim()).filter(Boolean))]:[];
@@ -349,6 +354,7 @@
     const status={ongoing:'进行中',completed:'已完成',closed:'已关闭 / 已删除',open:'未关闭',unpaid:'待付款',shipped_any:'已发货（含已完成）',partial:'部分发货'};
     if(status[f.status])chips.push(['status',status[f.status]]);
     if(f.refund!=='all')chips.push(['refund',{yes:'有退款 / 退货',no:'无退款 / 退货',active:'售后处理中'}[f.refund]]);
+    if(f.afterSale!=='all')chips.push(['afterSale',f.afterSale==='yes'?'有已关联售后':'无已关联售后']);
     if(f.deadline!=='all')chips.push(['deadline',{soon:'24小时内需发货',overdue:'已超发货时限',missing:'未记录发货时限'}[f.deadline]]);
     if(['ready','issue'].includes(f.stock))chips.push(['stock',f.stock==='ready'?'无缺货标记':'审核异常']);
     return chips;
@@ -357,13 +363,13 @@
     const f=state.filters, chips=advancedChips();
     const shops=[...new Set(state.orders.map(o=>o.shop).filter(Boolean))].sort();
     const count=filters=>number.format(state.groups.filter(g=>matchesGroup(g,filters)).length);
-    const tabs=orderViews.map(([key,label,sub])=>`<button type="button" role="tab" id="order-tab-${key}" data-order-tab="${key}" aria-selected="${f.tab===key}" aria-controls="order-results" tabindex="${f.tab===key?'0':'-1'}"><span>${label}${key!=='all'?`<b>${count(f.tab===key?f:{...f,tab:key,production:'all',stock:'all',status:'all',refund:'all'})}</b>`:''}</span><small>${sub}</small></button>`).join('');
+    const tabs=orderViews.map(([key,label,sub])=>`<button type="button" role="tab" id="order-tab-${key}" data-order-tab="${key}" aria-selected="${f.tab===key}" aria-controls="order-results" tabindex="${f.tab===key?'0':'-1'}"><span>${label}${key!=='all'?`<b>${count(f.tab===key?f:{...f,tab:key,production:'all',stock:'all',status:'all',refund:'all',afterSale:'all'})}</b>`:''}</span><small>${sub}</small></button>`).join('');
     const production=['pending','all'].includes(f.tab)?`<div class="order-production"><span>生产安排 ${infoButton('production','了解生产安排')}</span><div class="order-production-options" role="group" aria-label="生产安排">${[['all','全部'],['unarranged','待安排'],['arranged','已安排']].map(([key,label])=>`<button type="button" data-production="${key}" aria-pressed="${f.production===key}">${label}<small>${count({...f,production:key})}</small></button>`).join('')}</div><button type="button" class="order-stock-chip" id="order-stock-toggle" aria-pressed="${f.stock==='out'}"><i class="ti ti-alert-circle" aria-hidden="true"></i>缺货<small>${count({...f,stock:'out'})}</small></button></div>`:'';
     return `<section class="order-controls order-workspace-controls" aria-label="订单筛选"><div class="order-view-tabs" role="tablist" aria-label="订单状态">${tabs}</div>${production}<div class="order-toolbar"><label class="order-search"><i class="ti ti-search" aria-hidden="true"></i><input id="order-q" class="form-control" type="search" aria-label="搜索全部订单" placeholder="搜索订单号、SKU、备注…" value="${escapeHtml(f.q)}"></label><button type="button" id="order-more" class="btn btn-outline-secondary"><i class="ti ti-adjustments-horizontal" aria-hidden="true"></i>更多筛选${chips.length?`<b>${chips.length}</b>`:''}</button><label class="order-sort"><span class="visually-hidden">排序方式</span><select id="order-sort-by" class="form-select"><option value="promise">约定发货优先</option><option value="deadline">发货时限优先</option><option value="paid">付款时间</option><option value="amount">订单金额</option></select></label><button type="button" class="order-sort-direction" id="order-sort-dir" aria-label="${f.sortDir==='asc'?'当前升序，切换降序':'当前降序，切换升序'}" title="${f.sortDir==='asc'?'升序':'降序'}"><i class="ti ti-sort-${f.sortDir==='asc'?'ascending':'descending'}" aria-hidden="true"></i></button>${infoButton('scope','了解订单范围与数量')}</div>${f.q?`<div class="order-search-scope" role="status">${f.tab==='all'?'搜索全部订单，包含已完成和已关闭':`在${orderViews.find(v=>v[0]===f.tab)[1]}中搜索`}<button type="button" data-clear-search>清除搜索</button></div>`:''}${chips.length?`<div class="order-filter-chips" aria-label="已选筛选">${chips.map(([key,label])=>`<button type="button" data-clear-filter="${key}" aria-label="移除筛选：${escapeHtml(label)}">${escapeHtml(label)}<i class="ti ti-x" aria-hidden="true"></i></button>`).join('')}<button type="button" data-clear-filters>清空筛选</button></div>`:''}</section>${renderFilterDialog(shops)}`;
   }
   function renderFilterDialog(shops){
     const f=state.filters;
-    return `<dialog id="order-filters-dialog" class="order-filter-dialog" aria-labelledby="order-filters-title"><form id="order-filter-form"><header><h3 id="order-filters-title">更多筛选</h3><button class="order-dialog-close" type="button" data-filter-close aria-label="关闭更多筛选"><i class="ti ti-x" aria-hidden="true"></i></button></header><div class="order-filter-body"><fieldset><legend>付款时间</legend><div class="order-date-shortcuts">${[['all','不限'],['7','近7天'],['30','近30天'],['month','本月']].map(([key,label])=>`<button type="button" data-date-range="${key}">${label}</button>`).join('')}</div><div class="order-date-range"><input type="date" name="dateFrom" aria-label="付款开始日期"><span>至</span><input type="date" name="dateTo" aria-label="付款结束日期"></div></fieldset><div class="order-more-grid">${f.tab==='all'?`<label><span>订单状态</span><select name="status" class="form-select"><option value="all">全部状态</option><option value="ongoing">进行中</option><option value="completed">已完成</option><option value="closed">已关闭 / 已删除</option><option value="unpaid">待付款</option><option value="open">未关闭（含已完成）</option><option value="shipped_any">已发货（含已完成）</option><option value="partial">部分发货</option></select></label>`:''}<label><span>退款 / 退货</span><select name="refund" class="form-select"><option value="all">全部</option><option value="active">处理中</option><option value="yes">有售后记录</option><option value="no">无售后记录</option></select></label><label><span>发货时限</span><select name="deadline" class="form-select"><option value="all">不限</option><option value="soon">24小时内需发货</option><option value="overdue">已超时</option><option value="missing">未记录</option></select></label>${shops.length>1?`<label><span>店铺</span><select name="shop" class="form-select"><option value="all">全部店铺</option>${shops.map(shop=>`<option value="${escapeHtml(shop)}">${escapeHtml(shop)}</option>`).join('')}</select></label>`:''}<label><span>库存 / 异常</span><select name="stock" class="form-select"><option value="all">不限</option><option value="out">缺货</option><option value="ready">无缺货标记</option><option value="issue">审核异常</option></select></label></div>${availableOrderTags().length?`<details class="order-filter-section"><summary>管家婆标签${f.tags.length?` · 已选 ${f.tags.length} 项`:''}</summary><div class="order-tag-options">${availableOrderTags().map(tag=>`<label><input type="checkbox" name="tags" value="${escapeHtml(tag)}"><span>${escapeHtml(tag)}</span></label>`).join('')}</div></details>`:''}<details class="order-filter-section"><summary>常用筛选</summary><div class="order-saved-views"><select id="order-preset" class="form-select" aria-label="常用筛选"><option value="">选择已保存的筛选</option>${state.presets.map(p=>`<option value="${escapeHtml(p.id)}" ${state.activePreset===p.id?'selected':''}>${escapeHtml(p.name)}${p.scope==='team'?' · 团队':''}</option>`).join('')}</select><div><button type="button" class="btn btn-sm btn-outline-primary" id="order-preset-save">保存这组筛选</button><button type="button" class="btn btn-sm btn-outline-secondary" id="order-preset-default" ${state.activePreset?'':'disabled'}>设为默认</button><button type="button" class="btn btn-sm btn-outline-secondary" id="order-preset-delete" ${state.activePreset?'':'disabled'}>删除</button></div></div></details><details class="order-filter-section order-column-settings"><summary>表格显示列</summary><div>${columns.map(([key,label])=>`<label><input type="checkbox" name="columns" value="${key}" ${f.columns.includes(key)?'checked':''}>${label}</label>`).join('')}</div></details><p id="order-filter-error" class="text-danger" role="alert" hidden></p></div><footer><button type="button" class="btn btn-outline-secondary" data-filter-reset>重置</button><button type="submit" class="btn btn-primary">应用筛选</button></footer></form></dialog>`;
+    return `<dialog id="order-filters-dialog" class="order-filter-dialog" aria-labelledby="order-filters-title"><form id="order-filter-form"><header><h3 id="order-filters-title">更多筛选</h3><button class="order-dialog-close" type="button" data-filter-close aria-label="关闭更多筛选"><i class="ti ti-x" aria-hidden="true"></i></button></header><div class="order-filter-body"><fieldset><legend>付款时间</legend><div class="order-date-shortcuts">${[['all','不限'],['7','近7天'],['30','近30天'],['month','本月']].map(([key,label])=>`<button type="button" data-date-range="${key}">${label}</button>`).join('')}</div><div class="order-date-range"><input type="date" name="dateFrom" aria-label="付款开始日期"><span>至</span><input type="date" name="dateTo" aria-label="付款结束日期"></div></fieldset><div class="order-more-grid">${f.tab==='all'?`<label><span>订单状态</span><select name="status" class="form-select"><option value="all">全部状态</option><option value="ongoing">进行中</option><option value="completed">已完成</option><option value="closed">已关闭 / 已删除</option><option value="unpaid">待付款</option><option value="open">未关闭（含已完成）</option><option value="shipped_any">已发货（含已完成）</option><option value="partial">部分发货</option></select></label>`:''}<label><span>管家婆退款标记</span><select name="refund" class="form-select"><option value="all">不限</option><option value="active">处理中</option><option value="yes">有退款 / 退货标记</option><option value="no">无退款 / 退货标记</option></select></label><label><span>已关联售后</span><select name="afterSale" class="form-select"><option value="all">不限</option><option value="yes">有售后记录</option><option value="no">无已关联记录</option></select></label><label><span>发货时限</span><select name="deadline" class="form-select"><option value="all">不限</option><option value="soon">24小时内需发货</option><option value="overdue">已超时</option><option value="missing">未记录</option></select></label>${shops.length>1?`<label><span>店铺</span><select name="shop" class="form-select"><option value="all">全部店铺</option>${shops.map(shop=>`<option value="${escapeHtml(shop)}">${escapeHtml(shop)}</option>`).join('')}</select></label>`:''}<label><span>库存 / 异常</span><select name="stock" class="form-select"><option value="all">不限</option><option value="out">缺货</option><option value="ready">无缺货标记</option><option value="issue">审核异常</option></select></label></div>${availableOrderTags().length?`<details class="order-filter-section"><summary>管家婆标签${f.tags.length?` · 已选 ${f.tags.length} 项`:''}</summary><div class="order-tag-options">${availableOrderTags().map(tag=>`<label><input type="checkbox" name="tags" value="${escapeHtml(tag)}"><span>${escapeHtml(tag)}</span></label>`).join('')}</div></details>`:''}<details class="order-filter-section"><summary>常用筛选</summary><div class="order-saved-views"><select id="order-preset" class="form-select" aria-label="常用筛选"><option value="">选择已保存的筛选</option>${state.presets.map(p=>`<option value="${escapeHtml(p.id)}" ${state.activePreset===p.id?'selected':''}>${escapeHtml(p.name)}${p.scope==='team'?' · 团队':''}</option>`).join('')}</select><div><button type="button" class="btn btn-sm btn-outline-primary" id="order-preset-save">保存这组筛选</button><button type="button" class="btn btn-sm btn-outline-secondary" id="order-preset-default" ${state.activePreset?'':'disabled'}>设为默认</button><button type="button" class="btn btn-sm btn-outline-secondary" id="order-preset-delete" ${state.activePreset?'':'disabled'}>删除</button></div></div></details><details class="order-filter-section order-column-settings"><summary>表格显示列</summary><div>${columns.map(([key,label])=>`<label><input type="checkbox" name="columns" value="${key}" ${f.columns.includes(key)?'checked':''}>${label}</label>`).join('')}</div></details><p id="order-filter-error" class="text-danger" role="alert" hidden></p></div><footer><button type="button" class="btn btn-outline-secondary" data-filter-reset>重置</button><button type="submit" class="btn btn-primary">应用筛选</button></footer></form></dialog>`;
   }
   function renderCards(rows){
     return `<div class="order-card-list">${rows.map(function(group){
@@ -380,20 +386,20 @@
   }
   function selectTab(key){
     if(key===state.filters.tab){document.getElementById('order-tab-'+key)?.focus();return;}
-    state.filters={...state.filters,tab:key,production:'all',stock:'all',status:'all',refund:'all'};
+    state.filters={...state.filters,tab:key,production:'all',stock:'all',status:'all',refund:'all',afterSale:'all'};
     state.page=1;state.activePreset='';render();
     document.getElementById('order-tab-'+key)?.focus();
   }
   function fillFilterForm(filters){
     const form=document.getElementById('order-filter-form');
-    for(const key of ['dateFrom','dateTo','status','refund','deadline','stock','shop']){const field=form.elements.namedItem(key);if(field)field.value=filters[key];}
+    for(const key of ['dateFrom','dateTo','status','refund','afterSale','deadline','stock','shop']){const field=form.elements.namedItem(key);if(field)field.value=filters[key];}
     form.querySelectorAll('[name="tags"]').forEach(input=>input.checked=filters.tags.includes(input.value));
     form.querySelectorAll('[name="columns"]').forEach(input=>input.checked=filters.columns.includes(input.value));
     document.getElementById('order-filter-error').hidden=true;
   }
   function readFilterForm(){
     const form=document.getElementById('order-filter-form'),next=currentConfig();
-    for(const key of ['dateFrom','dateTo','status','refund','deadline','stock','shop']){const field=form.elements.namedItem(key);if(field)next[key]=field.value;}
+    for(const key of ['dateFrom','dateTo','status','refund','afterSale','deadline','stock','shop']){const field=form.elements.namedItem(key);if(field)next[key]=field.value;}
     next.tags=[...form.querySelectorAll('[name="tags"]:checked')].map(i=>i.value);
     next.columns=[...form.querySelectorAll('[name="columns"]:checked')].map(i=>i.value);
     let error='';

@@ -78,6 +78,7 @@ th.order-col-order { z-index: 5; background: #f5f7fa; }
 .order-badge.is-unarranged { background: #fff1d8; color: #8a5500; font-weight: 700; }
 .order-badge.is-partial { background: #e8f2ff; color: #225b95; }
 .order-badge.is-danger { background: #ffe4e2; color: #a72c20; }
+.order-badge.is-after-sale { background: #fce9f1; color: #922459; font-weight: 700; }
 .order-badge.is-closed { background: #f1f1f1; color: #666; }
 .order-badge.is-process { background: #e9f0fb; color: #385e8f; }
 .order-badge.is-sync { background: #eef4e6; color: #496c20; }
