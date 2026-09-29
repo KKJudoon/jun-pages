@@ -14,7 +14,7 @@
   const state = {
     orders: [], groups: [], filtered: [], presets: [], presetMeta: {}, page: 1,
     pageSize: window.matchMedia('(max-width: 760px)').matches ? 24 : 50,
-    filters: {q:'',closure:'open',refund:'all',tags:[],stage:'actionable',stock:'all',shop:'all',sortBy:'promise',sortDir:'asc',columns:[...defaultColumns]},
+    filters: defaultFilters(), activePreset:'', beforeSearchTab:'pending', searchTimer:null,
   };
 
   function escapeHtml(value) {
@@ -75,7 +75,7 @@
   function isArranged(order) { return order.is_arranged === true || order.tag === '已安排' || order.alert === '已安排'; }
   function isShipped(order) { return order.is_shipped === true || order.process_status === '已发货' || Boolean(order.shipped_at); }
   function isClosed(order) { return ['交易关闭','ERP已删除'].includes(order.trade_status); }
-  function isRefund(order) { return order.trade_status === '退款中' || Boolean(String(order.refund_status || '').trim()); }
+  function isRefund(order) { return order.trade_status === '退款中' || Boolean(String(order.refund_status || '').trim()) && !['无退款','无售后','退款关闭','退款取消','已取消','已撤销'].includes(String(order.refund_status).trim()); }
 
   function remarkShipTime(memo, paidAt) {
     const text = String(memo || '');
@@ -155,7 +155,7 @@
     const raw = String(id || '').trim();
     // Only known Taobao split suffixes are aliases; manual IDs stay intact.
     const canonical = /^[0-9]{15,24}(-[0-9]+)+$/.test(raw) ? raw.replace(/(-[0-9]+)+$/, '') : raw;
-    return raw ? `<button type="button" class="order-detail-trigger" data-order-detail="${escapeHtml(canonical)}" aria-label="查看订单 ${escapeHtml(raw)} 的详情" aria-haspopup="dialog">详情</button>` : '';
+    return raw ? `<button type="button" class="order-detail-trigger" data-order-detail="${escapeHtml(canonical)}" aria-label="查看订单 ${escapeHtml(raw)} 的详情" aria-haspopup="dialog" title="订单详情"><i class="ti ti-info-circle" aria-hidden="true"></i></button>` : '';
   }
   function orderIdentity(group, cell) {
     const tag = cell || 'div';
@@ -236,31 +236,76 @@
     memo:function(group){return textCell(group,'seller_memo','order-long-text');},audit:function(group){return textCell(group,'audit_fail_reason','order-long-text order-audit');},
   };
 
+  const orderViews = [
+    ['pending','待发货','已付款'],
+    ['shipped','已发货','无退款 / 退货'],
+    ['returns','退款 / 退货','已发货'],
+    ['all','全部订单','含已完成 / 已关闭'],
+  ];
+  function defaultFilters() { return {version:2,tab:'pending',production:'all',q:'',stock:'all',tags:[],shop:'all',status:'all',refund:'all',dateFrom:'',dateTo:'',deadline:'all',sortBy:'promise',sortDir:'asc',columns:[...defaultColumns]}; }
+  function infoButton(topic,label) { return `<button type="button" class="order-info-button" data-order-help="${topic}" aria-label="${escapeHtml(label)}" aria-haspopup="dialog"><i class="ti ti-info-circle" aria-hidden="true"></i></button>`; }
+  function completed(order) { return order.trade_status === '交易成功'; }
+  function hasShipment(order) { return isShipped(order) || ['已发货','卖家已发货','部分发货','交易成功'].includes(order.trade_status); }
+  function paid(order) { return Boolean(order.paid_at) || ['已付款','买家已付款','部分付款','已发货','卖家已发货','部分发货','交易成功'].includes(order.trade_status); }
+  function matchesView(order,view) {
+    if(view==='all')return true;
+    if(isClosed(order)||completed(order))return false;
+    if(view==='pending')return paid(order)&&(!hasShipment(order)||order.trade_status==='部分发货');
+    if(view==='shipped')return hasShipment(order)&&!isRefund(order);
+    if(view==='returns')return hasShipment(order)&&isRefund(order);
+    return false;
+  }
+  function matchesRecord(order,f) {
+    if(!matchesView(order,f.tab))return false;
+    if(f.shop!=='all'&&order.shop!==f.shop)return false;
+    if(f.tags.length&&!f.tags.includes(String(order.tag||'').trim())&&!f.tags.includes(String(order.alert||'').trim()))return false;
+    const date=String(order.paid_at||'').slice(0,10);
+    if(f.dateFrom&&(!date||date<f.dateFrom))return false;
+    if(f.dateTo&&(!date||date>f.dateTo))return false;
+    if(f.status==='completed'&&!completed(order))return false;
+    if(f.status==='closed'&&!isClosed(order))return false;
+    if(f.status==='open'&&isClosed(order))return false;
+    if(f.status==='ongoing'&&(isClosed(order)||completed(order)))return false;
+    if(f.status==='unpaid'&&(paid(order)||isClosed(order)))return false;
+    if(f.status==='shipped_any'&&!hasShipment(order))return false;
+    if(f.status==='partial'&&order.trade_status!=='部分发货')return false;
+    if(f.refund==='yes'&&!isRefund(order))return false;
+    if(f.refund==='no'&&isRefund(order))return false;
+    if(f.refund==='active'&&!/退款中|退货中|待.*退|申请|处理中/.test(String(order.refund_status||'')+' '+String(order.trade_status||'')))return false;
+    if(f.production==='unarranged'&&(isArranged(order)||isShipped(order)||isClosed(order)||completed(order)))return false;
+    if(f.production==='arranged'&&(!isArranged(order)||isShipped(order)||isClosed(order)||completed(order)))return false;
+    const out=(order.items||[]).some(item=>item.out_of_stock);
+    if(f.stock==='out'&&!out)return false;
+    if(f.stock==='ready'&&out)return false;
+    if(f.stock==='issue'&&!order.audit_fail_reason)return false;
+    if(f.deadline!=='all'){
+      const raw=String(order.platform_ship_deadline||order.deadline||'').trim();
+      if(f.deadline==='missing')return !raw;
+      if(isClosed(order)||completed(order)||isShipped(order)||!raw)return false;
+      // The ERP platform deadline is a China business timestamp, independent of viewer timezone.
+      const iso=raw.replace(' ','T');
+      const time=Date.parse(/[zZ]$|[+-]\d\d:\d\d$/.test(iso)?iso:iso+'+08:00');
+      if(!Number.isFinite(time))return false;
+      const delta=time-Date.now();
+      if(f.deadline==='overdue'&&delta>=0)return false;
+      if(f.deadline==='soon'&&(delta<0||delta>86400000))return false;
+    }
+    return true;
+  }
+  function matchesGroup(group,f) {
+    return (!f.q||group.searchable.includes(f.q.trim().toLocaleLowerCase()))&&group.records.some(order=>matchesRecord(order,f));
+  }
   function filterGroups() {
     const f=state.filters;
-    let rows=state.groups.filter(function(group){
-      if (f.closure==='open' && group.allClosed) return false;
-      if (f.closure==='closed' && !group.allClosed) return false;
-      if (f.refund==='yes' && !group.hasRefund) return false;
-      if (f.refund==='no' && group.hasRefund) return false;
-      if (f.tags.length&&!group.records.some(function(order){return f.tags.includes(String(order.tag||'').trim())||f.tags.includes(String(order.alert||'').trim());})) return false;
-      if (f.stage==='actionable' && ['shipped','closed'].includes(group.workflowStage)) return false;
-      if (!['all','actionable'].includes(f.stage) && group.workflowStage!==f.stage) return false;
-      if (f.stock==='out'&&!group.outOfStock) return false;
-      if (f.stock==='ready'&&group.outOfStock) return false;
-      if (f.shop!=='all'&&!group.records.some(function(order){return order.shop===f.shop;})) return false;
-      return !f.q||group.searchable.includes(f.q.toLocaleLowerCase());
-    });
+    let rows=state.groups.filter(group=>matchesGroup(group,f));
     rows.sort(function(a,b){
-      const workflowOrder={unarranged:0,partial:1,arranged:2,shipped:3,closed:4};
       const values=function(group){
         if(f.sortBy==='amount')return {value:group.amount,missing:false,numeric:true};
-        if(f.sortBy==='workflow')return {value:workflowOrder[group.workflowStage],missing:false,numeric:true};
         if(f.sortBy==='paid')return {value:group.paidAt,missing:!group.paidAt};
         if(f.sortBy==='deadline')return {value:group.deadline,missing:!group.deadline};
         return {value:group.promise.label==='未识别'||group.promise.label==='格式异常'?'':group.promise.sort,missing:group.promise.label==='未识别'||group.promise.label==='格式异常'};
       };
-      const av=values(a);const bv=values(b);
+      const av=values(a),bv=values(b);
       if(av.missing!==bv.missing)return av.missing?1:-1;
       let compared=av.numeric?av.value-bv.value:String(av.value).localeCompare(String(bv.value));
       if(f.sortDir==='desc')compared=-compared;
@@ -271,45 +316,54 @@
   }
   function currentConfig(){return JSON.parse(JSON.stringify(state.filters));}
   function normalizedConfig(config){
-    const next={...(config||{})};
-    if(!next.stage&&next.source)next.stage=next.source==='all'?'all':next.source==='history'?'shipped':'actionable';
-    if(next.sort){
-      const legacy={promise_asc:['promise','asc'],deadline_asc:['deadline','asc'],workflow:['workflow','asc'],paid_desc:['paid','desc'],paid_asc:['paid','asc'],amount_desc:['amount','desc']}[next.sort];
-      if(legacy){next.sortBy=legacy[0];next.sortDir=legacy[1];}
+    const old=config||{};
+    const next={...defaultFilters(),...old};
+    if(old.version!==2){
+      const stage=old.stage||(old.source==='history'?'shipped':old.source==='all'?'all':'actionable');
+      next.tab=stage==='all'||stage==='shipped'||stage==='partial'?'all':'pending';
+      if(['arranged','unarranged'].includes(stage))next.production=stage;
+      if(stage==='shipped')next.status='shipped_any';
+      if(stage==='partial')next.status='partial';
+      if(old.closure==='closed'||stage==='closed'||old.orderState==='closed'){next.tab='all';next.status='closed';}
+      else if(old.closure==='open'&&next.tab==='all')next.status=stage==='shipped'?'shipped_any':'open';
+      if(old.orderState==='refund'){next.tab='all';next.refund='yes';}
+      if(old.orderState==='active')next.refund='no';
+      if(old.orderState==='all'&&!old.stage)next.tab='all';
+      if(old.sort){const pair={promise_asc:['promise','asc'],deadline_asc:['deadline','asc'],paid_desc:['paid','desc'],paid_asc:['paid','asc'],amount_desc:['amount','desc']}[old.sort];if(pair)[next.sortBy,next.sortDir]=pair;}
     }
-    if(next.stage==='closed'){next.closure='closed';next.stage='all';}
-    if(!next.closure||!next.refund){
-      const legacyRange={active:['open','no'],refund:['all','yes'],closed:['closed','all'],all:['all','all']}[next.orderState];
-      if(legacyRange){if(!next.closure)next.closure=legacyRange[0];if(!next.refund)next.refund=legacyRange[1];}
-    }
-    if(!['open','closed','all'].includes(next.closure))next.closure='open';
-    if(!['all','yes','no'].includes(next.refund))next.refund='all';
-    next.tags=Array.isArray(next.tags)?[...new Set(next.tags.map(function(value){return String(value||'').trim();}).filter(Boolean))]:[];
-    if(!['promise','deadline','workflow','paid','amount'].includes(next.sortBy))next.sortBy='promise';
-    if(!['asc','desc'].includes(next.sortDir))next.sortDir='asc';
-    if(next.closure==='closed'&&next.stage==='actionable')next.stage='all';
-    delete next.source;delete next.arranged;delete next.sort;delete next.orderState;
-    const validColumns=Array.isArray(next.columns)?next.columns.filter(function(key){return columns.some(function(item){return item[0]===key;});}):[];
+    for(const [key,valid] of Object.entries({tab:orderViews.map(v=>v[0]),production:['all','arranged','unarranged'],stock:['all','out','ready','issue'],status:['all','ongoing','completed','closed','open','unpaid','shipped_any','partial'],refund:['all','yes','no','active'],deadline:['all','soon','overdue','missing'],sortBy:['promise','deadline','paid','amount'],sortDir:['asc','desc']}))if(!valid.includes(next[key]))next[key]=defaultFilters()[key];
+    if(next.tab!=='all')next.status='all';
+    next.q=String(next.q||'');next.shop=String(next.shop||'all');
+    next.tags=Array.isArray(next.tags)?[...new Set(next.tags.map(v=>String(v||'').trim()).filter(Boolean))]:[];
+    for(const k of ['dateFrom','dateTo'])if(!/^\d{4}-\d{2}-\d{2}$/.test(next[k]))next[k]='';
+    const validColumns=Array.isArray(next.columns)?next.columns.filter(key=>columns.some(item=>item[0]===key)):[];
     next.columns=validColumns.length?validColumns:[...defaultColumns];
-    return next;
+    return Object.fromEntries(Object.keys(defaultFilters()).map(k=>[k,k==='version'?2:next[k]]));
   }
-  function applyConfig(config){state.filters={...state.filters,...normalizedConfig(config)};state.page=1;render();}
-
-  function renderStats(){
-    const active=state.groups.filter(function(g){return !g.hasRefund&&!g.allClosed;});
-    const actionable=active.filter(function(g){return !['shipped','closed'].includes(g.workflowStage);}).length;
-    const unarranged=active.filter(function(g){return g.workflowStage==='unarranged';}).length;
-    const risk=active.filter(function(g){return g.outOfStock&&!['shipped','closed'].includes(g.workflowStage);}).length;
-    const excluded=state.groups.filter(function(g){return g.hasRefund||g.allClosed;}).length;
-    return `<div class="order-stats"><article><span>正常订单待处理</span><strong>${number.format(actionable)}</strong></article><article><span>正常订单待安排</span><strong>${number.format(unarranged)}</strong></article><article><span>待处理中的缺货 / 异常</span><strong>${number.format(risk)}</strong></article><article><span>含退款 / 已关闭</span><strong>${number.format(excluded)}</strong></article></div>`;
+  function applyConfig(config){state.filters=normalizedConfig(config);state.page=1;render();}
+  function advancedChips(){
+    const f=state.filters, chips=[];
+    if(f.dateFrom||f.dateTo)chips.push(['dates',`付款 ${f.dateFrom||'不限'} 至 ${f.dateTo||'不限'}`]);
+    if(f.shop!=='all')chips.push(['shop',f.shop]);
+    if(f.tags.length)chips.push(['tags',`标签：${f.tags.join('、')}`]);
+    const status={ongoing:'进行中',completed:'已完成',closed:'已关闭 / 已删除',open:'未关闭',unpaid:'待付款',shipped_any:'已发货（含已完成）',partial:'部分发货'};
+    if(status[f.status])chips.push(['status',status[f.status]]);
+    if(f.refund!=='all')chips.push(['refund',{yes:'有退款 / 退货',no:'无退款 / 退货',active:'售后处理中'}[f.refund]]);
+    if(f.deadline!=='all')chips.push(['deadline',{soon:'24小时内需发货',overdue:'已超发货时限',missing:'未记录发货时限'}[f.deadline]]);
+    if(['ready','issue'].includes(f.stock))chips.push(['stock',f.stock==='ready'?'无缺货标记':'审核异常']);
+    return chips;
   }
   function renderControls(){
-    const shops=[...new Set(state.orders.map(function(order){return order.shop;}).filter(Boolean))].sort();
-    const tags=availableOrderTags();
-    const selectedTags=new Set(state.filters.tags);
-    const selected=new Set(state.filters.columns);
-    const presets=state.presets.map(function(p){return `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}${p.scope==='team'?' · 团队':''}</option>`;}).join('');
-    return `<section class="order-controls"><div class="order-filter-grid"><label class="order-search"><span>搜索</span><input id="order-q" class="form-control" type="search" placeholder="订单号、SKU、备注、买家、物流" value="${escapeHtml(state.filters.q)}"></label><label><span>交易范围</span><select id="order-closure" class="form-select"><option value="open">未关闭（默认）</option><option value="closed">仅已关闭 / ERP 删除</option><option value="all">全部交易</option></select></label><label><span>退款情况</span><select id="order-refund" class="form-select"><option value="all">全部退款状态</option><option value="yes">有退款 / 售后</option><option value="no">无退款</option></select></label><details class="order-tag-filter"><summary><span>管家婆标签</span><strong>${selectedTags.size?`已选 ${selectedTags.size} 项`:'全部标签'}</strong></summary><div>${tags.map(function(tag){return `<label><input type="checkbox" value="${escapeHtml(tag)}" ${selectedTags.has(tag)?'checked':''}><span>${escapeHtml(tag)}</span></label>`;}).join('')||'<p>当前没有标签</p>'}<footer><button type="button" class="btn btn-sm btn-outline-secondary" data-tags-clear>清空</button><button type="button" class="btn btn-sm btn-primary" data-tags-apply>应用</button></footer></div></details><label><span>处理进度</span><select id="order-stage" class="form-select"><option value="actionable">待处理（未全部发货）</option><option value="unarranged">待安排</option><option value="arranged">已安排待发货</option><option value="partial">部分已发货</option><option value="shipped">已发货</option><option value="all">全部进度</option></select></label><label><span>库存风险</span><select id="order-stock" class="form-select"><option value="all">全部</option><option value="out">缺货 / 审核异常</option><option value="ready">无缺货标记</option></select></label><label><span>店铺</span><select id="order-shop" class="form-select"><option value="all">全部店铺</option>${shops.map(function(shop){return `<option value="${escapeHtml(shop)}">${escapeHtml(shop)}</option>`;}).join('')}</select></label><label><span>排序</span><div class="order-sort-control"><select id="order-sort-by" class="form-select"><option value="promise">备注约定发货</option><option value="deadline">淘宝最迟发货</option><option value="workflow">处理优先级</option><option value="paid">付款时间</option><option value="amount">订单金额</option></select><button type="button" class="btn btn-outline-secondary" id="order-sort-dir" aria-label="切换排序方向"><i class="ti ti-sort-${state.filters.sortDir==='asc'?'ascending':'descending'}"></i><span>${state.filters.sortDir==='asc'?'升序':'降序'}</span></button></div></label></div><details class="order-truth-note"><summary><i class="ti ti-info-circle"></i><span>字段口径说明</span></summary><p>交易关闭与退款是两个独立条件，可以组合筛选“未关闭 + 有退款”。管家婆标签支持多选；这些条件都会随筛选预设一起保存。“已安排”只表示管家婆已安排，页面不会自行推断生产完成。</p></details><div class="order-preset-row"><label><span>筛选预设</span><select id="order-preset" class="form-select"><option value="">选择预设</option>${presets}</select></label><button class="btn btn-outline-primary" id="order-preset-save">保存当前预设</button><button class="btn btn-outline-secondary" id="order-preset-default" disabled>设为默认</button><button class="btn btn-outline-danger" id="order-preset-delete" disabled>删除</button><details class="order-column-picker"><summary class="btn btn-outline-secondary">显示列 · ${selected.size}</summary><div>${columns.map(function(item){return `<label><input type="checkbox" value="${escapeHtml(item[0])}" ${selected.has(item[0])?'checked':''}>${escapeHtml(item[1])}</label>`;}).join('')}</div></details></div></section>`;
+    const f=state.filters, chips=advancedChips();
+    const shops=[...new Set(state.orders.map(o=>o.shop).filter(Boolean))].sort();
+    const count=filters=>number.format(state.groups.filter(g=>matchesGroup(g,filters)).length);
+    const tabs=orderViews.map(([key,label,sub])=>`<button type="button" role="tab" id="order-tab-${key}" data-order-tab="${key}" aria-selected="${f.tab===key}" aria-controls="order-results" tabindex="${f.tab===key?'0':'-1'}"><span>${label}${key!=='all'?`<b>${count(f.tab===key?f:{...f,tab:key,production:'all',stock:'all',status:'all',refund:'all'})}</b>`:''}</span><small>${sub}</small></button>`).join('');
+    const production=['pending','all'].includes(f.tab)?`<div class="order-production"><span>生产安排 ${infoButton('production','了解生产安排')}</span><div class="order-production-options" role="group" aria-label="生产安排">${[['all','全部'],['unarranged','待安排'],['arranged','已安排']].map(([key,label])=>`<button type="button" data-production="${key}" aria-pressed="${f.production===key}">${label}<small>${count({...f,production:key})}</small></button>`).join('')}</div><button type="button" class="order-stock-chip" id="order-stock-toggle" aria-pressed="${f.stock==='out'}"><i class="ti ti-alert-circle" aria-hidden="true"></i>缺货<small>${count({...f,stock:'out'})}</small></button></div>`:'';
+    return `<section class="order-controls order-workspace-controls" aria-label="订单筛选"><div class="order-view-tabs" role="tablist" aria-label="订单状态">${tabs}</div>${production}<div class="order-toolbar"><label class="order-search"><i class="ti ti-search" aria-hidden="true"></i><input id="order-q" class="form-control" type="search" aria-label="搜索全部订单" placeholder="搜索订单号、SKU、备注…" value="${escapeHtml(f.q)}"></label><button type="button" id="order-more" class="btn btn-outline-secondary"><i class="ti ti-adjustments-horizontal" aria-hidden="true"></i>更多筛选${chips.length?`<b>${chips.length}</b>`:''}</button><label class="order-sort"><span class="visually-hidden">排序方式</span><select id="order-sort-by" class="form-select"><option value="promise">约定发货优先</option><option value="deadline">发货时限优先</option><option value="paid">付款时间</option><option value="amount">订单金额</option></select></label><button type="button" class="order-sort-direction" id="order-sort-dir" aria-label="${f.sortDir==='asc'?'当前升序，切换降序':'当前降序，切换升序'}" title="${f.sortDir==='asc'?'升序':'降序'}"><i class="ti ti-sort-${f.sortDir==='asc'?'ascending':'descending'}" aria-hidden="true"></i></button>${infoButton('scope','了解订单范围与数量')}</div>${f.q?`<div class="order-search-scope" role="status">${f.tab==='all'?'搜索全部订单，包含已完成和已关闭':`在${orderViews.find(v=>v[0]===f.tab)[1]}中搜索`}<button type="button" data-clear-search>清除搜索</button></div>`:''}${chips.length?`<div class="order-filter-chips" aria-label="已选筛选">${chips.map(([key,label])=>`<button type="button" data-clear-filter="${key}" aria-label="移除筛选：${escapeHtml(label)}">${escapeHtml(label)}<i class="ti ti-x" aria-hidden="true"></i></button>`).join('')}<button type="button" data-clear-filters>清空筛选</button></div>`:''}</section>${renderFilterDialog(shops)}`;
+  }
+  function renderFilterDialog(shops){
+    const f=state.filters;
+    return `<dialog id="order-filters-dialog" class="order-filter-dialog" aria-labelledby="order-filters-title"><form id="order-filter-form"><header><h3 id="order-filters-title">更多筛选</h3><button class="order-dialog-close" type="button" data-filter-close aria-label="关闭更多筛选"><i class="ti ti-x" aria-hidden="true"></i></button></header><div class="order-filter-body"><fieldset><legend>付款时间</legend><div class="order-date-shortcuts">${[['all','不限'],['7','近7天'],['30','近30天'],['month','本月']].map(([key,label])=>`<button type="button" data-date-range="${key}">${label}</button>`).join('')}</div><div class="order-date-range"><input type="date" name="dateFrom" aria-label="付款开始日期"><span>至</span><input type="date" name="dateTo" aria-label="付款结束日期"></div></fieldset><div class="order-more-grid">${f.tab==='all'?`<label><span>订单状态</span><select name="status" class="form-select"><option value="all">全部状态</option><option value="ongoing">进行中</option><option value="completed">已完成</option><option value="closed">已关闭 / 已删除</option><option value="unpaid">待付款</option><option value="open">未关闭（含已完成）</option><option value="shipped_any">已发货（含已完成）</option><option value="partial">部分发货</option></select></label>`:''}<label><span>退款 / 退货</span><select name="refund" class="form-select"><option value="all">全部</option><option value="active">处理中</option><option value="yes">有售后记录</option><option value="no">无售后记录</option></select></label><label><span>发货时限</span><select name="deadline" class="form-select"><option value="all">不限</option><option value="soon">24小时内需发货</option><option value="overdue">已超时</option><option value="missing">未记录</option></select></label>${shops.length>1?`<label><span>店铺</span><select name="shop" class="form-select"><option value="all">全部店铺</option>${shops.map(shop=>`<option value="${escapeHtml(shop)}">${escapeHtml(shop)}</option>`).join('')}</select></label>`:''}<label><span>库存 / 异常</span><select name="stock" class="form-select"><option value="all">不限</option><option value="out">缺货</option><option value="ready">无缺货标记</option><option value="issue">审核异常</option></select></label></div>${availableOrderTags().length?`<details class="order-filter-section"><summary>管家婆标签${f.tags.length?` · 已选 ${f.tags.length} 项`:''}</summary><div class="order-tag-options">${availableOrderTags().map(tag=>`<label><input type="checkbox" name="tags" value="${escapeHtml(tag)}"><span>${escapeHtml(tag)}</span></label>`).join('')}</div></details>`:''}<details class="order-filter-section"><summary>常用筛选</summary><div class="order-saved-views"><select id="order-preset" class="form-select" aria-label="常用筛选"><option value="">选择已保存的筛选</option>${state.presets.map(p=>`<option value="${escapeHtml(p.id)}" ${state.activePreset===p.id?'selected':''}>${escapeHtml(p.name)}${p.scope==='team'?' · 团队':''}</option>`).join('')}</select><div><button type="button" class="btn btn-sm btn-outline-primary" id="order-preset-save">保存这组筛选</button><button type="button" class="btn btn-sm btn-outline-secondary" id="order-preset-default" ${state.activePreset?'':'disabled'}>设为默认</button><button type="button" class="btn btn-sm btn-outline-secondary" id="order-preset-delete" ${state.activePreset?'':'disabled'}>删除</button></div></div></details><details class="order-filter-section order-column-settings"><summary>表格显示列</summary><div>${columns.map(([key,label])=>`<label><input type="checkbox" name="columns" value="${key}" ${f.columns.includes(key)?'checked':''}>${label}</label>`).join('')}</div></details><p id="order-filter-error" class="text-danger" role="alert" hidden></p></div><footer><button type="button" class="btn btn-outline-secondary" data-filter-reset>重置</button><button type="submit" class="btn btn-primary">应用筛选</button></footer></form></dialog>`;
   }
   function renderCards(rows){
     return `<div class="order-card-list">${rows.map(function(group){
@@ -322,24 +376,100 @@
     const start=(state.page-1)*state.pageSize;const rows=state.filtered.slice(start,start+state.pageSize);const selected=columns.filter(function(item){return state.filters.columns.includes(item[0]);});
     const table=`<div class="order-table-wrap"><table class="order-table"><thead><tr>${selected.map(function(item){return `<th class="order-col-${escapeHtml(item[0])}">${escapeHtml(item[1])}</th>`;}).join('')}</tr></thead><tbody>${rows.map(function(group){return `<tr>${selected.map(function(item){return cellRenderers[item[0]](group);}).join('')}</tr>`;}).join('')||`<tr><td colspan="${selected.length}"><div class="order-empty">没有符合当前筛选的订单</div></td></tr>`}</tbody></table></div>`;
     const pages=Math.max(1,Math.ceil(state.filtered.length/state.pageSize));
-    return `<section class="order-results"><header><div><h2>订单处理清单</h2><p>共 ${number.format(state.filtered.length)} 个订单组；交易范围、退款情况和管家婆标签可独立组合并保存为预设。</p></div><strong>第 ${state.page} / ${pages} 页</strong></header>${table}${renderCards(rows)}<footer><span>显示 ${state.filtered.length?start+1:0}–${Math.min(start+state.pageSize,state.filtered.length)} / ${state.filtered.length}</span><div><button class="btn btn-sm btn-outline-secondary" id="order-prev" ${state.page<=1?'disabled':''}>上一页</button><button class="btn btn-sm btn-outline-secondary" id="order-next" ${state.page>=pages?'disabled':''}>下一页</button></div></footer></section>`;
+    return `<section class="order-results" id="order-results" role="tabpanel" aria-labelledby="order-tab-${state.filters.tab}" tabindex="0"><header><div><h2>${state.filters.q?'搜索结果':orderViews.find(v=>v[0]===state.filters.tab)[1]}</h2><p role="status">${number.format(state.filtered.length)} 组订单${state.filters.production!=='all'?' · '+(state.filters.production==='arranged'?'已安排':'待安排'):''}${state.filters.stock==='out'?' · 缺货':''}</p></div><strong>第 ${state.page} / ${pages} 页</strong></header>${table}${renderCards(rows)}<footer><span>显示 ${state.filtered.length?start+1:0}–${Math.min(start+state.pageSize,state.filtered.length)} / ${state.filtered.length}</span><div><button class="btn btn-sm btn-outline-secondary" id="order-prev" ${state.page<=1?'disabled':''}>上一页</button><button class="btn btn-sm btn-outline-secondary" id="order-next" ${state.page>=pages?'disabled':''}>下一页</button></div></footer></section>`;
+  }
+  function selectTab(key){
+    if(key===state.filters.tab){document.getElementById('order-tab-'+key)?.focus();return;}
+    state.filters={...state.filters,tab:key,production:'all',stock:'all',status:'all',refund:'all'};
+    state.page=1;state.activePreset='';render();
+    document.getElementById('order-tab-'+key)?.focus();
+  }
+  function fillFilterForm(filters){
+    const form=document.getElementById('order-filter-form');
+    for(const key of ['dateFrom','dateTo','status','refund','deadline','stock','shop']){const field=form.elements.namedItem(key);if(field)field.value=filters[key];}
+    form.querySelectorAll('[name="tags"]').forEach(input=>input.checked=filters.tags.includes(input.value));
+    form.querySelectorAll('[name="columns"]').forEach(input=>input.checked=filters.columns.includes(input.value));
+    document.getElementById('order-filter-error').hidden=true;
+  }
+  function readFilterForm(){
+    const form=document.getElementById('order-filter-form'),next=currentConfig();
+    for(const key of ['dateFrom','dateTo','status','refund','deadline','stock','shop']){const field=form.elements.namedItem(key);if(field)next[key]=field.value;}
+    next.tags=[...form.querySelectorAll('[name="tags"]:checked')].map(i=>i.value);
+    next.columns=[...form.querySelectorAll('[name="columns"]:checked')].map(i=>i.value);
+    let error='';
+    if(next.dateFrom&&next.dateTo&&next.dateFrom>next.dateTo)error='开始日期不能晚于结束日期';
+    if(!next.columns.length)error='请至少保留一列';
+    const hint=document.getElementById('order-filter-error');hint.hidden=!error;hint.textContent=error;
+    if(error||!form.reportValidity())return null;
+    return normalizedConfig(next);
   }
   function bindControls(){
-    [['order-closure','closure'],['order-refund','refund'],['order-stage','stage'],['order-stock','stock'],['order-shop','shop'],['order-sort-by','sortBy']].forEach(function(pair){const field=document.getElementById(pair[0]);field.value=state.filters[pair[1]];field.addEventListener('change',function(){state.filters[pair[1]]=field.value;if(pair[1]==='closure'&&field.value==='closed'&&state.filters.stage==='actionable')state.filters.stage='all';state.page=1;render();});});
-    document.querySelector('[data-tags-clear]').addEventListener('click',function(){state.filters.tags=[];state.page=1;render();});
-    document.querySelector('[data-tags-apply]').addEventListener('click',function(){state.filters.tags=[...document.querySelectorAll('.order-tag-filter input:checked')].map(function(input){return input.value;});state.page=1;render();});
-    document.getElementById('order-sort-dir').addEventListener('click',function(){state.filters.sortDir=state.filters.sortDir==='asc'?'desc':'asc';state.page=1;render();});
+    document.querySelectorAll('[data-order-tab]').forEach(button=>{
+      button.addEventListener('click',()=>selectTab(button.dataset.orderTab));
+      button.addEventListener('keydown',event=>{
+        const index=orderViews.findIndex(v=>v[0]===button.dataset.orderTab);
+        const next={ArrowRight:(index+1)%orderViews.length,ArrowLeft:(index+orderViews.length-1)%orderViews.length,Home:0,End:orderViews.length-1}[event.key];
+        if(next===undefined)return;event.preventDefault();selectTab(orderViews[next][0]);
+      });
+    });
+    document.querySelectorAll('[data-production]').forEach(button=>button.addEventListener('click',()=>{state.filters.production=button.dataset.production;state.page=1;render();document.querySelector(`[data-production="${state.filters.production}"]`)?.focus();}));
+    document.getElementById('order-stock-toggle')?.addEventListener('click',()=>{state.filters.stock=state.filters.stock==='out'?'all':'out';state.page=1;render();});
+    const sort=document.getElementById('order-sort-by');sort.value=state.filters.sortBy;
+    sort.addEventListener('change',()=>{state.filters.sortBy=sort.value;state.filters.sortDir=sort.value==='paid'?'desc':'asc';state.page=1;render();});
+    document.getElementById('order-sort-dir').addEventListener('click',()=>{state.filters.sortDir=state.filters.sortDir==='asc'?'desc':'asc';render();});
     document.querySelectorAll('[data-copy-order-id]').forEach(function(button){button.addEventListener('click',async function(){const copied=await copyText(button.dataset.copyOrderId);if(!copied)return;button.classList.add('is-copied');button.querySelector('i').className='ti ti-check';button.querySelector('[data-copy-label]').textContent='已复制';window.setTimeout(function(){if(!button.isConnected)return;button.classList.remove('is-copied');button.querySelector('i').className='ti ti-copy';button.querySelector('[data-copy-label]').textContent='复制';},1600);});});
-    let timer;document.getElementById('order-q').addEventListener('input',function(event){clearTimeout(timer);timer=setTimeout(function(){state.filters.q=event.target.value.trim();state.page=1;render();},180);});
-    document.querySelectorAll('.order-column-picker input').forEach(function(input){input.addEventListener('change',function(){const checked=[...document.querySelectorAll('.order-column-picker input:checked')].map(function(i){return i.value;});if(!checked.length){input.checked=true;return;}state.filters.columns=checked;render();});});
-    const preset=document.getElementById('order-preset');const presetDefault=document.getElementById('order-preset-default');const presetDelete=document.getElementById('order-preset-delete');
-    preset.addEventListener('change',function(){const row=state.presets.find(function(i){return i.id===preset.value;});presetDefault.disabled=!row;presetDelete.disabled=!row;if(row)applyConfig(row.config||{});});
-    document.getElementById('order-preset-save').addEventListener('click',openPresetDialog);
-    presetDefault.addEventListener('click',async function(){await api('/api/erp/v1/orders/query-presets/default',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:preset.value})});state.presetMeta.default_id=preset.value;render();});
-    presetDelete.addEventListener('click',async function(){const row=state.presets.find(function(i){return i.id===preset.value;});if(!row||!confirm(`删除预设“${row.name}”？`))return;await api(`/api/erp/v1/orders/query-presets/${encodeURIComponent(row.id)}`,{method:'DELETE'});await loadPresets();render();});
-    document.getElementById('order-prev')?.addEventListener('click',function(){state.page=Math.max(1,state.page-1);render();});document.getElementById('order-next')?.addEventListener('click',function(){state.page+=1;render();});
+    const clearSearch=()=>{state.filters={...state.filters,q:'',tab:state.beforeSearchTab||'pending'};state.page=1;render();};
+    document.querySelector('[data-clear-search]')?.addEventListener('click',clearSearch);
+    const search=document.getElementById('order-q');
+    search.addEventListener('input',event=>{
+      clearTimeout(state.searchTimer);
+      const value=event.target.value;
+      state.searchTimer=setTimeout(()=>{
+        if(value.trim()&&!state.filters.q.trim()){
+          state.beforeSearchTab=state.filters.tab;
+          // A new lookup searches historical orders too, without hidden constraints.
+          state.filters={...defaultFilters(),columns:state.filters.columns,sortBy:'paid',sortDir:'desc',tab:'all',q:value};
+        }else{state.filters.q=value;if(!value.trim())state.filters.tab=state.beforeSearchTab||'pending';}
+        state.page=1;render();
+      },220);
+    });
+    const dialog=document.getElementById('order-filters-dialog');
+    document.getElementById('order-more').addEventListener('click',()=>{fillFilterForm(state.filters);dialog.showModal();});
+    document.querySelector('[data-filter-close]').addEventListener('click',()=>dialog.close());
+    document.querySelector('[data-filter-reset]').addEventListener('click',()=>fillFilterForm(defaultFilters()));
+    document.getElementById('order-filter-form').addEventListener('submit',event=>{event.preventDefault();const next=readFilterForm();if(!next)return;dialog.close();state.activePreset='';applyConfig(next);document.getElementById('order-more')?.focus();});
+    document.querySelectorAll('[data-date-range]').forEach(button=>button.addEventListener('click',()=>{
+      const now=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Shanghai'}));
+      const fmt=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      const form=document.getElementById('order-filter-form'),key=button.dataset.dateRange;
+      form.elements.dateTo.value=key==='all'?'':fmt(now);
+      if(key==='month')now.setDate(1);else if(key!=='all')now.setDate(now.getDate()-Number(key)+1);
+      form.elements.dateFrom.value=key==='all'?'':fmt(now);
+    }));
+    document.querySelectorAll('[data-clear-filter]').forEach(button=>button.addEventListener('click',()=>{
+      const key=button.dataset.clearFilter;
+      if(key==='dates'){state.filters.dateFrom='';state.filters.dateTo='';}else state.filters[key]=defaultFilters()[key];
+      state.page=1;render();
+    }));
+    document.querySelector('[data-clear-filters]')?.addEventListener('click',()=>{const {tab,q,columns,sortBy,sortDir}=state.filters;state.filters={...defaultFilters(),tab,q,columns,sortBy,sortDir};state.page=1;render();});
+    const preset=document.getElementById('order-preset');
+    preset.addEventListener('change',()=>{const row=state.presets.find(i=>i.id===preset.value);if(row){dialog.close();state.activePreset=row.id;applyConfig(row.config||{});}});
+    document.getElementById('order-preset-save').addEventListener('click',()=>{const next=readFilterForm();if(!next)return;dialog.close();applyConfig(next);openPresetDialog();});
+    const presetError=error=>{const e=document.getElementById('order-filter-error');e.hidden=false;e.textContent=error.message;};
+    document.getElementById('order-preset-default').addEventListener('click',async()=>{try{await api('/api/erp/v1/orders/query-presets/default',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:state.activePreset})});state.presetMeta.default_id=state.activePreset;dialog.close();render();}catch(e){presetError(e);}});
+    document.getElementById('order-preset-delete').addEventListener('click',async()=>{const row=state.presets.find(i=>i.id===state.activePreset);if(!row||!confirm(`删除筛选“${row.name}”？`))return;try{await api(`/api/erp/v1/orders/query-presets/${encodeURIComponent(row.id)}`,{method:'DELETE'});await loadPresets();state.activePreset='';dialog.close();render();}catch(e){presetError(e);}});
+    document.getElementById('order-prev')?.addEventListener('click',()=>{state.page=Math.max(1,state.page-1);render();});
+    document.getElementById('order-next')?.addEventListener('click',()=>{state.page+=1;render();});
   }
-  function render(){filterGroups();app.innerHTML=`${renderStats()}${renderControls()}${renderResults()}`;bindControls();}
+  function render(){
+    const focused=document.activeElement, id=focused?.id;
+    const selection=id==='order-q'?[focused.selectionStart,focused.selectionEnd]:null;
+    const scroll=document.querySelector('.order-view-tabs')?.scrollLeft||0;
+    filterGroups();app.innerHTML=`${renderControls()}${renderResults()}`;bindControls();
+    const tabs=document.querySelector('.order-view-tabs');if(tabs)tabs.scrollLeft=scroll;
+    const target=id?document.getElementById(id):null;
+    if(target){target.focus({preventScroll:true});if(selection)target.setSelectionRange(...selection);}
+  }
   function openPresetDialog(){const d=document.getElementById('order-preset-dialog');d.querySelector('[name="name"]').value='';d.querySelector('[name="team"]').checked=false;d.querySelector('[name="team"]').closest('label').hidden=!state.presetMeta.can_manage_team;d.querySelector('[name="default"]').checked=false;d.querySelector('[data-error]').hidden=true;d.showModal();}
   function bindPresetDialog(){const d=document.getElementById('order-preset-dialog');d.querySelector('[data-cancel]').addEventListener('click',function(){d.close();});d.querySelector('[data-save]').addEventListener('click',async function(){const name=d.querySelector('[name="name"]').value.trim();const error=d.querySelector('[data-error]');if(!name){error.hidden=false;error.textContent='请填写预设名称';return;}try{await api('/api/erp/v1/orders/query-presets',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:name,scope:d.querySelector('[name="team"]').checked?'team':'personal',set_default:d.querySelector('[name="default"]').checked,config:currentConfig()})});d.close();await loadPresets();render();}catch(exception){error.hidden=false;error.textContent=exception.message;}});}
   async function loadPresets(){const payload=await api('/api/erp/v1/orders/query-presets');state.presets=payload.data?.items||[];state.presetMeta=payload.data||{};}
@@ -352,11 +482,11 @@
       const ok=fresh;
       const tone=ok?'success':status.status!=='ok'?'danger':status.stale?'warning':'info';
       const label=status.status!=='ok'?`同步异常：${status.status}`:status.stale?'数据可能过期':fresh?'数据更新正常':'等待首次同步';
-      syncBar.innerHTML=`<div class="alert alert-${tone} d-flex align-items-center py-2"><i class="ti ti-${ok?'circle-check':'alert-circle'} me-2"></i><div><strong>ERP 同步 ${escapeHtml(label)}</strong><span class="ms-2">最近拉取 ${escapeHtml(status.synced_at||'从未')}</span></div></div>`;
+      syncBar.innerHTML=`<div class="order-sync-status is-${tone}"><i class="ti ti-${ok?'circle-check':'alert-circle'}" aria-hidden="true"></i><span>${escapeHtml(label)}</span><small>最近更新 ${dateTime(status.synced_at)}</small></div>`;
     }catch(_error){
-      syncBar.innerHTML='<div class="alert alert-secondary py-2">同步状态获取失败</div>';
+      syncBar.innerHTML='<div class="order-sync-status is-warning">暂时无法读取更新时间</div>';
     }
   }
-  async function init(){try{await window.JUN_AUTH_READY;bindPresetDialog();renderSync();const [payload]=await Promise.all([api('/api/erp/orders'),loadPresets().catch(function(){state.presets=[];state.presetMeta={};})]);state.orders=payload.orders||[];state.groups=buildGroups(state.orders);const preset=state.presets.find(function(i){return i.id===state.presetMeta.default_id;});if(preset)state.filters={...state.filters,...normalizedConfig(preset.config)};render();}catch(error){app.innerHTML=`<div class="alert alert-danger">处理进度加载失败：${escapeHtml(error.message)}</div>`;}}
+  async function init(){try{await window.JUN_AUTH_READY;bindPresetDialog();renderSync();const [payload]=await Promise.all([api('/api/erp/orders'),loadPresets().catch(function(){state.presets=[];state.presetMeta={};})]);state.orders=payload.orders||[];state.groups=buildGroups(state.orders);const preset=state.presets.find(function(i){return i.id===state.presetMeta.default_id;});if(preset){state.filters=normalizedConfig(preset.config);state.activePreset=preset.id;}render();}catch(error){app.innerHTML=`<div class="alert alert-danger">处理进度加载失败：${escapeHtml(error.message)}</div>`;}}
   init();
 })();
