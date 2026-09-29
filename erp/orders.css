@@ -80,9 +80,19 @@ th.order-col-order { z-index: 5; background: #f5f7fa; }
 .order-badge.is-danger { background: #ffe4e2; color: #a72c20; }
 .order-badge.is-after-sale { background: #fce9f1; color: #922459; font-weight: 700; }
 
-.order-monthly-summary { margin-bottom: 16px; padding: 16px; border: 1px solid #e2e8f0; border-radius: 10px; background: #fff; }
-.order-monthly-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
-.order-monthly-header h3 { margin: 0; font-size: 17px; }
+.order-monthly-summary { margin-bottom: 16px; padding: 0 16px; border: 1px solid #e2e8f0; border-radius: 10px; background: #fff; }
+.order-monthly-summary > summary { display: flex; min-height: 48px; justify-content: space-between; align-items: center; gap: 12px; cursor: pointer; list-style: none; }
+.order-monthly-summary > summary::-webkit-details-marker { display: none; }
+.order-monthly-summary > summary:focus-visible { outline: 2px solid #206bc4; outline-offset: 2px; }
+.order-monthly-title { font-size: 17px; font-weight: 600; }
+.order-monthly-toggle-label { display: inline-flex; align-items: center; gap: 8px; color: #315f8c; font-size: 13px; }
+.order-monthly-toggle-label::after { width: 7px; height: 7px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; content: ''; transform: translateY(-2px) rotate(45deg); }
+.order-monthly-toggle-label .when-open { display: none; }
+.order-monthly-summary[open] .when-closed { display: none; }
+.order-monthly-summary[open] .when-open { display: inline; }
+.order-monthly-summary[open] .order-monthly-toggle-label::after { transform: translateY(2px) rotate(225deg); }
+.order-monthly-body { padding: 14px 0 16px; border-top: 1px solid #edf0f4; }
+.order-monthly-header { display: flex; justify-content: flex-end; align-items: center; gap: 10px; margin-bottom: 12px; }
 .order-monthly-header label { display: flex; align-items: center; gap: 8px; font-size: 13px; }
 .order-monthly-header input { width: 160px; }
 .order-monthly-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; }

@@ -6,23 +6,19 @@
   const parts=monthFormat.formatToParts(new Date());
   const currentMonth=`${parts.find(p=>p.type==='year').value}-${parts.find(p=>p.type==='month').value}`;
   const money=new Intl.NumberFormat('zh-CN',{style:'currency',currency:'CNY'});
+  const input=host.querySelector('#order-summary-month');
+  const content=host.querySelector('#order-monthly-content');
   let requestId=0;
+  let loaded=false;
   function validMonth(value){return /^20\d{2}-(0[1-9]|1[0-2])$/.test(value);}
   function card(title,value){
     const missing=Number(value?.missing_amount_count||0);
     return `<div class="order-monthly-card"><span>${title}</span><strong>${money.format(Number(value?.amount||0))}</strong><small>${Number(value?.count||0)} 单${missing?` · ${missing} 单金额待补，以上为已知金额`:''}</small></div>`;
   }
-  function shell(month){
-    host.innerHTML=`<div class="order-monthly-header"><h3>月度订单汇总</h3><label>月份 <input id="order-summary-month" class="form-control" type="month" min="2000-01" max="2099-12" value="${month}" aria-label="选择订单汇总月份"></label></div><div id="order-monthly-content"><p class="text-secondary mb-0">正在读取 ${month} 的订单汇总…</p></div>`;
-    host.querySelector('#order-summary-month').addEventListener('change',event=>{
-      const next=event.target.value;
-      if(validMonth(next))load(next);
-    });
-  }
   async function load(month){
+    loaded=true;
     const id=++requestId;
-    shell(month);
-    const content=host.querySelector('#order-monthly-content');
+    content.innerHTML=`<p class="text-secondary mb-0">正在读取 ${month} 的订单汇总…</p>`;
     try{
       await window.JUN_AUTH_READY;
       const response=await fetch(`/api/erp/order-monthly-summary?month=${encodeURIComponent(month)}`,{signal:AbortSignal.timeout(15000)});
@@ -37,5 +33,12 @@
       content.querySelector('button').addEventListener('click',()=>load(month));
     }
   }
-  load(currentMonth);
+  input.value=currentMonth;
+  input.addEventListener('change',event=>{
+    const next=event.target.value;
+    if(validMonth(next))load(next);
+  });
+  host.addEventListener('toggle',()=>{
+    if(host.open&&!loaded)load(input.value);
+  });
 })();
