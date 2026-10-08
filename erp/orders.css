@@ -321,6 +321,9 @@ th.order-col-order { z-index: 5; background: #f5f7fa; }
 .order-sync-status.is-success > i { color: #2f8b64; }
 .order-sync-status.is-warning, .order-sync-status.is-danger { color: #a45712; }
 .order-sync-status small { margin-left: auto; color: #7b8796; font-size: 10px; }
+.order-sync-status { padding: 4px 0; }
+.order-sync-status.is-danger { color: #c24135; }
+.order-sync-note { margin-top: 5px; color: #7b8796; font-size: 10px; }
 /* Grid children must be allowed to shrink before the tab strip scrolls. */
 #erp-app, .order-workspace-controls, .order-view-tabs { min-width: 0; }
 .order-view-tabs { max-width: 100%; }

@@ -481,18 +481,24 @@
   async function loadPresets(){const payload=await api('/api/erp/v1/orders/query-presets');state.presets=payload.data?.items||[];state.presetMeta=payload.data||{};}
   async function renderSync(){
     try{
-      const status=await api('/api/erp/sync-status');
-      // A fresh successful result is the cross-container liveness signal.
-      // process_alive only reports processes visible inside the API container.
-      const fresh=status.status==='ok'&&status.stale!==true&&Boolean(status.synced_at);
-      const ok=fresh;
-      const tone=ok?'success':status.status!=='ok'?'danger':status.stale?'warning':'info';
-      const label=status.status!=='ok'?`同步异常：${status.status}`:status.stale?'数据可能过期':fresh?'数据更新正常':'等待首次同步';
-      syncBar.innerHTML=`<div class="order-sync-status is-${tone}"><i class="ti ti-${ok?'circle-check':'alert-circle'}" aria-hidden="true"></i><span>${escapeHtml(label)}</span><small>最近更新 ${dateTime(status.synced_at)}</small></div>`;
+      const monitor=await api('/api/erp/orders/collection-status');
+      const age=Date.now()-Date.parse(monitor.generated_at||'');
+      const stale=monitor.stale!==false||!Number.isFinite(age)||age>180000||age< -60000;
+      const labels={ok:'采集正常',running:'正在采集',waiting_login:'采集暂停，需登录或验证',error:'采集失败',timeout:'采集超时',missed:'未按时采集',deferred:'等待浏览器',stale:'采集数据过期',unknown:'状态暂不明确',stopped:'采集已停止'};
+      const rows=(monitor.sources||[]).map(source=>{
+        const publishFailed=['error','stale','unknown'].includes(source.publication_status);
+        const fresh=source.status==='ok'&&stale!==true&&Boolean(source.last_success_at)&&!publishFailed;
+        const tone=fresh?'success':publishFailed||['waiting_login','error','timeout','missed','stopped'].includes(source.status)?'danger':'warning';
+        let label=publishFailed&&source.status==='ok'?'采集已完成，数据发布异常':labels[source.status]||'状态暂不明确';
+        if(stale)label=source.status==='ok'?'状态检查已过期，暂不能确认采集正常':'状态检查已过期；最近记录：'+label;
+        return `<div class="order-sync-status is-${tone}"><i class="ti ti-${fresh?'circle-check':'alert-circle'}" aria-hidden="true"></i><span>${escapeHtml(source.name)}：${escapeHtml(label)}</span><small>最后成功采集 ${source.last_success_at?dateTime(source.last_success_at):'尚未确认'}</small></div>`;
+      });
+      syncBar.innerHTML=(rows.length?rows.join(''):'<div class="order-sync-status is-warning">暂时无法确认采集状态</div>')+(stale||rows.length===0?'':'<div class="order-sync-note">各来源独立采集；暂停或失败期间保留上次数据，页面刷新不会更新采集时间。</div>');
     }catch(_error){
-      syncBar.innerHTML='<div class="order-sync-status is-warning">暂时无法读取更新时间</div>';
+      syncBar.innerHTML='<div class="order-sync-status is-warning">暂时无法确认采集状态，当前显示已保存数据</div>';
     }
   }
   async function init(){try{await window.JUN_AUTH_READY;bindPresetDialog();renderSync();const [payload]=await Promise.all([api('/api/erp/orders'),loadPresets().catch(function(){state.presets=[];state.presetMeta={};})]);state.orders=payload.orders||[];state.groups=buildGroups(state.orders);const preset=state.presets.find(function(i){return i.id===state.presetMeta.default_id;});if(preset){state.filters=normalizedConfig(preset.config);state.activePreset=preset.id;}render();}catch(error){app.innerHTML=`<div class="alert alert-danger">处理进度加载失败：${escapeHtml(error.message)}</div>`;}}
   init();
+  setInterval(()=>{if(!document.hidden)renderSync();},30000);
 })();
