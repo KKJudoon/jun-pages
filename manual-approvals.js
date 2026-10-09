@@ -97,7 +97,7 @@
   const now = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Shanghai' });
   let month = new URLSearchParams(location.search).get('month') || now().slice(0, 7), data, filter = 'all', busy = false, loading = false, loadVersion = 0, activeLoad;
   const attachmentCache = new Map();
-  const errors = { manual_forbidden: '没有操作权限', manual_submit_forbidden: '没有提交权限', manual_admin_required: '仅管理员可以审批、导入及定稿', manual_version_conflict: '记录已被更新，请刷新后再操作', manual_month_finalized: '本月已定稿，请管理员先重新打开', manual_pending_approvals: '还有待审批记录，请先处理完再定稿', finance_month_locked: '财务月份已锁定', finance_payroll_finalized: '工资表已定稿，不能修改本月来源', manual_import_already_completed: '本月企微文件已经导入，不再接受重复导入', manual_legacy_month_requires_migration: '本月是历史账本，暂时只读，需先完成历史迁移', manual_not_pending: '这条记录已处理，请刷新', manual_submission_month_mismatch: '企微提交时间与导入月份不一致', manual_work_date_required: '请填写作业日期', manual_detail_invalid: '请核对款号、数量、单价和金额', manual_import_total_mismatch: '导入明细合计与企微总金额不一致' };
+  const errors = { manual_forbidden: '没有操作权限', manual_submit_forbidden: '没有提交权限', manual_finalize_forbidden: '没有定稿权限', manual_admin_required: '仅管理员可以审批、导入及重新打开', manual_version_conflict: '记录已被更新，请刷新后再操作', manual_month_finalized: '本月已定稿，请管理员先重新打开', manual_pending_approvals: '还有待审批记录，请先处理完再定稿', finance_month_locked: '财务月份已锁定', finance_payroll_finalized: '工资表已定稿，不能修改本月来源', manual_import_already_completed: '本月企微文件已经导入，不再接受重复导入', manual_legacy_month_requires_migration: '本月是历史账本，暂时只读，需先完成历史迁移', manual_not_pending: '这条记录已处理，请刷新', manual_submission_month_mismatch: '企微提交时间与导入月份不一致', manual_work_date_required: '请填写作业日期', manual_detail_invalid: '请核对款号、数量、单价和金额', manual_import_total_mismatch: '导入明细合计与企微总金额不一致' };
   Object.assign(errors, { manual_batch_invalid: '每次可提交 1 至 3 项，请核对申请及附件', manual_request_id_required: '提交标识无效，请刷新后重新填写', manual_request_conflict: '本次提交内容不一致，请核对原提交结果', manual_employee_required: '请选择有效的往来单位', manual_images_invalid: '附件不符合要求，请重新选择图片', manual_detail_too_large: '附件或备注过长，请精简后重试', manual_request_failed: '暂时无法确认提交结果，请重试' });
   async function api(action, values, signal, requestedMonth = month, approvalId) {
     const run = async () => {
@@ -365,11 +365,17 @@
   function render() {
     const open = data.month_state.status === 'open';
     const importLocked = Boolean(data.month_state.ingest_channel);
+    const canFinalize = Boolean(data.can_finalize ?? data.is_admin);
+    const monthActions = data.legacy_source ? '' : [
+      data.is_admin && open && !importLocked ? '<label class="btn btn-outline-secondary manual-import-label">导入企微<input id="manual-import" type="file" accept=".xlsx,.xls" hidden></label>' : '',
+      canFinalize && open ? '<button class="btn btn-outline-success" data-action="finalize">本月定稿</button>' : '',
+      data.is_admin && !open ? '<button class="btn btn-outline-secondary" data-action="reopen">重新打开</button>' : '',
+    ].join('');
     const approvals = data.approvals, pending = approvals.filter(a => a.status === 'pending');
     const total = approvals.filter(a => a.status === 'approved').reduce((n, a) => n + a.details.reduce((v, d) => v + Number(d.amount), 0), 0);
     const payroll = approvals.filter(a => a.status === 'approved' && a.employee_name === '林敢').reduce((n, a) => n + a.details.reduce((v, d) => v + Number(d.amount), 0), 0);
     $('#module-toolbar').classList.add('manual-toolbar');
-    $('#module-toolbar').innerHTML = `<div class="manual-month-group"><label for="manual-month">计入月份</label><input type="month" id="manual-month" class="form-control" value="${esc(month)}"><span class="manual-status ${open ? '' : 'is-approved'}">${open ? '未定稿' : '已定稿'}</span></div><div class="manual-toolbar-actions">${data.can_submit && open && !data.legacy_source ? '<button class="btn btn-primary" data-action="new"><i class="ti ti-plus" aria-hidden="true"></i>新增手工审批</button>' : ''}${data.is_admin && !data.legacy_source ? (open ? (!importLocked ? '<label class="btn btn-outline-secondary manual-import-label">导入企微<input id="manual-import" type="file" accept=".xlsx,.xls" hidden></label>' : '') + '<button class="btn btn-outline-success" data-action="finalize">本月定稿</button>' : '<button class="btn btn-outline-secondary" data-action="reopen">重新打开</button>') : ''}</div>`;
+    $('#module-toolbar').innerHTML = `<div class="manual-month-group"><label for="manual-month">计入月份</label><input type="month" id="manual-month" class="form-control" value="${esc(month)}"><span class="manual-status ${open ? '' : 'is-approved'}">${open ? '未定稿' : '已定稿'}</span></div><div class="manual-toolbar-actions">${data.can_submit && open && !data.legacy_source ? '<button class="btn btn-primary" data-action="new"><i class="ti ti-plus" aria-hidden="true"></i>新增手工审批</button>' : ''}${monthActions}</div>`;
     $('#manual-month').onchange = e => { if (!e.target.value) return; month = e.target.value; const url = new URL(location.href); url.searchParams.set('month', month); history.replaceState(null, '', url); load().catch(e => message(e.message, true)); };
     const importer = $('#manual-import'); if (importer) importer.onchange = e => importFile(e.target.files[0]).catch(e => message(e.message, true)).finally(() => { e.target.value = ''; });
     const shown = approvals.filter(a => filter === 'all' || a.status === filter);
