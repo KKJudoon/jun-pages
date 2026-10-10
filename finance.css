@@ -123,6 +123,7 @@ button.finance-source-item { cursor: pointer; }
 .finance-report-kpis em { display: block; color: #2e7d32; font-size: 12px; font-style: normal; font-weight: 600; }
 .finance-report-card h2 { margin: 0 0 12px; font-size: 16px; letter-spacing: 0; }
 .finance-report-ok { border-left: 4px solid #2e7d32; background: #f3fbf4; color: #55605a; font-size: 12.5px; line-height: 1.8; }
+.finance-report-ok.is-incomplete { border-left-color: var(--finance-amber); background: #fff9ee; }
 .finance-waterfall { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .finance-waterfall svg { width: 100%; min-width: 760px; height: auto; }
 .finance-detail-title { margin: 18px 0 12px; font-size: 18px; letter-spacing: 0; }

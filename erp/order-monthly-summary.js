@@ -67,7 +67,8 @@
       content.querySelector('button').addEventListener('click',()=>load(month));
     }
   }
-  input.value=currentMonth;
+  const linkedMonth=new URLSearchParams(location.search).get('month');
+  input.value=validMonth(linkedMonth)?linkedMonth:currentMonth;
   input.addEventListener('change',event=>{
     const next=event.target.value;
     if(validMonth(next))load(next);
@@ -75,4 +76,8 @@
   host.addEventListener('toggle',()=>{
     if(host.open&&!loaded)load(input.value);
   });
+  if(validMonth(linkedMonth)){
+    host.open=true;
+    load(input.value);
+  }
 })();

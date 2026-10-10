@@ -56,7 +56,8 @@
     software:'软件费用',finance_fee:'财务费用',
   };
   const sectionOrder = ['income','product_cost','platform_operations','logistics','customer_service','rent_food_equipment','design','factory_manager','business_show','company_social','software','finance_fee'];
-  const state = {months: [], month: '', data: null, analysisItems: [], analysisDefinition: null, analysisFreshness: null, analysisComparable: null, analysisExcluded: [], sourceType: 'taobao_income_order', offset: 0, limit: 100, sourceTotal: 0, companyPayrollModule: 'all', shipmentCompare: '', payrollBinding: null, payrollSelfService: false};
+  const state = {months: [], month: '', data: null, incomeBasis: new URLSearchParams(location.search).get('income_basis') === 'billing' ? 'billing' : 'orders', analysisItems: [], analysisDefinition: null, analysisFreshness: null, analysisComparable: null, analysisExcluded: [], sourceType: 'taobao_income_order', offset: 0, limit: 100, sourceTotal: 0, companyPayrollModule: 'all', shipmentCompare: '', payrollBinding: null, payrollSelfService: false};
+  let reportRequestId = 0;
 
   function escapeHtml(value) {
     return String(value == null ? '' : value).replace(/[&<>"']/g, function (character) {
@@ -130,6 +131,33 @@
     history.replaceState({}, '', url);
     state.month = month;
     window.JUN_PAGE_STATE?.rememberMonth(month);
+  }
+
+  function incomeBasisSelect(selected) {
+    return `<select id="finance-income-basis" class="form-select" aria-label="收入口径"><option value="orders" ${selected === 'orders' ? 'selected' : ''}>订单收入（默认）</option><option value="billing" ${selected === 'billing' ? 'selected' : ''}>账房收入</option></select>`;
+  }
+
+  function setIncomeBasis(basis) {
+    state.incomeBasis = basis === 'billing' ? 'billing' : 'orders';
+    const url = new URL(location.href);
+    url.searchParams.set('income_basis', state.incomeBasis);
+    history.replaceState({}, '', url);
+  }
+
+  function incomeBasisNote(data) {
+    const source = data.income_source;
+    if (!source) return '';
+    const notes = [source.note];
+    if (source.basis === 'orders') {
+      if (source.available === false) notes.push('订单收入暂不可用，收入及相关利润待补。');
+      else if (source.partial) notes.push(`${source.count} 单中 ${source.missing_amount_count} 单金额待补，当前显示已知金额，收入及相关结果暂计。`);
+      const collector = source.collection?.sources?.find(function (item) { return item.id === 'qianniu-orders'; });
+      if (collector?.last_success_at) notes.push(`千牛订单上次成功采集：${dateTime(collector.last_success_at)}。`);
+      if (source.collection?.stale || (collector && (collector.status !== 'ok' || collector.publication_status === 'error'))) notes.push('订单采集状态待恢复，金额以已采集数据为准。');
+      if (data.comparison?.income_incomplete) notes.push('订单金额待补，收入相关环比暂不比较。');
+      if (data.historical_order_view) notes.push('历史月份按订单收入重算面料估值和利润，其余费用与结算调整沿用历史快照。');
+    }
+    return `<p class="finance-note mb-0"><strong>${escapeHtml(source.label)}：</strong>${notes.filter(Boolean).map(escapeHtml).join(' ')}</p>`;
   }
 
   function markNavigation() {
@@ -727,8 +755,8 @@
         <article><span>支出</span><strong>${traceAmount(expenses)}</strong><small>占收入 ${percent(expenses?.final_amount, income)}</small>${deltaHtml(expenses?.final_amount, numeric(previous.expenses), false)}</article>
         <article><span>最终净利</span><strong>${traceAmount(finalProfit)}</strong><small>扣 CK 后 ${percent(finalProfit?.final_amount, income)}</small><em>经营净利 ${traceAmount(operating)}</em></article>
       </div>
-      <section class="finance-report-card finance-report-ok"><h2>口径状态</h2><div>${state.data.completeness.complete ? '本月所有必需数据已到位，分类小计、支出合计、经营净利和最终净利均由固定公式生成。' : `当前还有 ${missing} 个必需数据项待补，已有金额仍按同一套公式计算。`}${payrollWarning ? ` 生产工资中有 ${payrollWarning} 人仍受待审批记录影响。` : ''}</div></section>
-      <section class="finance-report-card finance-waterfall"><h2>收入 → 最终净利 瀑布</h2>${renderWaterfall(income, finalProfit?.final_amount)}</section>
+      <section class="finance-report-card finance-report-ok ${state.data.completeness.complete ? '' : 'is-incomplete'}"><h2>口径状态</h2><div>${state.data.completeness.complete ? '本月所有必需数据已到位，分类小计、支出合计、经营净利和最终净利均由固定公式生成。' : `当前还有 ${missing} 个必需数据项待补，已有金额仍按同一套公式计算。`}${payrollWarning ? ` 生产工资中有 ${payrollWarning} 人仍受待审批记录影响。` : ''}</div>${incomeBasisNote(state.data)}</section>
+      <section class="finance-report-card finance-waterfall"><h2>收入 → 最终净利 瀑布</h2>${income === null || finalProfit?.final_amount == null ? '<p class="finance-note">收入或最终净利待补，补齐后显示瀑布图。</p>' : renderWaterfall(income, finalProfit.final_amount)}</section>
       <h2 class="finance-detail-title">支出明细（由中台数据源生成）</h2>
       ${sectionOrder.map(function (section) { return renderCategory(section, income, maxExpense); }).join('')}
       <section class="finance-report-card finance-settlement-card"><h2>经营净利与最终结算</h2><dl><dt>支出合计</dt><dd>${traceAmount(expenses)}</dd><dt>经营净利</dt><dd>${traceAmount(operating)}</dd><dt>CK 个人结算</dt><dd>${traceAmount(reportMetric('post_profit_adjustment'))}</dd><dt>最终净利</dt><dd><strong>${traceAmount(finalProfit)}</strong></dd></dl></section>
@@ -767,10 +795,18 @@
   }
 
   async function loadReport() {
+    const requestId = ++reportRequestId;
+    const month = state.month;
+    const basis = state.incomeBasis;
     content.innerHTML = '<div class="finance-loading"><span class="spinner-border spinner-border-sm"></span>正在核算</div>';
-    state.data = await api(`/api/finance/months/${state.month}`);
-    toolbar.innerHTML = `${monthSelect(state.months, state.month)}<span class="finance-status ${state.data.completeness.complete ? 'is-ready' : 'is-missing'}"><i class="ti ti-${state.data.completeness.complete ? 'circle-check' : 'alert-triangle'}"></i>${state.data.completeness.complete ? '数据完整' : `${state.data.completeness.missing.length} 项待补`}</span><span class="finance-toolbar-spacer"></span><span class="finance-status">${state.data.month.status === 'locked' ? '已关账' : '核算中'}</span>`;
+    let data;
+    try { data = await api(`/api/finance/months/${month}?income_basis=${basis}`); }
+    catch (error) { if (requestId === reportRequestId) renderError(error); return; }
+    if (requestId !== reportRequestId) return;
+    state.data = data;
+    toolbar.innerHTML = `${monthSelect(state.months, state.month)}${incomeBasisSelect(basis)}<span class="finance-status ${state.data.completeness.complete ? 'is-ready' : 'is-missing'}"><i class="ti ti-${state.data.completeness.complete ? 'circle-check' : 'alert-triangle'}"></i>${state.data.completeness.complete ? '数据完整' : `${state.data.completeness.missing.length} 项待补`}</span><span class="finance-toolbar-spacer"></span><span class="finance-status">${state.data.month.status === 'locked' ? '已关账' : '核算中'}</span>`;
     toolbar.querySelector('#finance-month').addEventListener('change', async function (event) { setMonth(event.target.value); await loadReport(); });
+    toolbar.querySelector('#finance-income-basis').addEventListener('change', async function (event) { setIncomeBasis(event.target.value); await loadReport(); });
     renderReport();
   }
 
