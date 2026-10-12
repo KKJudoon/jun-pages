@@ -443,7 +443,7 @@
     }
     await new Promise(function (resolve, reject) {
       const script = document.createElement('script');
-      script.src = `${basePath}/workspace.js?v=20260906-2`;script.onload=resolve;script.onerror=reject;document.head.appendChild(script);
+      script.src = `${basePath}/workspace.js?v=20261012-annual`;script.onload=resolve;script.onerror=reject;document.head.appendChild(script);
     });
     if (document.readyState === 'loading') await new Promise(resolve => document.addEventListener('DOMContentLoaded',resolve,{once:true}));
     const required = pagePermission(window.location.pathname);

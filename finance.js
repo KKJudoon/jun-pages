@@ -212,7 +212,7 @@
     const companyPayroll = has('finance.payroll.manage') || has('finance.manage')
       ? `<a href="/jun-pages/finance/company-payroll/" ${page === 'finance-company-payroll' ? 'class="active"' : ''}>公司工资表</a>`
       : '';
-    return `<nav class="finance-tabs" aria-label="财务模块"><a href="/jun-pages/finance/" ${['finance-report','finance-operating-analysis','finance-express-bills'].includes(page) ? 'class="active"' : ''}>财务月报</a>${companyPayroll}<a href="/jun-pages/finance/payroll/" ${page === 'finance-payroll' ? 'class="active"' : ''}>工资条</a>${has('finance.employees.manage') ? `<a href="/jun-pages/finance/employees/" ${page === 'finance-employees' ? 'class="active"' : ''}>员工信息</a>` : ''}</nav>`;
+    return `<nav class="finance-tabs" aria-label="财务模块"><a href="/jun-pages/finance/" ${['finance-report','finance-operating-analysis','finance-express-bills'].includes(page) ? 'class="active"' : ''}>财务月报</a><a href="/jun-pages/finance/annual/" ${page === 'finance-annual' ? 'class="active"' : ''}>财务年报</a>${companyPayroll}<a href="/jun-pages/finance/payroll/" ${page === 'finance-payroll' ? 'class="active"' : ''}>工资条</a>${has('finance.employees.manage') ? `<a href="/jun-pages/finance/employees/" ${page === 'finance-employees' ? 'class="active"' : ''}>员工信息</a>` : ''}</nav>`;
   }
 
   function reportAnalysisNav() {
@@ -1840,6 +1840,7 @@
     if (page === 'production-manual') { const script = document.createElement('script'); script.src = '/jun-pages/manual-approvals.js?v=20260909-batch2'; script.onerror = () => renderError(new Error('手工审批页面加载失败，请刷新重试')); document.head.appendChild(script); return; }
     if (page === 'production-pattern') { const script = document.createElement('script'); script.src = '/jun-pages/pattern-approvals.js?v=20260906-1'; script.onerror = () => renderError(new Error('制版审批页面加载失败，请刷新重试')); document.head.appendChild(script); return; }
     if (page === 'erp-shipments') return await loadShipments();
+    if (page === 'finance-annual') { const style = document.createElement('link'); style.rel = 'stylesheet'; style.href = '/jun-pages/finance-annual.css?v=20261012-1'; document.head.appendChild(style); const script = document.createElement('script'); script.src = '/jun-pages/finance-annual.js?v=20261012-1'; script.onerror = () => renderError(new Error('年报页面加载失败，请刷新重试')); document.head.appendChild(script); return; }
     if (page === 'finance-operating-analysis') return await loadOperatingAnalysis();
     await loadFinanceMonths();
     setMonth(state.month);

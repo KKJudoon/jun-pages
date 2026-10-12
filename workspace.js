@@ -21,6 +21,7 @@
     {path:'/production/manual/',name:'手工审批',area:'production',permission:'production.manual.read',icon:'writing-sign',month:true},
     {path:'/production/pattern/',name:'制版审批',area:'production',permission:'production.pattern.read',icon:'ruler-2',month:true},
     {path:'/finance/',name:'财务月报',area:'finance',permission:'finance.read',admin:true,icon:'report-money',month:true},
+    {path:'/finance/annual/',name:'财务年报',area:'finance',permission:'finance.read',admin:true,icon:'chart-line'},
     {path:'/finance/sources/',name:'财务数据源',area:'finance',parent:'/finance/',permission:'finance.sources.read',admin:true,icon:'database',month:true},
     {path:'/finance/express-bills/',name:'快递费账单',area:'finance',parent:'/finance/',permission:'finance.sources.read',admin:true,icon:'truck-delivery',month:true},
     {path:'/finance/analysis/operating-expense/',name:'经营分析',area:'finance',parent:'/finance/',permission:'finance.read',admin:true,icon:'chart-bar',month:true},
