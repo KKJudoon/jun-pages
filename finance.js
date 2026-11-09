@@ -857,6 +857,12 @@
   }
 
   function payrollComponent(row, key) {
+    if (key === 'personal_social_outside_payroll' && Number(row.payload?.personal_social_outside_payroll) > 0) return {
+      key, label: '个人医社保工资外结算', amount: Number(row.payload.personal_social_outside_payroll),
+      formula: '已在工资外缴付的个人医社保，仅抵消工资中同一笔扣款，不计入应发工资；代垫款另行结清。',
+      source_kind: 'manual_source', input_key: key, source_label: '查看本月结算来源',
+      source_url: `/jun-pages/finance/company-payroll/?month=${state.month}&employee=${encodeURIComponent(row.employee_name)}&input=${key}`,
+    };
     const aliases = {internal_output:['piecework'],points_settlement:['points'],other:['additional']};
     return (row.components || []).find(function (item) { return item.key === key; })
       || (row.components || []).find(function (item) { return (aliases[key] || []).includes(item.key); })
@@ -888,14 +894,17 @@
     }).join('');
     const insured = row.payload?.has_social_insurance === true;
     const selfFundedSocial = row.payload?.self_funded_social === true;
+    const outside = Number(row.payload?.personal_social_outside_payroll || 0);
     const netFormula = row.net_pay == null
       ? `<div class="payroll-net-pending"><i class="ti ti-alert-circle"></i>${row.payload?.finance_managed_gross && row.gross_pay == null ? '应发金额等待财务回表核定；' : ''}个税尚未由财务确认${insured ? `，个人医社保${selfFundedSocial ? '和公司代缴医社保' : ''}也尚未确认` : ''}，因此实发金额待补。</div>`
+      : outside > 0
+        ? `<div class="payroll-net-formula"><span>${amount(row.gross_pay)}</span><i>−</i><span>${amount(row.personal_social_insurance)}</span>${selfFundedSocial ? '<i>−</i><span>' + amount(row.employer_social_insurance) + '</span>' : ''}<i>−</i><span>${amount(row.income_tax)}</span><i>+</i><span>${amount(outside)}</span><i>=</i><strong>${amount(row.net_pay)}</strong><small>应发 − 医社保 − 个税 + 工资外已缴个人部分 = 实发</small></div>`
       : selfFundedSocial
         ? `<div class="payroll-net-formula"><span>${amount(row.gross_pay)}</span><i>−</i><span>${amount(row.personal_social_insurance)}</span><i>−</i><span>${amount(row.employer_social_insurance)}</span><i>−</i><span>${amount(row.income_tax)}</span><i>=</i><strong>${amount(row.net_pay)}</strong><small>税前工资　个人医社保　公司代缴医社保　个税　实发</small></div>`
       : insured
         ? `<div class="payroll-net-formula"><span>${amount(row.gross_pay)}</span><i>−</i><span>${amount(row.personal_social_insurance)}</span><i>−</i><span>${amount(row.income_tax)}</span><i>=</i><strong>${amount(row.net_pay)}</strong><small>税前工资　个人医社保　个税　实发</small></div>`
         : `<div class="payroll-net-formula"><span>${amount(row.gross_pay)}</span><i>−</i><span>${amount(row.income_tax)}</span><i>=</i><strong>${amount(row.net_pay)}</strong><small>税前工资　个税　实发（本月无医社保）</small></div>`;
-    dialog('payroll-detail-dialog', `${row.employee_name} · 工资详情`, `<div class="payroll-detail-dialog"><div class="payroll-detail-net"><span>实发金额</span><strong>${amount(row.net_pay)}</strong></div>${netFormula}<h4>税前工资组成</h4><ul>${components || '<li>暂无工资组成</li>'}</ul></div>`);
+    dialog('payroll-detail-dialog', `${row.employee_name} · 工资详情`, `<div class="payroll-detail-dialog"><div class="payroll-detail-net"><span>实发金额</span><strong>${amount(row.net_pay)}</strong></div>${netFormula}<h4>税前工资组成</h4><ul>${components || '<li>暂无工资组成</li>'}</ul>${outside > 0 ? '<h4>工资外结算</h4><p>个人医社保已另缴 ' + amount(outside) + '，不计入工资、不重复扣款；公司代垫的个人部分另行结清。</p>' : ''}</div>`);
   }
 
   async function setPayrollPaid(rowId, checked, control) {
@@ -1004,13 +1013,15 @@
     const rows = payrollSortedRows();
     return companyPayrollModules.map(function (module) {
       const members = rows.filter(module.match);
-      const columns = module.columns.some(column => column[0] === 'points_settlement') || !members.some(row => (row.components || []).some(item => item.key === 'points_settlement'))
+      let columns = module.columns.some(column => column[0] === 'points_settlement') || !members.some(row => (row.components || []).some(item => item.key === 'points_settlement'))
         ? module.columns : [...module.columns, ['points_settlement','制版结算']];
+      if (members.some(row => Number(row.payload?.personal_social_outside_payroll) > 0)) columns = [...columns, ['personal_social_outside_payroll','个人医社保工资外结算']];
       return {...module, columns, rows: members};
     });
   }
 
   function payrollManualInputKey(row, key) {
+    if (key === 'personal_social_outside_payroll') return key;
     if (payrollComponent(row, key)?.source_kind === 'business_show') return null;
     const type = payrollRuleType(row);
     const mapping = {
@@ -1105,9 +1116,14 @@
         }}};
     });
     if (!rows.length) { window.alert('本月没有需要财务核算的员工'); return; }
+    const hasOutside = rows.some(row => Number(row.payload?.personal_social_outside_payroll) > 0);
+    if (hasOutside) headers.push('个人医社保工资外结算（不计应发）');
     const values = [headers].concat(rows.map(function (row) {
       const parts = payrollSocialParts(row);
-      return [state.month,row.employee_no || '',row.employee_name,row.department,row.role_name,row.gross_pay,row.income_tax,parts.social,parts.medical,parts.unemployment,row.payload?.has_social_insurance ? row.employer_social_insurance : '',row.net_pay,row.phone || '',row.identity_no || '','银行转账',row.payment_account,row.payment_bank,row.payload?.finance_note || ''];
+      const outside = Number(row.payload?.personal_social_outside_payroll || 0);
+      const note = [row.payload?.finance_note || '', outside > 0 ? '个人医社保已在工资外缴付，不计应发、不重复扣工资；公司代垫款另行结清。' : ''].filter(Boolean).join('；');
+      const cells = [state.month,row.employee_no || '',row.employee_name,row.department,row.role_name,row.gross_pay,row.income_tax,parts.social,parts.medical,parts.unemployment,row.payload?.has_social_insurance ? row.employer_social_insurance : '',row.net_pay,row.phone || '',row.identity_no || '','银行转账',row.payment_account,row.payment_bank,note];
+      return hasOutside ? [...cells, outside] : cells;
     }));
     const sheet = XLSX.utils.aoa_to_sheet(values);
     rows.forEach(function (row, index) {
@@ -1117,12 +1133,15 @@
       const readyChecks = [`COUNT(F${excelRow})=1`, `COUNT(G${excelRow})=1`];
       if (insured) readyChecks.push(`COUNT(H${excelRow}:J${excelRow})>0`);
       if (selfFunded) readyChecks.push(`COUNT(K${excelRow})=1`);
+      if (hasOutside) readyChecks.push(`S${excelRow}>=0`, `S${excelRow}<=SUM(H${excelRow}:J${excelRow})`);
       // SUM ignores empty text cells; direct subtraction produces #VALUE! in Excel/WPS.
-      const netFormula = `IF(AND(${readyChecks.join(',')}),ROUND(F${excelRow}-SUM(G${excelRow}:${selfFunded ? 'K' : 'J'}${excelRow}),2),"")`;
+      const netFormula = `IF(AND(${readyChecks.join(',')}),ROUND(F${excelRow}-SUM(G${excelRow}:${selfFunded ? 'K' : 'J'}${excelRow})${hasOutside ? '+S' + excelRow : ''},2),"")`;
       const cells = values[index + 1];
       const isNumber = function (value) { return typeof value === 'number' && Number.isFinite(value); };
-      const ready = isNumber(cells[5]) && isNumber(cells[6]) && (!insured || cells.slice(7,10).some(isNumber)) && (!selfFunded || isNumber(cells[10]));
-      const net = ready ? Math.round((cells[5] - cells.slice(6,selfFunded ? 11 : 10).reduce(function(sum,value) { return sum + (isNumber(value) ? value : 0); },0)) * 100) / 100 : '';
+      const outside = hasOutside ? Number(cells[18]) : 0;
+      const personal = cells.slice(7,10).reduce((sum,value)=>sum + (isNumber(value) ? value : 0),0);
+      const ready = isNumber(cells[5]) && isNumber(cells[6]) && (!insured || cells.slice(7,10).some(isNumber)) && (!selfFunded || isNumber(cells[10])) && outside >= 0 && outside <= Math.round(personal * 100) / 100;
+      const net = ready ? Math.round((cells[5] - cells.slice(6,selfFunded ? 11 : 10).reduce(function(sum,value) { return sum + (isNumber(value) ? value : 0); },0) + outside) * 100) / 100 : '';
       sheet[`L${excelRow}`] = {t: ready ? 'n' : 's', f: netFormula, v: net, z: '#,##0.00'};
       sheet[`M${excelRow}`] = {t: 's', v: String(values[index + 1][12] || '')};
       sheet[`N${excelRow}`] = {t: 's', v: String(values[index + 1][13] || '')};
@@ -1144,8 +1163,10 @@
       sheet[`${letter}${totalRow}`] = {t: pendingNet ? 's' : 'n', f: letter === 'L' ? `IF(COUNT(L2:L${totalRow - 1})=${rows.length},ROUND(SUM(L2:L${totalRow - 1}),2),"")` : `ROUND(SUM(${letter}2:${letter}${totalRow - 1}),2)`, v: pendingNet ? '' : Math.round(total * 100) / 100, z: '#,##0.00'};
     }
     sheet[`C${totalRow}`] = {t:'s',v:'合计'};
-    sheet['!ref'] = `A1:R${totalRow}`;
+    if (hasOutside) sheet[`S${totalRow}`] = {t:'n',f:`ROUND(SUM(S2:S${totalRow - 1}),2)`,v:Math.round(rows.reduce((sum,row)=>sum + Number(row.payload?.personal_social_outside_payroll || 0),0)*100)/100,z:'#,##0.00'};
+    sheet['!ref'] = `A1:${hasOutside ? 'S' : 'R'}${totalRow}`;
     sheet['!cols'] = [9.8,13,12.8,13,14.8,12.8,18.25,26.25,13,13,19.625,14.8,13,22.8,16.8,24.8,22.8,54.8].map(function (width) { return {wch: width}; });
+    if (hasOutside) sheet['!cols'].push({wch:28});
     const workbook = XLSX.utils.book_new();
     workbook.Workbook = {CalcPr: {calcMode:'auto',fullCalcOnLoad:true,forceFullCalc:true}};
     XLSX.utils.book_append_sheet(workbook, sheet, '财务发薪表');
@@ -1170,7 +1191,7 @@
       const combinedSocial = numberOrNull(item['个人医社保扣除（财务填写）'] ?? item['个人医社保扣除'], '个人医社保');
       const socialParts = ['个人社保扣除（财务填写）','个人医保扣除（财务填写）','个人失业扣除（财务填写）'].map(function (key) { return numberOrNull(item[key], key.replace('（财务填写）','')); });
       const hasSocialParts = socialParts.some(function (value) { return value != null; });
-      return {employee_no: String(item['工号'] || '').trim(), row_key: `${String(item['姓名']).trim()}-${index + 1}`, employee_name: String(item['姓名']).trim(), gross_pay: numberOrNull(item['应发金额'], '应发金额'), income_tax: tax == null && netPay != null ? 0 : tax, personal_social_insurance: combinedSocial != null ? combinedSocial : hasSocialParts ? socialParts.reduce(function (sum, value) { return sum + Number(value || 0); }, 0) : null, personal_social_combined_provided: combinedSocial != null, personal_social_components: hasSocialParts ? {social: socialParts[0], medical: socialParts[1], unemployment: socialParts[2]} : null, employer_social_insurance: numberOrNull(item['公司承担医社保'], '公司承担医社保'), net_pay: netPay, note: String(item['财务备注'] ?? item['备注'] ?? '').trim()};
+      return {employee_no: String(item['工号'] || '').trim(), row_key: `${String(item['姓名']).trim()}-${index + 1}`, employee_name: String(item['姓名']).trim(), gross_pay: numberOrNull(item['应发金额'], '应发金额'), income_tax: tax == null && netPay != null ? 0 : tax, personal_social_insurance: combinedSocial != null ? combinedSocial : hasSocialParts ? socialParts.reduce(function (sum, value) { return sum + Number(value || 0); }, 0) : null, personal_social_combined_provided: combinedSocial != null, personal_social_components: hasSocialParts ? {social: socialParts[0], medical: socialParts[1], unemployment: socialParts[2]} : null, employer_social_insurance: numberOrNull(item['公司承担医社保'], '公司承担医社保'), net_pay: netPay, personal_social_outside_payroll: numberOrNull(item['个人医社保工资外结算（不计应发）'], '个人医社保工资外结算'), note: String(item['财务备注'] ?? item['备注'] ?? '').trim()};
     });
     if (!rows.length) throw new Error('工资核算表中没有有效人员行');
     const saved = await api(`/api/finance/payroll/${state.month}/import`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({stage: 'finance_return', file_name: file.name, file_sha256: await sha256(file), rows: rows, summary: {row_count: rows.length}})});
@@ -1320,6 +1341,7 @@
     if (ruleType === 'pattern_points') { addField('带薪假期福利', 'paid_leave_amount'); addField('绩效奖金', 'performance_bonus'); addField('其他', 'other_amount', false); }
     if (ruleType === 'planning_submission') { addField('企划提报订单金额', 'sales_amount'); if (!row?.components?.some(item => item.source_kind === 'business_show')) addField('走秀合作', 'show_cooperation_amount'); addField('其他', 'other_amount', false); }
     if (ruleType === 'design_submission') { addField('项目工资', 'project_amount'); addField('销售提成', 'sales_commission'); addField('其他', 'other_amount', false); }
+    if (employee.has_social_insurance && employee.requires_finance_accounting !== false) addField('个人医社保工资外已缴金额（不计应发）', 'personal_social_outside_payroll');
     if (!directNames.length) return;
     const sourceSummary = (row?.components || []).filter(function (item) { return item.input_key; }).map(function (item) { return `<div><span>${escapeHtml(item.label)}</span><strong>${amount(item.amount)}</strong></div>`; }).join('');
     const approved = existing?.approved_at ? `上次确认：${dateTime(existing.approved_at)} · 版本 ${existing.version}` : '尚未填报本月人工源数据';
