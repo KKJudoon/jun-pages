@@ -81,3 +81,11 @@ body[data-jun-page="finance-annual"] #module-toolbar select {flex:0 0 auto;heigh
 .annual-page button:focus-visible,.annual-page a:focus-visible {outline:2px solid #7695ed;outline-offset:3px;}
 @media(max-width:1100px){.annual-chart-grid{grid-template-columns:1fr;}.annual-summary-card{padding:16px;}.annual-summary-card>strong{font-size:23px;}}
 @media(max-width:640px){.annual-summary{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;}.annual-summary-card{padding:13px;}.annual-summary-card>strong{font-size:21px;}.annual-title h1{font-size:25px;}.annual-title{align-items:flex-start;flex-direction:column;gap:12px;}.annual-card-head{align-items:flex-start;flex-direction:column;padding:15px;}.annual-table .annual-label-col{left:48px;min-width:174px;width:174px;max-width:174px;}.annual-table .annual-year-col{min-width:48px;width:48px;max-width:48px;font-size:10px;}.annual-cost-bar{grid-template-columns:1fr 1fr 100px;padding:8px 15px;gap:8px;}.annual-table-scroll{max-height:65vh;}.annual-table-actions{width:100%;}.annual-table-actions select{flex:1;}body[data-jun-page="finance-annual"] #module-toolbar{gap:9px;}body[data-jun-page="finance-annual"] #module-toolbar select{min-width:115px;}.annual-basis{font-size:11px;}.annual-loading{padding:60px 15px;}}
+
+/* Keep the default overview focused on the two business outcomes. */
+.annual-summary {grid-template-columns:repeat(2,minmax(0,1fr));}
+.annual-simple-note {font-size:12px;color:#738198;line-height:1.8;margin:0 0 20px;}
+.annual-cell-comparison {display:block;font-size:10px;color:#7c8ba3;margin-top:5px;font-weight:400;}
+.annual-table th,.annual-table td {min-width:148px;}
+.annual-table .annual-label-col {min-width:190px;max-width:190px;width:190px;}
+@media(max-width:600px){.annual-summary-card{padding:14px;}.annual-summary-card>strong{font-size:22px}.annual-card-head{align-items:flex-start;flex-direction:column}.annual-table .annual-label-col{min-width:120px;max-width:120px;width:120px}}

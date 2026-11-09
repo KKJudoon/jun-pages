@@ -95,7 +95,7 @@ th.order-col-order { z-index: 5; background: #f5f7fa; }
 .order-monthly-header { display: flex; justify-content: flex-end; align-items: center; gap: 10px; margin-bottom: 12px; }
 .order-monthly-header label { display: flex; align-items: center; gap: 8px; font-size: 13px; }
 .order-monthly-header input { width: 160px; }
-.order-monthly-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; }
+.order-monthly-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }
 .order-monthly-card { padding: 13px; border: 1px solid #e2e8f0; border-radius: 8px; background: #f8fafc; }
 .order-monthly-card strong { display: block; margin: 6px 0 2px; font-size: 22px; font-variant-numeric: tabular-nums; }
 .order-monthly-card small, .order-monthly-note { color: #667085; }

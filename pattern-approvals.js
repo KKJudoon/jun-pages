@@ -53,7 +53,7 @@
   const now = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Shanghai' });
   let month = new URLSearchParams(location.search).get('month') || now().slice(0, 7), data, filter = 'all', busy = false, loading = false, loadVersion = 0, activeLoad;
   const attachmentCache = new Map();
-  const errors = { pattern_forbidden: '没有操作权限', pattern_submit_forbidden: '没有提交权限', pattern_admin_required: '仅管理员可以审批、导入及定稿', pattern_version_conflict: '记录已被更新，请刷新后再操作', pattern_month_finalized: '本月已定稿，请管理员先重新打开', pattern_pending_approvals: '还有待审批记录，请先处理完再定稿', finance_month_locked: '财务月份已锁定', finance_payroll_finalized: '工资表已定稿，不能修改本月来源', pattern_import_already_completed: '本月企微文件已经导入，不再接受重复导入', pattern_legacy_month_requires_migration: '本月是历史账本，暂时只读，需先完成历史迁移', pattern_not_pending: '这条记录已处理，请刷新', pattern_submission_month_mismatch: '企微提交时间与导入月份不一致', pattern_work_date_required: '请填写完成日期', pattern_detail_invalid: '请核对制版内容、款号、尺码和申请分数', pattern_import_total_mismatch: '导入积分与企微申请分数不一致' };
+  const errors = { pattern_forbidden: '没有操作权限', pattern_submit_forbidden: '没有提交权限', pattern_admin_required: '仅管理员可以审批、导入及定稿', pattern_version_conflict: '记录已被更新，请刷新后再操作', pattern_month_finalized: '本月已定稿，请管理员先重新打开', pattern_pending_approvals: '还有待审批记录，请先处理完再定稿', finance_month_locked: '财务月份已锁定', finance_payroll_finalized: '工资表已定稿，不能修改本月来源', pattern_import_already_completed: '本月企微文件已经导入，不再接受重复导入', pattern_legacy_month_requires_migration: '本月是历史账本，暂时只读，需先完成历史迁移', pattern_not_pending: '这条记录已处理，请刷新', pattern_not_approved: '仅已通过记录可修正工资归属', pattern_employee_required: '请选择该月有效的工资员工', pattern_reassignment_reason_required: '请填写工资归属修正原因', pattern_submission_month_mismatch: '企微提交时间与导入月份不一致', pattern_work_date_required: '请填写完成日期', pattern_detail_invalid: '请核对制版内容、款号、尺码和申请分数', pattern_import_total_mismatch: '导入积分与企微申请分数不一致' };
   async function api(action, values, signal, requestedMonth = month, approvalId) {
     const run = async () => {
     const response = await fetch('/api/production/pattern-approvals?month=' + encodeURIComponent(requestedMonth) + (!action ? (approvalId ? '&approval_id=' + encodeURIComponent(approvalId) : '&list=1') : ''), action ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, values }), signal } : { signal });
@@ -81,7 +81,7 @@
     catch (e) { message(e.message, true); const err = document.querySelector('dialog[open] [data-error]'); if (err) err.textContent = e.message; }
     finally { busy = false; document.querySelectorAll('[data-action],dialog button[type=submit]').forEach(b => b.disabled = false); }
   }
-  function options(selected) { return '<option value="">请选择员工</option>' + data.employees.map(e => `<option value="${esc(e.id)}" ${e.id === selected ? 'selected' : ''}>${esc(e.name)}</option>`).join(''); }
+  function options(selected, payrollOnly = false) { return '<option value="">请选择实际制作人</option>' + data.employees.filter(e => !payrollOnly || !e.id.startsWith('profile:')).map(e => `<option value="${esc(e.id)}" ${e.id === selected ? 'selected' : ''}>${esc(e.name)}</option>`).join(''); }
   function dialog(title, content, submit) {
     document.querySelector('#manual-dialog')?.remove();
     const el = document.createElement('dialog'); el.id = 'manual-dialog'; el.className = 'manual-dialog';
@@ -106,7 +106,7 @@
     const el = dialog(a ? '修改制版审批' : '新增制版审批', `
       <p class="manual-dialog-note">计入月份 <strong>${esc(month)}</strong>${a ? ' · 修改后重新进入待审批' : ''}</p>
       <div class="manual-form-grid">
-        <label><span class="form-label">往来单位 ${star}</span><select name="employee_id" class="form-select" required>${options(a?.employee_id || (a?.counterparty_profile_id ? 'profile:' + a.counterparty_profile_id : data.self_employee_id))}</select></label>
+        <label><span class="form-label">实际制作人 ${star}</span><select name="employee_id" class="form-select" required>${options(a?.employee_id || (a?.counterparty_profile_id ? 'profile:' + a.counterparty_profile_id : data.self_employee_id))}</select><small>审批通过后计入此人的制版结算；代提交请选择实际做工的人。</small></label>
         <label><span class="form-label">完成日期 ${star}</span><input type="date" name="work_date" class="form-control" value="${esc(workDate)}" required></label>
         <label class="manual-form-wide"><span class="form-label">制版内容 ${star}</span><input name="content" class="form-control" list="pattern-content-options" placeholder="选择常用内容，或直接填写" maxlength="500" required value="${esc(d.content)}"><datalist id="pattern-content-options">${['新款（300起）','改尺寸（100）','女生大码、成人改尺寸（130）','改尺寸+加袖（130）','加袖（80）','男童改尺寸套装（200）-上衣（100）-裤子（50）-特体/成人/马甲/披风（50）'].map(x => `<option value="${esc(x)}"></option>`).join('')}</datalist></label>
         <label><span class="form-label">款号 ${star}</span><input name="style" class="form-control" placeholder="例如 K062" maxlength="500" required value="${esc(d.style)}"></label>
@@ -145,7 +145,7 @@
     dialog('导入预览 · ' + month, `<p>${entries.length} 张审批、合计 ${money(entries.reduce((n, a) => n + a.total, 0))} 分。</p>
       <p>${Object.entries(labels).map(([k, v]) => v + ' ' + entries.filter(a => a.status === k).length + ' 张').join('；')}。</p>
       <p>仅导入本月，其他 ${all.length - entries.length} 张跳过。同一企微审批号以本次文件覆盖；网页记录保留。</p>
-      ${applicants.map((name, i) => `<label class="form-label">企微 ${esc(name)} 对应员工<select name="map${i}" class="form-select" required>${options(data.employees.find(e => e.name === name)?.id)}</select></label>`).join('')}
+      ${applicants.map((name, i) => `<label class="form-label">企微 ${esc(name)} 对应实际制作人<select name="map${i}" class="form-select" required>${options(data.employees.find(e => e.name === name)?.id, true)}</select></label>`).join('')}
       <small>Excel 只包含图片附件数量；历史图片请通过原企微审批查看。</small>`, { label: '确认导入', run: async f => {
         entries.forEach(a => { a.employee_id = f.get('map' + applicants.indexOf(a.applicant)); a.raw.file_name = file.name; });
         await mutate('import', { approvals: entries });
@@ -204,25 +204,25 @@
     const owner = a.submitted_by === window.JUN_CONTEXT?.profile?.id;
     const date = value => new Date(value).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
     const actions = `${data.is_admin && open && a.status === 'pending' ? `<button class="btn btn-success" data-action="approve" data-id="${a.id}"><i class="ti ti-check" aria-hidden="true"></i>通过</button><button class="btn btn-outline-danger" data-action="reject" data-id="${a.id}">驳回</button>` : ''}${data.can_submit && open && a.source === 'web' && owner && ['pending', 'rejected'].includes(a.status) ? `<button class="btn btn-outline-primary" data-action="edit" data-id="${a.id}">${a.status === 'rejected' ? '修改并重提' : '修改'}</button>${a.status === 'pending' ? `<button class="btn btn-outline-secondary" data-action="cancel" data-id="${a.id}">撤销</button>` : ''}` : ''}`;
-    return `<article class="manual-record-card is-${a.status}"><header class="manual-card-head"><div><h3>${esc(a.employee_name)}</h3><span class="manual-muted">${a.source === 'wecom' ? '企微导入' : '网页提交'} · ${a.details.length} 条明细</span></div><span class="manual-status is-${a.status}">${labels[a.status]}</span></header>
+    return `<article class="manual-record-card is-${a.status}"><header class="manual-card-head"><div><h3>${esc(a.employee_name)}</h3><span class="manual-muted">实际制作人 · 工资归属</span><span class="manual-muted">${a.source === 'wecom' ? '企微导入' : '网页提交'} · ${a.details.length} 条明细</span></div><span class="manual-status is-${a.status}">${labels[a.status]}</span></header>
       <div class="manual-card-total"><span>申请分数</span><strong>${money(sum)}<small> 分</small></strong></div>
-      <div class="manual-card-meta"><div><span>完成日期</span><strong>${esc(a.work_date || '—')}</strong></div><div><span>提交时间</span><strong>${date(a.submitted_at)}</strong></div>${a.completed_at ? '<div><span>审批完成</span><strong>' + date(a.completed_at) + '</strong></div>' : ''}</div>
+      <div class="manual-card-meta"><div><span>提交人</span><strong>${esc(a.submitted_by_name || a.raw?.header?.['申请人'] || '企微导入')}</strong></div>${a.reviewed_by_name ? '<div><span>审批人</span><strong>' + esc(a.reviewed_by_name) + '</strong></div>' : ''}<div><span>完成日期</span><strong>${esc(a.work_date || '—')}</strong></div><div><span>提交时间</span><strong>${date(a.submitted_at)}</strong></div>${a.completed_at ? '<div><span>审批完成</span><strong>' + date(a.completed_at) + '</strong></div>' : ''}</div>
       ${a.reason ? '<div class="manual-reason">处理说明：' + esc(a.reason) + '</div>' : ''}
       <div class="manual-details">${detailHtml(a.details[0])}${a.details.length > 1 ? `<details class="manual-extra-details"><summary>展开其余 ${a.details.length - 1} 条明细</summary>${a.details.slice(1).map(detailHtml).join('')}</details>` : ''}</div>
-      <footer class="manual-card-footer"><div class="manual-approval-number" title="${esc(a.approval_no)}"><span>审批编号</span>${esc(a.approval_no)}</div>${a.source === 'wecom' && /^https:\/\/[^/]*weixin\.qq\.com\//.test(a.raw?.header?.['审批详情'] || '') ? '<a target="_blank" rel="noopener noreferrer" href="' + esc(a.raw.header['审批详情']) + '">企微原审批 <i class="ti ti-external-link" aria-hidden="true"></i></a>' : ''}${actions ? '<div class="manual-card-actions">' + actions + '</div>' : ''}</footer></article>`;
+      <footer class="manual-card-footer"><div class="manual-approval-number" title="${esc(a.approval_no)}"><span>审批编号</span>${esc(a.approval_no)}</div>${a.source === 'wecom' && /^https:\/\/[^/]*weixin\.qq\.com\//.test(a.raw?.header?.['审批详情'] || '') ? '<a target="_blank" rel="noopener noreferrer" href="' + esc(a.raw.header['审批详情']) + '">企微原审批 <i class="ti ti-external-link" aria-hidden="true"></i></a>' : ''}${actions || (data.is_admin && open && a.status === 'approved') ? '<div class="manual-card-actions">' + (data.is_admin && open && a.status === 'approved' ? `<button class="btn btn-outline-primary" data-action="reassign" data-id="${a.id}">修正制作人</button>` : '') + actions + '</div>' : ''}</footer></article>`;
   }
   function render() {
     const open = data.month_state.status === 'open' && !data.legacy_source;
     const importLocked = Boolean(data.month_state.ingest_channel);
     const approvals = data.approvals, pending = approvals.filter(a => a.status === 'pending');
     const total = approvals.filter(a => a.status === 'approved').reduce((n, a) => n + a.details.reduce((v, d) => v + Number(d.points), 0), 0);
-    const payroll = approvals.filter(a => a.status === 'approved' && a.employee_name === '张炳').reduce((n, a) => n + a.details.reduce((v, d) => v + Number(d.points), 0), 0);
+    const payroll = approvals.filter(a => a.status === 'approved' && a.employee_id).reduce((n, a) => n + a.details.reduce((v, d) => v + Number(d.points), 0), 0);
     $('#module-toolbar').classList.add('manual-toolbar');
     $('#module-toolbar').innerHTML = `<div class="manual-month-group"><label for="manual-month">计入月份</label><input type="month" id="manual-month" class="form-control" value="${esc(month)}"><span class="manual-status ${open ? '' : 'is-approved'}">${data.legacy_source ? '历史只读' : open ? '未定稿' : '已定稿'}</span></div><div class="manual-toolbar-actions">${data.can_submit && open && !data.legacy_source ? '<button class="btn btn-primary" data-action="new"><i class="ti ti-plus" aria-hidden="true"></i>新增制版审批</button>' : ''}${data.is_admin && !data.legacy_source ? (open ? (!importLocked ? '<label class="btn btn-outline-secondary manual-import-label">导入企微<input id="manual-import" type="file" accept=".xlsx,.xls" hidden></label>' : '') + '<button class="btn btn-outline-success" data-action="finalize">本月定稿</button>' : '<button class="btn btn-outline-secondary" data-action="reopen">重新打开</button>') : ''}</div>`;
     $('#manual-month').onchange = e => { if (!e.target.value) return; month = e.target.value; const url = new URL(location.href); url.searchParams.set('month', month); history.replaceState(null, '', url); load().catch(e => message(e.message, true)); };
     const importer = $('#manual-import'); if (importer) importer.onchange = e => importFile(e.target.files[0]).catch(e => message(e.message, true)).finally(() => { e.target.value = ''; });
     const shown = approvals.filter(a => filter === 'all' || a.status === filter);
-    $('#module-content').innerHTML = `<div class="manual-summary"><div><span>${data.is_admin ? '' : '本人相关 · '}已通过积分</span><strong>${money(total)}<small> 分</small></strong></div><div><span>待审批</span><strong>${pending.length}<small> 张</small></strong></div>${data.is_admin ? '<div><span>张炳计薪积分</span><strong>' + money(payroll) + '<small> 分</small></strong></div>' : ''}</div>
+    $('#module-content').innerHTML = `<div class="manual-summary"><div><span>${data.is_admin ? '' : '本人相关 · '}已通过积分</span><strong>${money(total)}<small> 分</small></strong></div><div><span>待审批</span><strong>${pending.length}<small> 张</small></strong></div>${data.is_admin ? '<div><span>按制作人计薪积分</span><strong>' + money(payroll) + '<small> 分</small></strong></div>' : ''}</div>
       ${data.legacy_source ? '<div class="alert alert-info">本月为历史记录，仅供查看，保持已发工资来源。</div>' : importLocked ? '<div class="alert alert-info">本月企微文件已由' + (data.month_state.ingest_channel === 'automatic_collection' ? '采集器' : '手动导入') + '接收，导入入口已关闭；网页新增审批仍可继续使用。</div>' : ''}
       <div class="manual-list-toolbar"><div class="manual-tabs" role="group" aria-label="审批状态">${[['all', '全部'], ...Object.entries(labels)].map(([k, v]) => `<button class="manual-tab ${filter === k ? 'is-active' : ''}" aria-pressed="${filter === k}" data-filter="${k}">${v}<span>${k === 'all' ? approvals.length : approvals.filter(a => a.status === k).length}</span></button>`).join('')}</div><span class="manual-muted">共 ${shown.length} 张审批</span></div>
       <div class="manual-card-list">${shown.map(a => cardHtml(a, open)).join('') || '<div class="manual-empty"><i class="ti ti-clipboard-check" aria-hidden="true"></i><p>本月暂无' + (filter === 'all' ? '' : labels[filter]) + '记录</p></div>'}</div>`;
@@ -244,7 +244,13 @@
     const action = b.dataset.action, a = data.approvals.find(a => a.id === b.dataset.id);
     if (action === 'new') return edit();
     if(action==='edit'){b.disabled=true;try{edit(await fullApproval(a.id));}catch(error){message(error.message,true);}finally{b.disabled=false;}return;}
-    if (action === 'approve') return mutate('review', { id: a.id, expected_version: a.version, status: 'approved' });
+    if (action === 'approve' || action === 'reassign') {
+      const correction = action === 'reassign';
+      return dialog(correction ? '修正制版工资归属' : '通过制版审批', `<p>确认实际制作人，已通过积分将计入此人的工资。</p><label class="form-label">实际制作人<select name="employee_id" class="form-select" required>${options(a.employee_id, true)}</select></label>${correction ? '<label class="form-label">修正原因<textarea name="reason" class="form-control" required maxlength="1000"></textarea></label>' : ''}`, {
+        label: correction ? '保存工资归属' : '确认通过',
+        run: f => mutate(correction ? 'reassign' : 'review', { id: a.id, expected_version: a.version, status: 'approved', employee_id: f.get('employee_id'), reason: f.get('reason') || '' }),
+      });
+    }
     if (['reject', 'cancel', 'reopen', 'finalize'].includes(action)) {
       const reasonNeeded = ['reject', 'reopen'].includes(action);
       dialog({ reject: '驳回制版审批', cancel: '撤销制版审批', reopen: '重新打开本月', finalize: '本月定稿' }[action], reasonNeeded ? '<label class="form-label">原因<textarea name="reason" class="form-control" required maxlength="1000"></textarea></label>' : `<p>${action === 'finalize' ? '定稿后，本月记录将锁定。需要调整时由管理员填写原因重新打开。' : '确认撤销这条待审批记录？'}</p>`, { label: { reject: '确认驳回', cancel: '确认撤销', reopen: '重新打开', finalize: '确认定稿' }[action], run: f => mutate(action === 'reject' ? 'review' : action, { id: a?.id, expected_version: a?.version ?? Math.max(1, data.month_state.version), status: 'rejected', reason: f.get('reason') || '' }) });

@@ -148,6 +148,7 @@
     const source = data.income_source;
     if (!source) return '';
     const notes = [source.note];
+    if(source.basis === 'orders' && !source.frozen && source.confirmed_amount != null) notes.push(`账房已核实 ${money.format(source.confirmed_amount)} + 订单暂估 ${money.format(source.estimated_amount)}；账房截至 ${source.billing_through || '尚未导入'}。`);
     if (source.basis === 'orders') {
       if (source.available === false) notes.push('订单收入暂不可用，收入及相关利润待补。');
       else if (source.partial) notes.push(`${source.count} 单中 ${source.missing_amount_count} 单金额待补，当前显示已知金额，收入及相关结果暂计。`);
@@ -201,6 +202,14 @@
     state.payrollSelfService = page === 'finance-payroll' && window.JUN_CONTEXT?.profile?.role !== 'admin';
     const payload = await api(state.payrollSelfService ? '/api/payroll-slips/months' : '/api/finance/months');
     state.months = payload.months || [];
+    if(page==='finance-report') {
+      const known=new Map(state.months.map(m=>[m.month,m]));
+      for(let year=2023;year<=2026;year++)for(let m=1;m<=12;m++) {
+        const month=`${year}-${String(m).padStart(2,'0')}`;
+        if(month<'2026-04'&&!known.has(month))known.set(month,{month,status:'historical_income'});
+      }
+      state.months=[...known.values()].sort((a,b)=>b.month.localeCompare(a.month));
+    }
     state.payrollBinding = payload.binding || null;
     const fallback = page === 'finance-employees' ? monthBeforeNow() : state.months[0]?.month || monthBeforeNow();
     state.month = selectedMonthFromUrl(fallback);
@@ -739,6 +748,12 @@
   }
 
   function renderReport() {
+    if(state.data.historical_income_only) {
+      const data=state.data,ref=data.profit_reference;
+      const value=key=>data.metrics?.[key]?.amount==null?'待补':money.format(data.metrics[key].amount);
+      content.innerHTML=`${reportTabs()}<div class="finance-report-wrap"><header class="finance-report-title"><h1>${escapeHtml(state.month)} 历史经营收入</h1></header><div class="finance-report-kpis"><article><span>收入</span><strong>${value('income')}</strong></article><article><span>经营利润（预估）</span><strong>${value('operating_profit')}</strong></article></div><section class="finance-report-card">${incomeBasisNote(data)}<p class="finance-note">历史成本未统一采集；${ref?.rate!=null?`参考 ${escapeHtml(ref.months.join('、'))}，按平均利润率 ${(ref.rate*100).toFixed(2)}% 预估经营利润。`:'暂无完整月份可供利润预估。'}预估不写入实际费用。</p><a href="/jun-pages/finance/annual/?year=${state.month.slice(0,4)}">查看年度对比</a></section></div>`;
+      return;
+    }
     const incomeLine = reportMetric('income_total', reportMetric('taobao_income'));
     const expenses = reportMetric('total_expenses');
     const operating = reportMetric('operating_profit');
@@ -804,7 +819,7 @@
     catch (error) { if (requestId === reportRequestId) renderError(error); return; }
     if (requestId !== reportRequestId) return;
     state.data = data;
-    toolbar.innerHTML = `${monthSelect(state.months, state.month)}${incomeBasisSelect(basis)}<span class="finance-status ${state.data.completeness.complete ? 'is-ready' : 'is-missing'}"><i class="ti ti-${state.data.completeness.complete ? 'circle-check' : 'alert-triangle'}"></i>${state.data.completeness.complete ? '数据完整' : `${state.data.completeness.missing.length} 项待补`}</span><span class="finance-toolbar-spacer"></span><span class="finance-status">${state.data.month.status === 'locked' ? '已关账' : '核算中'}</span>`;
+    toolbar.innerHTML = `${monthSelect(state.months, state.month)}${incomeBasisSelect(basis)}<span class="finance-status ${state.data.completeness.complete ? 'is-ready' : 'is-missing'}"><i class="ti ti-${state.data.completeness.complete ? 'circle-check' : 'alert-triangle'}"></i>${state.data.completeness.complete ? '数据完整' : `${state.data.completeness.missing.length} 项待补`}</span><span class="finance-toolbar-spacer"></span><span class="finance-status">${state.data.historical_income_only?'历史利润预估':state.data.month.status === 'locked' ? '已关账' : '核算中'}</span>`;
     toolbar.querySelector('#finance-month').addEventListener('change', async function (event) { setMonth(event.target.value); await loadReport(); });
     toolbar.querySelector('#finance-income-basis').addEventListener('change', async function (event) { setIncomeBasis(event.target.value); await loadReport(); });
     renderReport();
@@ -988,7 +1003,10 @@
   function companyPayrollGroups() {
     const rows = payrollSortedRows();
     return companyPayrollModules.map(function (module) {
-      return {...module, rows: rows.filter(module.match)};
+      const members = rows.filter(module.match);
+      const columns = module.columns.some(column => column[0] === 'points_settlement') || !members.some(row => (row.components || []).some(item => item.key === 'points_settlement'))
+        ? module.columns : [...module.columns, ['points_settlement','制版结算']];
+      return {...module, columns, rows: members};
     });
   }
 
@@ -1838,9 +1856,9 @@
     await window.JUN_AUTH_READY;
     markNavigation();
     if (page === 'production-manual') { const script = document.createElement('script'); script.src = '/jun-pages/manual-approvals.js?v=20260909-batch2'; script.onerror = () => renderError(new Error('手工审批页面加载失败，请刷新重试')); document.head.appendChild(script); return; }
-    if (page === 'production-pattern') { const script = document.createElement('script'); script.src = '/jun-pages/pattern-approvals.js?v=20260906-1'; script.onerror = () => renderError(new Error('制版审批页面加载失败，请刷新重试')); document.head.appendChild(script); return; }
+    if (page === 'production-pattern') { const script = document.createElement('script'); script.src = '/jun-pages/pattern-approvals.js?v=20261109-1'; script.onerror = () => renderError(new Error('制版审批页面加载失败，请刷新重试')); document.head.appendChild(script); return; }
     if (page === 'erp-shipments') return await loadShipments();
-    if (page === 'finance-annual') { const style = document.createElement('link'); style.rel = 'stylesheet'; style.href = '/jun-pages/finance-annual.css?v=20261012-1'; document.head.appendChild(style); const script = document.createElement('script'); script.src = '/jun-pages/finance-annual.js?v=20261012-1'; script.onerror = () => renderError(new Error('年报页面加载失败，请刷新重试')); document.head.appendChild(script); return; }
+    if (page === 'finance-annual') { const style = document.createElement('link'); style.rel = 'stylesheet'; style.href = '/jun-pages/finance-annual.css?v=20261021-revenue'; document.head.appendChild(style); const script = document.createElement('script'); script.src = '/jun-pages/finance-annual.js?v=20261021-revenue'; script.onerror = () => renderError(new Error('年报页面加载失败，请刷新重试')); document.head.appendChild(script); return; }
     if (page === 'finance-operating-analysis') return await loadOperatingAnalysis();
     await loadFinanceMonths();
     setMonth(state.month);
