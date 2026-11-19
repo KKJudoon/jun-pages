@@ -1,6 +1,19 @@
 (function(){
   'use strict';
   const labels={ok:'成功',complete:'全链路完成',import_pending:'待导入中台',scheduled:'未到采集日期',pending:'待采集',running:'采集中',error:'失败',retry:'等待重试',waiting_login:'待登录 / 验证',deferred:'等待浏览器',offline:'调度器离线',stale:'数据未更新',unknown:'暂无结果',missed:'未按期完成',timeout:'执行超时',manual_only:'仅人工导入',control:'运行规则'};
+  function presentation(r){
+    if(['waiting_login','waiting_verification','login_expired','login_required','captcha','verification_required'].includes(r.status)){
+      const kind=['captcha','waiting_verification','verification_required'].includes(r.status)?'verification':['login_expired','login_required'].includes(r.status)?'login':r.intervention_kind;
+      const human={verification:'需要完成验证码',login:'需要重新登录',verification_and_login:'需要验证码及登录'};
+      return {label:human[kind]||'需要人工检查',tone:'waiting_login'};
+    }
+    if(r.alert_active&&r.alert_category==='upstream_not_ready'&&!['offline','stale','unknown','timeout'].includes(r.status)){
+      const age=Date.now()-Date.parse(r.last_attempt_at);
+      if(Number.isFinite(age)&&age>=-30000&&age<=10800000)return {label:'等待平台数据',tone:'waiting_upstream'};
+      return {label:'平台补采未按时执行',tone:'error'};
+    }
+    return {label:labels[r.status]||'未知',tone:r.status};
+  }
   const successLabels={collection:'最后成功采集',check:'最后检查通过',publication:'最后成功发布',ingestion:'最后成功入账',control:'运行控制'};
   const channelLabels={manual_import:'手动导入',automatic_collection:'自动采集',agentmail:'邮件导入',sf_portal_download:'顺丰平台导入',existing:'已有中台数据'};
   const attention=r=>['error','retry','waiting_login','offline','stale','unknown','import_pending','missed','timeout'].includes(r.status)||['error','stale','unknown'].includes(r.publication_status)||r.alert_active;
@@ -14,7 +27,14 @@
     const age=Date.now()-Date.parse(data.generated_at);
     const stale=failed||data.stale||!Number.isFinite(age)||age>180000||age< -60000;
     const publicationIssue=r=>['ok','complete'].includes(r.status)&&['error','stale','unknown'].includes(r.publication_status);
-    const badge=r=>`<span class="collector-badge ${escape(stale&&!['manual_only','control'].includes(r.status)?'unknown':publicationIssue(r)?r.publication_status:r.status)}">${escape(stale&&!['manual_only','control'].includes(r.status)?'状态过期':publicationIssue(r)?r.publication_status==='error'?'上传失败':r.publication_status==='stale'?'上传未更新':'上传未核验':labels[r.status]||'未知')}</span>`;
+    const badge=r=>{
+      const source=(data.collectors||[]).find(x=>x.id===r.id||(['qianniu-orders','qianniu-refunds'].includes(x.id)&&String(r.id||'').startsWith(x.id+'-')))||{};
+      const shown=presentation({...source,...r});
+      const expired=stale&&!['manual_only','control'].includes(r.status);
+      const tone=expired?'unknown':publicationIssue(r)?r.publication_status:shown.tone;
+      const label=expired?'状态过期':publicationIssue(r)?r.publication_status==='error'?'上传失败':r.publication_status==='stale'?'上传未更新':'上传未核验':shown.label;
+      return `<span class="collector-badge ${escape(tone)}">${escape(label)}</span>`;
+    };
     $('connection').className=stale?'warning':'';
     $('connection').textContent=stale?'状态同步已中断或过期，下方为最后收到的记录，请勿视为实时状态。':'Starfish 状态已连接 · 更新于 '+date(data.generated_at)+' · 每30秒刷新';
     const rows=data.collectors||[];
